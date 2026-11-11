@@ -1,9 +1,12 @@
-// ตั้งค่า Gemini API Key (ใส่คีย์ของคุณที่นี่)
+// ใส่ Gemini API Key ของคุณที่นี่
 const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
 
 const DAILY_TARGET_CAL = 1500;
 let currentDate = new Date().toISOString().split('T')[0];
 let allData = JSON.parse(localStorage.getItem('fit_tracker_data') || '{}');
+
+if (allData.presets) delete allData.presets;
+if (allData.logs) delete allData.logs;
 
 const mealConfig = {
     morning: { title: 'มื้อเช้า', color: 'orange', border: 'border-orange-100', text: 'text-orange-600', badge: 'bg-orange-50' },
@@ -50,7 +53,7 @@ function renderMeals() {
                         <span class="font-bold text-slate-700">${item.name}</span>
                         <span class="text-slate-400 ml-1">x${item.qty}</span>
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
                         <span class="font-semibold text-slate-600">${Math.round(item.cal * item.qty)} kcal <span class="text-emerald-600">(${Math.round(item.protein * item.qty)}g)</span></span>
                         <button onclick="editItem('${mealKey}', ${idx})" class="text-slate-400 hover:text-indigo-600">✏️</button>
                         <button onclick="deleteItem('${mealKey}', ${idx})" class="text-slate-400 hover:text-rose-600">🗑️</button>
@@ -75,18 +78,28 @@ function renderMeals() {
 
 function updateDashboard() {
     const data = getTodayData();
-    let totalCal = 0;
-    let totalProtein = 0;
+    let totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalSodium = 0, totalCholesterol = 0;
 
     Object.keys(mealConfig).forEach(mealKey => {
         const items = data[mealKey] || [];
-        totalCal += items.reduce((sum, item) => sum + (item.cal * item.qty), 0);
-        totalProtein += items.reduce((sum, item) => sum + (item.protein * item.qty), 0);
+        items.forEach(item => {
+            const q = item.qty || 1;
+            totalCal += (item.cal || 0) * q;
+            totalProtein += (item.protein || 0) * q;
+            totalCarbs += (item.carbs || 0) * q;
+            totalFat += (item.fat || 0) * q;
+            totalSodium += (item.sodium || 0) * q;
+            totalCholesterol += (item.cholesterol || 0) * q;
+        });
     });
 
     const remaining = DAILY_TARGET_CAL - totalCal;
     document.getElementById('remaining-cal').innerText = remaining;
     document.getElementById('total-protein').innerText = Math.round(totalProtein);
+    document.getElementById('total-carbs').innerText = `${Math.round(totalCarbs)}g`;
+    document.getElementById('total-fat').innerText = `${Math.round(totalFat)}g`;
+    document.getElementById('total-sodium').innerText = `${Math.round(totalSodium)}mg`;
+    document.getElementById('total-cholesterol').innerText = `${Math.round(totalCholesterol)}mg`;
     document.getElementById('consumed-cal-text').innerText = `ทานไป ${Math.round(totalCal)} kcal`;
 
     let percent = Math.min((totalCal / DAILY_TARGET_CAL) * 100, 100);
@@ -105,13 +118,17 @@ function updateDashboard() {
     }
 }
 
-// Modal Management
+// Modal Form Management
 function openAddFoodModal(defaultMeal = 'morning') {
     document.getElementById('modal-title').innerText = "บันทึกมื้ออาหาร";
     document.getElementById('meal-type').value = defaultMeal;
     document.getElementById('food-name').value = '';
     document.getElementById('base-cal').value = '';
     document.getElementById('base-protein').value = '';
+    document.getElementById('base-carbs').value = '';
+    document.getElementById('base-fat').value = '';
+    document.getElementById('base-sodium').value = '';
+    document.getElementById('base-cholesterol').value = '';
     document.getElementById('food-qty').value = 1;
     document.getElementById('edit-index').value = '';
     document.getElementById('edit-meal-type').value = '';
@@ -126,23 +143,29 @@ function closeAddFoodModal() {
 }
 
 function calculatePreview() {
-    const cal = parseFloat(document.getElementById('base-cal').value) || 0;
-    const protein = parseFloat(document.getElementById('base-protein').value) || 0;
-    const qty = parseFloat(document.getElementById('food-qty').value) || 1;
-    document.getElementById('preview-cal').innerText = Math.round(cal * qty);
-    document.getElementById('preview-protein').innerText = Math.round(protein * qty * 10) / 10;
+    const q = parseFloat(document.getElementById('food-qty').value) || 1;
+    document.getElementById('preview-cal').innerText = Math.round((parseFloat(document.getElementById('base-cal').value) || 0) * q);
+    document.getElementById('preview-protein').innerText = Math.round(((parseFloat(document.getElementById('base-protein').value) || 0) * q) * 10) / 10;
+    document.getElementById('preview-carbs').innerText = Math.round(((parseFloat(document.getElementById('base-carbs').value) || 0) * q) * 10) / 10;
+    document.getElementById('preview-fat').innerText = Math.round(((parseFloat(document.getElementById('base-fat').value) || 0) * q) * 10) / 10;
+    document.getElementById('preview-sodium').innerText = Math.round((parseFloat(document.getElementById('base-sodium').value) || 0) * q);
+    document.getElementById('preview-cholesterol').innerText = Math.round((parseFloat(document.getElementById('base-cholesterol').value) || 0) * q);
 }
 
 function saveFoodItem(e) {
     e.preventDefault();
     const mealType = document.getElementById('meal-type').value;
     const name = document.getElementById('food-name').value;
-    const cal = parseFloat(document.getElementById('base-cal').value);
-    const protein = parseFloat(document.getElementById('base-protein').value);
-    const qty = parseFloat(document.getElementById('food-qty').value);
+    const cal = parseFloat(document.getElementById('base-cal').value) || 0;
+    const protein = parseFloat(document.getElementById('base-protein').value) || 0;
+    const carbs = parseFloat(document.getElementById('base-carbs').value) || 0;
+    const fat = parseFloat(document.getElementById('base-fat').value) || 0;
+    const sodium = parseFloat(document.getElementById('base-sodium').value) || 0;
+    const cholesterol = parseFloat(document.getElementById('base-cholesterol').value) || 0;
+    const qty = parseFloat(document.getElementById('food-qty').value) || 1;
+
     const editIndex = document.getElementById('edit-index').value;
     const editMealType = document.getElementById('edit-meal-type').value;
-
     const data = getTodayData();
 
     if (editIndex !== "" && editMealType !== "") {
@@ -150,7 +173,7 @@ function saveFoodItem(e) {
     }
 
     if (!data[mealType]) data[mealType] = [];
-    data[mealType].push({ name, cal, protein, qty });
+    data[mealType].push({ name, cal, protein, carbs, fat, sodium, cholesterol, qty });
 
     saveData();
     renderMeals();
@@ -164,6 +187,10 @@ function editItem(mealKey, idx) {
     document.getElementById('food-name').value = item.name;
     document.getElementById('base-cal').value = item.cal;
     document.getElementById('base-protein').value = item.protein;
+    document.getElementById('base-carbs').value = item.carbs || 0;
+    document.getElementById('base-fat').value = item.fat || 0;
+    document.getElementById('base-sodium').value = item.sodium || 0;
+    document.getElementById('base-cholesterol').value = item.cholesterol || 0;
     document.getElementById('food-qty').value = item.qty;
     document.getElementById('edit-index').value = idx;
     document.getElementById('edit-meal-type').value = mealKey;
@@ -184,34 +211,33 @@ function deleteItem(mealKey, idx) {
 function openHistoryModal() {
     const container = document.getElementById('calendar-container');
     container.innerHTML = '';
+    const dates = Object.keys(allData).filter(k => k.includes('-')).sort().reverse();
     
-    const dates = Object.keys(allData).sort().reverse();
     if (dates.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">ยังไม่มีประวัติการบันทึกย้อนหลัง</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">ยังไม่มีประวัติย้อนหลัง</p>`;
     } else {
         dates.forEach(date => {
             const dayData = allData[date];
-            let totalCal = 0;
-            let totalProtein = 0;
+            let totalCal = 0, totalProtein = 0;
             Object.keys(mealConfig).forEach(m => {
-                (dayData[m] || []).forEach(i => {
-                    totalCal += i.cal * i.qty;
-                    totalProtein += i.protein * i.qty;
-                });
+                if (dayData[m] && Array.isArray(dayData[m])) {
+                    dayData[m].forEach(i => {
+                        totalCal += (i.cal || 0) * (i.qty || 1);
+                        totalProtein += (i.protein || 0) * (i.qty || 1);
+                    });
+                }
             });
-
             container.innerHTML += `
-                <div class="bg-slate-50 p-3.5 rounded-2xl flex justify-between items-center border border-slate-100">
+                <div class="bg-slate-50 p-3 rounded-2xl flex justify-between items-center border border-slate-100 text-xs">
                     <div>
-                        <span class="text-xs font-bold text-slate-800 block">${date}</span>
-                        <span class="text-[10px] text-slate-500">แคล: ${Math.round(totalCal)} kcal | โปรตีน: ${Math.round(totalProtein)}g</span>
+                        <span class="font-bold text-slate-800 block">${date}</span>
+                        <span class="text-slate-500">${Math.round(totalCal)} kcal | โปรตีน ${Math.round(totalProtein)}g</span>
                     </div>
-                    <button onclick="selectDate('${date}')" class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition">เลือกดู</button>
+                    <button onclick="selectDate('${date}')" class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">เลือกดู</button>
                 </div>
             `;
         });
     }
-
     document.getElementById('history-modal').classList.remove('hidden');
     document.getElementById('history-modal').classList.add('flex');
 }
@@ -227,7 +253,6 @@ function selectDate(date) {
     initApp();
 }
 
-// Settings Modal
 function openSettingsModal() {
     document.getElementById('settings-modal').classList.remove('hidden');
     document.getElementById('settings-modal').classList.add('flex');
@@ -253,7 +278,10 @@ function importDataJSON(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            allData = JSON.parse(e.target.result);
+            const imported = JSON.parse(e.target.result);
+            allData = imported.logs ? imported.logs : imported;
+            if (allData.presets) delete allData.presets;
+            if (allData.logs) delete allData.logs;
             localStorage.setItem('fit_tracker_data', JSON.stringify(allData));
             initApp();
             alert('✨ กู้คืนข้อมูลสำเร็จ!');
@@ -266,42 +294,38 @@ function importDataJSON(event) {
 }
 
 // ==========================================
-// AI & Scanner Functions (Gemini & Barcode)
+// AI & Scanner Functions (วิเคราะห์สารอาหารทั้ง 6 ชนิด)
 // ==========================================
+const aiPromptInstruction = "Analyze this food image. Estimate food name in Thai, calories (kcal), protein (g), carbs (g), fat (g), sodium (mg), and cholesterol (mg). Return strictly ONLY a JSON object with keys: food_name (string), calories (number), protein (number), carbs (number), fat (number), sodium (number), cholesterol (number).";
+
 async function analyzeFoodImage(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     const btnText = document.getElementById('ai-btn-text');
     if (btnText) btnText.innerText = 'กำลังวิเคราะห์...';
 
     const reader = new FileReader();
     reader.onload = async function(e) {
         const base64Image = e.target.result.split(',')[1];
-        const prompt = "Analyze this food image. Estimate food name in Thai, calories (kcal), and protein (grams). Return strictly ONLY a JSON object with keys: food_name (string), calories (number), protein (number).";
-
         try {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            { inline_data: { mime_type: file.type, data: base64Image } }
-                        ]
-                    }],
+                    contents: [{ parts: [{ text: aiPromptInstruction }, { inline_data: { mime_type: file.type, data: base64Image } }] }],
                     generationConfig: { response_mime_type: "application/json" }
                 })
             });
-
             const data = await response.json();
-            const resultText = data.candidates[0].content.parts[0].text;
-            const result = JSON.parse(resultText);
+            const result = JSON.parse(data.candidates[0].content.parts[0].text);
 
             document.getElementById('food-name').value = result.food_name || '';
             document.getElementById('base-cal').value = result.calories || 0;
             document.getElementById('base-protein').value = result.protein || 0;
+            document.getElementById('base-carbs').value = result.carbs || 0;
+            document.getElementById('base-fat').value = result.fat || 0;
+            document.getElementById('base-sodium').value = result.sodium || 0;
+            document.getElementById('base-cholesterol').value = result.cholesterol || 0;
             document.getElementById('food-qty').value = 1;
             calculatePreview();
 
@@ -319,39 +343,32 @@ async function analyzeFoodImage(event) {
 async function analyzeNutritionLabel(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     alert('⏳ กำลังอ่านตารางโภชนาการจากฉลาก...');
 
     const reader = new FileReader();
     reader.onload = async function(e) {
         const base64Image = e.target.result.split(',')[1];
-        const prompt = "Analyze this nutrition facts label image. Extract the food name, calories (kcal), and protein (grams) per serving. Return strictly ONLY a JSON object with keys: food_name (string), calories (number), protein (number).";
-
         try {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            { inline_data: { mime_type: file.type, data: base64Image } }
-                        ]
-                    }],
+                    contents: [{ parts: [{ text: aiPromptInstruction }, { inline_data: { mime_type: file.type, data: base64Image } }] }],
                     generationConfig: { response_mime_type: "application/json" }
                 })
             });
-
             const data = await response.json();
-            const resultText = data.candidates[0].content.parts[0].text;
-            const result = JSON.parse(resultText);
+            const result = JSON.parse(data.candidates[0].content.parts[0].text);
 
             document.getElementById('food-name').value = result.food_name || 'อาหารจากฉลาก';
             document.getElementById('base-cal').value = result.calories || 0;
             document.getElementById('base-protein').value = result.protein || 0;
+            document.getElementById('base-carbs').value = result.carbs || 0;
+            document.getElementById('base-fat').value = result.fat || 0;
+            document.getElementById('base-sodium').value = result.sodium || 0;
+            document.getElementById('base-cholesterol').value = result.cholesterol || 0;
             document.getElementById('food-qty').value = 1;
             calculatePreview();
-
             alert('✨ อ่านฉลากโภชนาการสำเร็จ!');
         } catch (error) {
             console.error(error);
@@ -403,16 +420,24 @@ async function fetchProductByBarcode(barcode) {
             
             const cal = nutriments['energy-kcal_100g'] || nutriments['energy-kcal'] || 0;
             const protein = nutriments['proteins_100g'] || nutriments['proteins'] || 0;
+            const carbs = nutris = nutriments['carbohydrates_100g'] || nutriments['carbohydrates'] || 0;
+            const fat = nutriments['fat_100g'] || nutriments['fat'] || 0;
+            const sodium = (nutriments['sodium_100g'] || nutriments['sodium'] || 0) * 2.5 * 1000; // แปลงเกลือเป็นโซเดียม (mg) คร่าวๆ ถ้ามี
+            const cholesterol = nutriments['cholesterol_100g'] || nutriments['cholesterol'] || 0;
 
             document.getElementById('food-name').value = name;
             document.getElementById('base-cal').value = Math.round(cal);
             document.getElementById('base-protein').value = Math.round(protein * 10) / 10;
+            document.getElementById('base-carbs').value = Math.round(carbs * 10) / 10;
+            document.getElementById('base-fat').value = Math.round(fat * 10) / 10;
+            document.getElementById('base-sodium').value = Math.round(sodium);
+            document.getElementById('base-cholesterol').value = Math.round(cholesterol);
             document.getElementById('food-qty').value = 1;
             calculatePreview();
 
             alert(`✨ พบสินค้า: ${name}`);
         } else {
-            alert('ไม่พบข้อมูลสินค้าชิ้นนี้ในระบบฐานข้อมูล สามารถพิมพ์ชื่อและแคลอรีเองได้เลยครับ');
+            alert('ไม่พบข้อมูลสินค้าชิ้นนี้ในระบบฐานข้อมูล สามารถพิมพ์ชื่อและสารอาหารเองได้เลยครับ');
         }
     } catch (err) {
         console.error(err);
@@ -420,5 +445,4 @@ async function fetchProductByBarcode(barcode) {
     }
 }
 
-// Run app
 window.onload = initApp;
