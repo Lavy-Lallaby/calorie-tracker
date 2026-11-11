@@ -23,11 +23,14 @@
                 </div>
             </div>
             <div class="flex items-center gap-1.5">
+                <button onclick="openCalendarModal()" class="p-2 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition text-xs font-bold flex items-center gap-1">
+                    📅 ปฏิทิน
+                </button>
                 <button onclick="openSummaryModal()" class="p-2 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition text-xs font-bold">
                     📊 สรุป
                 </button>
                 <button onclick="openExportModal()" class="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition text-xs font-semibold">
-                    ⚙️ ข้อมูล
+                    ⚙️
                 </button>
             </div>
         </div>
@@ -200,6 +203,55 @@
         </div>
     </div>
 
+    <!-- Modal Form (Calendar View) -->
+    <div id="calendar-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <button onclick="changeCalendarMonth(-1)" class="p-1.5 bg-slate-100 rounded-xl hover:bg-slate-200">◀</button>
+                    <h3 id="cal-month-title" class="text-base font-bold text-slate-900">เดือน...</h3>
+                    <button onclick="changeCalendarMonth(1)" class="p-1.5 bg-slate-100 rounded-xl hover:bg-slate-200">▶</button>
+                </div>
+                <button onclick="closeCalendarModal()" class="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <!-- Color Guide Legend -->
+            <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 text-[11px] space-y-1">
+                <div class="font-bold text-slate-700">📌 คำอธิบายจุดสถานะ (ซ้าย: แคลอรี | ขวา: โปรตีน)</div>
+                <div class="grid grid-cols-2 gap-1 text-slate-600">
+                    <div>🟢 แคล ≤1,500 | โปรตีน ≥75% (ดีมาก)</div>
+                    <div>🟠 แคล 1,501-2,000 | โปรตีน 50-74%</div>
+                    <div>🔴 แคล >2,000 | โปรตีน <50%</div>
+                </div>
+            </div>
+
+            <!-- Calendar Grid Header -->
+            <div class="grid grid-cols-7 text-center font-bold text-xs text-slate-400 py-1">
+                <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
+            </div>
+
+            <!-- Calendar Days Container -->
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1.5">
+                <!-- Populated by JS -->
+            </div>
+
+            <!-- Selected Day Detail View inside Calendar Modal -->
+            <div id="cal-day-detail" class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2 hidden">
+                <div class="flex justify-between items-center font-bold text-xs text-slate-800 border-b border-slate-200 pb-1.5">
+                    <span id="detail-date-title">วันที่...</span>
+                    <button onclick="jumpToDateFromCalendar()" class="text-emerald-600 hover:underline text-[11px]">🔍 ไปดูหน้านี้</button>
+                </div>
+                <div id="detail-date-content" class="text-xs text-slate-600 space-y-1">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <button onclick="closeCalendarModal()" class="w-full py-3 bg-slate-900 text-white font-bold rounded-xl text-xs transition">ปิดหน้าต่าง</button>
+        </div>
+    </div>
+
     <!-- Modal Form (Summary History) -->
     <div id="summary-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4">
@@ -209,7 +261,6 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <p class="text-xs text-slate-500">รายงานสรุปพลังงานและโปรตีนแยกตามแต่ละวัน (เป้าหมายแคล: 1,500 kcal | โปรตีน: 96-128g)</p>
             <div id="summary-history-list" class="space-y-3">
                 <!-- Populated by JS -->
             </div>
