@@ -87,8 +87,12 @@ function switchTab(tab) {
 function setMealType(meal) {
     selectedMeal = meal;
     document.querySelectorAll('.meal-btn').forEach(btn => {
-        if(btn.dataset.meal === meal) {
-            btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-700 transition";
+        const m = btn.dataset.meal;
+        if(m === meal) {
+            if(m === 'เช้า') btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-orange-300 bg-orange-50 text-orange-800 transition";
+            else if(m === 'เที่ยง') btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-rose-300 bg-rose-50 text-rose-800 transition";
+            else if(m === 'เย็น') btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-sky-300 bg-sky-50 text-sky-800 transition";
+            else if(m === 'ว่าง') btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-purple-300 bg-purple-50 text-purple-800 transition";
         } else {
             btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 transition";
         }
@@ -287,23 +291,73 @@ function renderLogs() {
         return;
     }
 
-    container.innerHTML = targetLogs.map(item => `
-        <div class="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-100 flex justify-between items-center">
-            <div>
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg">${item.meal}</span>
-                    <h4 class="text-xs font-bold text-slate-800">${item.name}</h4>
-                </div>
-                <p class="text-[11px] text-slate-500">โปรตีน ${item.protein}g</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="text-xs font-extrabold text-slate-900">${item.cal} kcal</span>
-                <button onclick="deleteLog(${item.id})" class="text-slate-300 hover:text-rose-500 p-1 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                </button>
-            </div>
-        </div>
-    `).join('');
+    // Sort order: เช้า -> เที่ยง -> เย็น -> ว่าง
+    const mealOrder = { 'เช้า': 1, 'เที่ยง': 2, 'เย็น': 3, 'ว่าง': 4 };
+    const sortedLogs = [...targetLogs].sort((a, b) => (mealOrder[a.meal] || 99) - (mealOrder[b.meal] || 99));
+
+    // Group by meal
+    const grouped = {};
+    sortedLogs.forEach(item => {
+        if(!grouped[item.meal]) grouped[item.meal] = [];
+        grouped[item.meal].push(item);
+    });
+
+    const mealDisplayOrder = ['เช้า', 'เที่ยง', 'เย็น', 'ว่าง'];
+    let htmlContent = '';
+
+    mealDisplayOrder.forEach(mealName => {
+        if(grouped[mealName] && grouped[mealName].length > 0) {
+            // Header for each meal group
+            let headerBg = '';
+            let headerText = '';
+            if(mealName === 'เช้า') { headerBg = 'bg-orange-50 border-orange-200'; headerText = 'text-orange-900'; }
+            else if(mealName === 'เที่ยง') { headerBg = 'bg-rose-50 border-rose-200'; headerText = 'text-rose-900'; }
+            else if(mealName === 'เย็น') { headerBg = 'bg-sky-50 border-sky-200'; headerText = 'text-sky-900'; }
+            else if(mealName === 'ว่าง') { headerBg = 'bg-purple-50 border-purple-200'; headerText = 'text-purple-900'; }
+
+            const mealTotalCal = grouped[mealName].reduce((sum, i) => sum + i.cal, 0);
+            const mealTotalProtein = grouped[mealName].reduce((sum, i) => sum + i.protein, 0);
+
+            htmlContent += `
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center px-3 py-1.5 rounded-xl border ${headerBg} text-xs font-bold ${headerText}">
+                        <span>🍽️ มื้อ${mealName}</span>
+                        <span class="text-[11px] font-medium opacity-90">${mealTotalCal} kcal | โปรตีน ${mealTotalProtein}g</span>
+                    </div>
+            `;
+
+            grouped[mealName].forEach(item => {
+                let badgeStyle = "text-[10px] font-bold px-2 py-0.5 rounded-lg ";
+                if(item.meal === 'เช้า') badgeStyle += "bg-orange-100 text-orange-800";
+                else if(item.meal === 'เที่ยง') badgeStyle += "bg-rose-100 text-rose-800";
+                else if(item.meal === 'เย็น') badgeStyle += "bg-sky-100 text-sky-800";
+                else if(item.meal === 'ว่าง') badgeStyle += "bg-purple-100 text-purple-800";
+                else badgeStyle += "bg-slate-100 text-slate-700";
+
+                htmlContent += `
+                    <div class="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-100 flex justify-between items-center ml-2">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="${badgeStyle}">${item.meal}</span>
+                                <h4 class="text-xs font-bold text-slate-800">${item.name}</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-500">โปรตีน ${item.protein}g</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-extrabold text-slate-900">${item.cal} kcal</span>
+                            <button onclick="deleteLog(${item.id})" class="text-slate-300 hover:text-rose-500 p-1 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            htmlContent += `</div>`;
+        }
+    });
+
+    container.innerHTML = htmlContent;
 }
 
 function openModal() {
@@ -327,6 +381,59 @@ function openCustomPresetModal() {
 
 function closeCustomPresetModal() {
     document.getElementById('custom-preset-modal').classList.add('hidden');
+}
+
+function openSummaryModal() {
+    const container = document.getElementById('summary-history-list');
+    
+    const grouped = {};
+    logs.forEach(l => {
+        if(!grouped[l.date]) grouped[l.date] = { cal: 0, protein: 0, count: 0 };
+        grouped[l.date].cal += l.cal;
+        grouped[l.date].protein += l.protein;
+        grouped[l.date].count += 1;
+    });
+
+    const dates = Object.keys(grouped).sort().reverse();
+
+    if(dates.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">ยังไม่มีประวัติการบันทึกข้อมูล</div>`;
+    } else {
+        container.innerHTML = dates.map(dateStr => {
+            const data = grouped[dateStr];
+            const dateObj = new Date(dateStr);
+            const formattedDate = dateObj.toLocaleDateString('th-TH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+            
+            const isOverCal = data.cal > 1500;
+            const calBadge = isOverCal 
+                ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-md font-bold">⚠️ เกิน (${data.cal} kcal)</span>`
+                : `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md font-bold">✅ ${data.cal} / 1,500 kcal</span>`;
+            
+            const proteinDiff = 96 - data.protein;
+            const proteinBadge = data.protein >= 96 
+                ? `<span class="text-emerald-600 font-bold">🎯 ถึงเป้าแล้ว (${data.protein}g)</span>`
+                : `<span class="text-amber-600 font-bold">ขาดอีก ${proteinDiff}g (${data.protein}/96g)</span>`;
+
+            return `
+                <div class="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 space-y-2">
+                    <div class="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span>📅 ${formattedDate}</span>
+                        <span>${calBadge}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
+                        <span>💪 โปรตีน: ${proteinBadge}</span>
+                        <span class="text-slate-400">${data.count} รายการ</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('summary-modal').classList.remove('hidden');
+}
+
+function closeSummaryModal() {
+    document.getElementById('summary-modal').classList.add('hidden');
 }
 
 function openExportModal() {
