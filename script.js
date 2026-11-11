@@ -265,7 +265,7 @@ function updateDashboard() {
     if(totalCal > 1500) {
         statusBadge.innerText = "⚠️ เกินเป้าหมาย";
         statusBadge.className = "px-3 py-1.5 rounded-xl bg-rose-500 text-white text-xs font-bold backdrop-blur-sm";
-    } else if(totalCal >= 1400) {
+    } else if(totalCal >= 1200) {
         statusBadge.innerText = "🔥 ผ่านเกณฑ์ 👍";
         statusBadge.className = "px-3 py-1.5 rounded-xl bg-white text-emerald-800 text-xs font-bold shadow-xs";
     } else {
