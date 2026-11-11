@@ -1,850 +1,624 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calorie & Protein Tracker - 1,500 kcal</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts (Prompt) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Prompt', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              800: '#166534',
-              900: '#14532d',
-            }
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    body {
-      font-family: 'Prompt', sans-serif;
-      background-color: #f8fafc;
-      color: #1e293b;
-      -webkit-tap-highlight-color: transparent;
-    }
-    /* Smooth transitions */
-    .transition-all-custom {
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    /* Hide scrollbar for clean horizontal scrolling */
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTracker 1,500 - Calorie & Protein Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
 </head>
-<body class="min-h-screen pb-20 md:pb-10">
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-24">
 
-  <!-- TOP HEADER -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-    <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center gap-2">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
-          <i class="fa-solid fa-utensils text-sm"></i>
-        </div>
-        <div>
-          <h1 class="font-bold text-slate-800 text-base leading-tight">FitTracker 1,500</h1>
-          <p class="text-xs text-slate-400">คุมแคล เซฟกล้ามเนื้อ</p>
-        </div>
-      </div>
-      <button onclick="toggleSettingsModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
-        <i class="fa-solid fa-gear text-sm"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN CONTAINER -->
-  <main class="max-w-md mx-auto px-4 pt-4 space-y-4">
-
-    <!-- DATE SELECTOR STRIP -->
-    <section class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-between">
-      <button onclick="changeDate(-1)" class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center text-sm transition">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <div class="flex items-center gap-2 cursor-pointer relative" onclick="openDatePicker()">
-        <i class="fa-regular fa-calendar-days text-brand-600 text-sm"></i>
-        <span id="display-date-text" class="font-semibold text-slate-700 text-sm">วันนี้</span>
-        <input type="date" id="date-picker-input" class="absolute opacity-0 inset-0 cursor-pointer" onchange="onDateInputChange(this.value)">
-      </div>
-      <button onclick="changeDate(1)" class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center text-sm transition">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </section>
-
-    <!-- CALORIE & PROTEIN DASHBOARD -->
-    <section class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4 relative overflow-hidden">
-      <!-- Status Badge -->
-      <div class="flex justify-between items-start">
-        <div>
-          <span class="text-xs font-medium text-slate-400">เป้าหมายพลังงานวันนี้</span>
-          <div class="flex items-baseline gap-1 mt-0.5">
-            <span id="dash-current-cal" class="text-3xl font-bold text-slate-800">0</span>
-            <span class="text-xs font-medium text-slate-400">/ <span id="dash-target-cal">1,500</span> kcal</span>
-          </div>
-        </div>
-        <span id="dash-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
-          คุมได้ดี 👍
-        </span>
-      </div>
-
-      <!-- Calorie Progress Bar -->
-      <div class="space-y-1.5">
-        <div class="h-3.5 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 relative">
-          <div id="cal-progress-bar" class="h-full bg-gradient-to-r from-emerald-400 to-brand-500 rounded-full transition-all duration-500" style="width: 0%"></div>
-        </div>
-        <div class="flex justify-between text-xs text-slate-500 font-medium">
-          <span>คงเหลือ: <strong id="dash-remaining-cal" class="text-brand-600 font-bold">1,500</strong> kcal</span>
-          <span id="dash-percent-cal">0%</span>
-        </div>
-      </div>
-
-      <hr class="border-slate-100">
-
-      <!-- Protein Target Tracker -->
-      <div class="space-y-2">
-        <div class="flex justify-between items-center text-xs">
-          <span class="font-medium text-slate-600 flex items-center gap-1.5">
-            <i class="fa-solid fa-drumstick-bite text-amber-500"></i> โปรตีนสร้างกล้ามเนื้อ
-          </span>
-          <span class="text-slate-500 font-semibold">
-            <span id="dash-current-protein" class="text-amber-600 font-bold">0</span> / <span id="dash-target-protein">96 - 128</span> g
-          </span>
-        </div>
-        <div class="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden relative">
-          <div id="protein-progress-bar" class="h-full bg-amber-400 rounded-full transition-all duration-500" style="width: 0%"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- QUICK ADD MEAL BUTTON -->
-    <button onclick="openAddMealModal()" class="w-full bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-700 hover:to-emerald-600 text-white font-semibold py-3.5 px-4 rounded-2xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 text-base transition-all transform active:scale-98">
-      <i class="fa-solid fa-plus text-sm"></i>
-      <span>บันทึกมื้ออาหาร</span>
-    </button>
-
-    <!-- NAVIGATION TABS -->
-    <div class="flex bg-slate-200/70 p-1 rounded-2xl text-xs font-semibold text-slate-600">
-      <button id="tab-btn-logs" onclick="switchTab('logs')" class="flex-1 py-2 rounded-xl transition-all shadow-sm bg-white text-brand-700">
-        <i class="fa-solid fa-list-check mr-1"></i> รายการวันนี้
-      </button>
-      <button id="tab-btn-presets" onclick="switchTab('presets')" class="flex-1 py-2 rounded-xl transition-all">
-        <i class="fa-solid fa-book-open mr-1"></i> คลังเมนูโปรด
-      </button>
-      <button id="tab-btn-history" onclick="switchTab('history')" class="flex-1 py-2 rounded-xl transition-all">
-        <i class="fa-solid fa-clock-rotate-left mr-1"></i> สรุปย้อนหลัง
-      </button>
-    </div>
-
-    <!-- TAB 1: DAILY LOGS -->
-    <section id="tab-content-logs" class="space-y-3">
-      <div id="logs-list-container" class="space-y-2">
-        <!-- Log Item Template rendered via JS -->
-      </div>
-      <div id="logs-empty-state" class="hidden bg-white rounded-2xl p-8 text-center border border-slate-100">
-        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
-          <i class="fa-solid fa-utensils text-lg"></i>
-        </div>
-        <p class="text-sm font-medium text-slate-600">ยังไม่มีรายการบันทึกในวันนี้</p>
-        <p class="text-xs text-slate-400 mt-1">กดปุ่ม "บันทึกมื้ออาหาร" เพื่อเริ่มคุมแคลได้เลย</p>
-      </div>
-    </section>
-
-    <!-- TAB 2: PRESET MENU DATABASE -->
-    <section id="tab-content-presets" class="hidden space-y-3">
-      <div class="flex justify-between items-center px-1">
-        <span class="text-xs font-semibold text-slate-500">เมนูโปรดคำนวณไว</span>
-        <button onclick="openAddPresetModal()" class="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1">
-          <i class="fa-solid fa-plus"></i> เพิ่มเมนูโปรด
-        </button>
-      </div>
-      <div id="presets-list-container" class="space-y-2">
-        <!-- Preset Item Template rendered via JS -->
-      </div>
-    </section>
-
-    <!-- TAB 3: HISTORY SUMMARY -->
-    <section id="tab-content-history" class="hidden space-y-3">
-      <div id="history-list-container" class="space-y-2">
-        <!-- History Day Cards rendered via JS -->
-      </div>
-    </section>
-
-  </main>
-
-  <!-- MODAL: ADD / EDIT MEAL LOG -->
-  <div id="meal-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
-    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-slate-800 text-base" id="meal-modal-title">บันทึกมื้ออาหาร</h3>
-        <button onclick="closeMealModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <form id="meal-form" onsubmit="handleSaveMeal(event)" class="space-y-3">
-        <input type="hidden" id="meal-log-id">
-
-        <!-- Meal Type Selector -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">มื้ออาหาร</label>
-          <div class="grid grid-cols-4 gap-1.5">
-            <label class="cursor-pointer">
-              <input type="radio" name="mealType" value="เช้า" class="peer hidden" checked>
-              <div class="py-2 text-center text-xs font-medium rounded-xl border border-slate-200 text-slate-600 peer-checked:bg-brand-50 peer-checked:border-brand-500 peer-checked:text-brand-700 transition">
-                ☀️ เช้า
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="mealType" value="กลางวัน" class="peer hidden">
-              <div class="py-2 text-center text-xs font-medium rounded-xl border border-slate-200 text-slate-600 peer-checked:bg-brand-50 peer-checked:border-brand-500 peer-checked:text-brand-700 transition">
-                🌤️ เที่ยง
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="mealType" value="เย็น" class="peer hidden">
-              <div class="py-2 text-center text-xs font-medium rounded-xl border border-slate-200 text-slate-600 peer-checked:bg-brand-50 peer-checked:border-brand-500 peer-checked:text-brand-700 transition">
-                🌙 เย็น
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="mealType" value="ของว่าง/แถม" class="peer hidden">
-              <div class="py-2 text-center text-xs font-medium rounded-xl border border-slate-200 text-slate-600 peer-checked:bg-brand-50 peer-checked:border-brand-500 peer-checked:text-brand-700 transition">
-                🍎 ว่าง
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Quick Select from Presets -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">เลือกเร็วจากเมนูโปรด</label>
-          <select id="quick-preset-select" onchange="applyPresetSelection(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
-            <option value="">-- เลือกเมนูโปรด (ถ้ามี) --</option>
-          </select>
-        </div>
-
-        <!-- Meal Name -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อรายการอาหาร <span class="text-rose-500">*</span></label>
-          <input type="text" id="meal-name-input" required placeholder="เช่น อกไก่ต้ม, ข้าวมันไก่ไม่หนัง" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
-        </div>
-
-        <!-- Calories & Protein -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">แคลอรี (kcal) <span class="text-rose-500">*</span></label>
-            <input type="number" id="meal-cal-input" required min="0" placeholder="0" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">โปรตีน (กรัม)</label>
-            <input type="number" id="meal-protein-input" min="0" step="0.1" placeholder="ประมาณการ" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
-          </div>
-        </div>
-
-        <!-- Save to Presets Checkbox -->
-        <div class="flex items-center gap-2 pt-1">
-          <input type="checkbox" id="save-as-preset-check" class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
-          <label for="save-as-preset-check" class="text-xs text-slate-600 cursor-pointer">บันทึกรายการนี้เก็บไว้ใน "คลังเมนูโปรด" ด้วย</label>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="pt-2">
-          <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl shadow-md transition">
-            บันทึกรายการ
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: ADD / EDIT PRESET -->
-  <div id="preset-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
-    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-slate-800 text-base" id="preset-modal-title">เพิ่มเมนูโปรดใหม่</h3>
-        <button onclick="closePresetModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <form id="preset-form" onsubmit="handleSavePreset(event)" class="space-y-3">
-        <input type="hidden" id="preset-id">
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อรายการเมนู <span class="text-rose-500">*</span></label>
-          <input type="text" id="preset-name-input" required placeholder="เช่น ไข่ต้ม 7-11 (2 ฟอง)" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">แคลอรี (kcal) <span class="text-rose-500">*</span></label>
-            <input type="number" id="preset-cal-input" required min="0" placeholder="150" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">โปรตีนโดยประมาณ (g)</label>
-            <input type="number" id="preset-protein-input" min="0" step="0.1" placeholder="12" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
-          </div>
-        </div>
-
-        <div class="pt-2">
-          <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl shadow-md transition">
-            บันทึกเมนูโปรด
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: SETTINGS & BACKUP -->
-  <div id="settings-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
-    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-slate-800 text-base">ตั้งค่าเป้าหมาย & สำรองข้อมูล</h3>
-        <button onclick="toggleSettingsModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3">
-        <!-- Target Settings -->
-        <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-2">
-          <label class="block text-xs font-semibold text-slate-700">เป้าหมายแคลอรีต่อวัน (kcal)</label>
-          <input type="number" id="setting-target-cal" value="1500" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
-          
-          <label class="block text-xs font-semibold text-slate-700 pt-1">เป้าหมายโปรตีนขั้นต่ำ (กรัม)</label>
-          <input type="number" id="setting-target-protein" value="96" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
-          
-          <button onclick="saveTargets()" class="w-full bg-slate-800 text-white text-xs font-semibold py-2 rounded-xl mt-2">
-            บันทึกการตั้งค่า
-          </button>
-        </div>
-
-        <!-- Backup & Restore -->
-        <div class="border-t border-slate-100 pt-3 space-y-2">
-          <span class="block text-xs font-semibold text-slate-600">จัดการข้อมูล (Backup & Export)</span>
-          <div class="grid grid-cols-2 gap-2">
-            <button onclick="exportDataJSON()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition">
-              <i class="fa-solid fa-download text-slate-500"></i> ส่งออก JSON
-            </button>
-            <button onclick="document.getElementById('import-file-input').click()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition">
-              <i class="fa-solid fa-upload text-slate-500"></i> นำเข้าไฟล์
-            </button>
-            <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="importDataJSON(event)">
-          </div>
-          <button onclick="exportDataCSV()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition">
-            <i class="fa-solid fa-file-csv"></i> ส่งออกเป็นไฟล์ Excel (CSV)
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- JAVASCRIPT APP LOGIC -->
-  <script>
-    // --- STATE MANAGEMENT ---
-    const STORAGE_KEY_LOGS = 'fit_tracker_logs_v1';
-    const STORAGE_KEY_PRESETS = 'fit_tracker_presets_v1';
-    const STORAGE_KEY_TARGETS = 'fit_tracker_targets_v1';
-
-    let selectedDate = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
-    let logs = [];
-    let presets = [];
-    let userTargets = { targetCal: 1500, targetProtein: 96 };
-
-    // Default Popular Presets
-    const defaultPresets = [
-      { id: 'p1', name: 'อกไก่ 7-11', cal: 90, protein: 17 },
-      { id: 'p2', name: 'ไข่ต้ม 7-11 (2 ฟอง)', cal: 150, protein: 13 },
-      { id: 'p3', name: 'ข้าวมันไก่ไม่หนัง', cal: 325, protein: 24 },
-      { id: 'p4', name: 'สลัดโรล (4 ชิ้น)', cal: 150, protein: 8 },
-      { id: 'p5', name: 'น้ำจิ้มสลัดโรล', cal: 35, protein: 0 },
-      { id: 'p6', name: 'เล้งต้มยำ / เล้งแซ่บ', cal: 350, protein: 30 },
-      { id: 'p7', name: 'ไข่ตุ๋น 7-11', cal: 90, protein: 7 },
-      { id: 'p8', name: 'ผัดผักหมู (ใช้น้ำมันน้อย)', cal: 275, protein: 15 }
-    ];
-
-    // --- INITIALIZATION ---
-    window.addEventListener('DOMContentLoaded', () => {
-      loadDataFromStorage();
-      updateDateDisplay();
-      renderApp();
-    });
-
-    function loadDataFromStorage() {
-      const savedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
-      logs = savedLogs ? JSON.parse(savedLogs) : [];
-
-      const savedPresets = localStorage.getItem(STORAGE_KEY_PRESETS);
-      presets = savedPresets ? JSON.parse(savedPresets) : defaultPresets;
-
-      const savedTargets = localStorage.getItem(STORAGE_KEY_TARGETS);
-      if (savedTargets) {
-        userTargets = JSON.parse(savedTargets);
-        document.getElementById('setting-target-cal').value = userTargets.targetCal;
-        document.getElementById('setting-target-protein').value = userTargets.targetProtein;
-      }
-    }
-
-    function saveDataToStorage() {
-      localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
-      localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
-      localStorage.setItem(STORAGE_KEY_TARGETS, JSON.stringify(userTargets));
-    }
-
-    // --- DATE MANAGEMENT ---
-    function updateDateDisplay() {
-      const today = new Date().toISOString().split('T')[0];
-      const dateTextEl = document.getElementById('display-date-text');
-      const datePickerInput = document.getElementById('date-picker-input');
-
-      datePickerInput.value = selectedDate;
-
-      if (selectedDate === today) {
-        dateTextEl.textContent = 'วันนี้ (' + formatDateThai(selectedDate) + ')';
-      } else {
-        dateTextEl.textContent = formatDateThai(selectedDate);
-      }
-    }
-
-    function formatDateThai(dateStr) {
-      const d = new Date(dateStr);
-      if (isNaN(d)) return dateStr;
-      return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
-    }
-
-    function changeDate(offsetDays) {
-      const d = new Date(selectedDate);
-      d.setDate(d.getDate() + offsetDays);
-      selectedDate = d.toISOString().split('T')[0];
-      updateDateDisplay();
-      renderApp();
-    }
-
-    function openDatePicker() {
-      document.getElementById('date-picker-input').showPicker();
-    }
-
-    function onDateInputChange(val) {
-      if (!val) return;
-      selectedDate = val;
-      updateDateDisplay();
-      renderApp();
-    }
-
-    // --- RENDER APP ---
-    function renderApp() {
-      renderDashboard();
-      renderDailyLogs();
-      renderPresets();
-      renderHistory();
-      populatePresetDropdown();
-    }
-
-    // --- DASHBOARD RENDER ---
-    function renderDashboard() {
-      const dayLogs = logs.filter(item => item.date === selectedDate);
-      const totalCal = dayLogs.reduce((sum, item) => sum + Number(item.cal || 0), 0);
-      const totalProtein = dayLogs.reduce((sum, item) => sum + Number(item.protein || 0), 0);
-
-      const targetCal = userTargets.targetCal || 1500;
-      const targetProtein = userTargets.targetProtein || 96;
-
-      const remainingCal = targetCal - totalCal;
-      const calPercent = Math.min(Math.round((totalCal / targetCal) * 100), 100);
-      const proteinPercent = Math.min(Math.round((totalProtein / targetProtein) * 100), 100);
-
-      document.getElementById('dash-current-cal').textContent = totalCal.toLocaleString();
-      document.getElementById('dash-target-cal').textContent = targetCal.toLocaleString();
-      document.getElementById('dash-remaining-cal').textContent = remainingCal.toLocaleString();
-      document.getElementById('dash-percent-cal').textContent = calPercent + '%';
-
-      document.getElementById('dash-current-protein').textContent = Math.round(totalProtein);
-
-      // Progress bar widths
-      const calBar = document.getElementById('cal-progress-bar');
-      calBar.style.width = calPercent + '%';
-
-      if (totalCal > targetCal) {
-        calBar.className = 'h-full bg-rose-500 rounded-full transition-all duration-500';
-      } else {
-        calBar.className = 'h-full bg-gradient-to-r from-emerald-400 to-brand-500 rounded-full transition-all duration-500';
-      }
-
-      document.getElementById('protein-progress-bar').style.width = proteinPercent + '%';
-
-      // Status Badge
-      const badge = document.getElementById('dash-status-badge');
-      if (dayLogs.length === 0) {
-        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200';
-        badge.textContent = 'ยังไม่ได้บันทึก';
-      } else if (totalCal <= targetCal) {
-        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200';
-        badge.textContent = 'ผ่านเกณฑ์ 👍';
-      } else {
-        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200';
-        badge.textContent = 'เกินเพดาน ⚠️';
-      }
-    }
-
-    // --- DAILY LOGS RENDER ---
-    function renderDailyLogs() {
-      const container = document.getElementById('logs-list-container');
-      const emptyState = document.getElementById('logs-empty-state');
-      const dayLogs = logs.filter(item => item.date === selectedDate);
-
-      if (dayLogs.length === 0) {
-        container.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        return;
-      }
-
-      emptyState.classList.add('hidden');
-      
-      const mealOrder = { 'เช้า': 1, 'กลางวัน': 2, 'เย็น': 3, 'ของว่าง/แถม': 4 };
-      dayLogs.sort((a, b) => (mealOrder[a.mealType] || 9) - (mealOrder[b.mealType] || 9));
-
-      container.innerHTML = dayLogs.map(item => `
-        <div class="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm flex items-center justify-between transition hover:border-slate-200">
-          <div class="flex items-center gap-3">
-            <span class="px-2.5 py-1 rounded-xl text-xs font-semibold ${getMealBadgeStyle(item.mealType)}">
-              ${item.mealType}
-            </span>
-            <div>
-              <h4 class="font-medium text-slate-800 text-sm">${escapeHtml(item.name)}</h4>
-              <p class="text-xs text-slate-400">
-                ${item.protein ? `<span class="text-amber-600 font-medium"><i class="fa-solid fa-drumstick-bite text-2xs"></i> โปรตีน ~${item.protein}g</span>` : 'ไม่มีระบุโปรตีน'}
-              </p>
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold text-slate-900">FitTracker 1,500</h1>
+                    <p class="text-[11px] text-slate-400">คุมแคล เซฟกล้ามเนื้อ</p>
+                </div>
             </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="text-right">
-              <span class="font-bold text-slate-800 text-base">${item.cal}</span>
-              <span class="text-2xs text-slate-400 block -mt-1">kcal</span>
+            <div class="flex items-center gap-2">
+                <button onclick="openExportModal()" class="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition text-xs font-semibold">
+                    ⚙️ ข้อมูล
+                </button>
             </div>
-            <button onclick="deleteMealLog('${item.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 transition">
-              <i class="fa-regular fa-trash-can text-sm"></i>
-            </button>
-          </div>
         </div>
-      `).join('');
-    }
+    </header>
 
-    function getMealBadgeStyle(type) {
-      switch (type) {
-        case 'เช้า': return 'bg-amber-50 text-amber-700 border border-amber-200';
-        case 'กลางวัน': return 'bg-sky-50 text-sky-700 border border-sky-200';
-        case 'เย็น': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-        default: return 'bg-purple-50 text-purple-700 border border-purple-200';
-      }
-    }
+    <main class="max-w-md mx-auto px-4 py-4 space-y-4">
+        
+        <!-- Date Navigator -->
+        <div class="bg-white rounded-2xl p-3 shadow-xs border border-slate-100 flex justify-between items-center">
+            <button onclick="changeDate(-1)" class="w-9 h-9 flex items-center justify-center bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <div class="text-center">
+                <div class="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-800" id="current-date-display">
+                    📅 กำลังโหลด...
+                </div>
+            </div>
+            <button onclick="changeDate(1)" class="w-9 h-9 flex items-center justify-center bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+        </div>
 
-    // --- PRESETS RENDER & MANAGEMENT ---
-    function renderPresets() {
-      const container = document.getElementById('presets-list-container');
-      if (presets.length === 0) {
-        container.innerHTML = `<p class="text-center text-xs text-slate-400 py-4">ยังไม่มีเมนูโปรด</p>`;
-        return;
-      }
+        <!-- Dashboard Card -->
+        <section class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-5 text-white shadow-lg shadow-teal-100">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <span class="text-[11px] font-medium tracking-wide uppercase opacity-80">เป้าหมายพลังงานวันนี้</span>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <h2 class="text-3xl font-black tracking-tight" id="total-cal">0</h2>
+                        <span class="text-xs opacity-80">/ 1,500 kcal</span>
+                    </div>
+                </div>
+                <div id="status-badge" class="px-3 py-1.5 rounded-xl bg-white/20 text-xs font-bold backdrop-blur-sm">
+                    กำลังเริ่ม
+                </div>
+            </div>
 
-      container.innerHTML = presets.map(p => `
-        <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-xs font-bold">
-              <i class="fa-solid fa-bookmark"></i>
+            <!-- Calorie Progress Bar -->
+            <div class="w-full bg-black/20 rounded-full h-3 mb-3 overflow-hidden p-0.5">
+                <div id="cal-progress" class="bg-white h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+
+            <div class="flex justify-between items-center text-xs opacity-90 mb-4 pb-3 border-b border-white/10">
+                <span>คงเหลือ: <strong id="remaining-cal" class="font-bold">1,500</strong> kcal</span>
+                <span id="percent-cal">0%</span>
+            </div>
+
+            <!-- Protein Tracker -->
+            <div class="bg-white/10 rounded-2xl p-3.5 backdrop-blur-sm flex justify-between items-center">
+                <div>
+                    <div class="flex items-center gap-1.5 text-xs font-semibold opacity-90 mb-0.5">
+                        <span>💪 โปรตีนสร้างกล้ามเนื้อ</span>
+                    </div>
+                    <p class="text-base font-bold"><span id="total-protein">0</span> <span class="text-xs font-normal opacity-80">/ 96 - 128 g</span></p>
+                </div>
+                <div id="protein-status" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-amber-400 text-amber-950 shadow-xs">
+                    ต้องการอีก 96g
+                </div>
+            </div>
+        </section>
+
+        <!-- Action Button -->
+        <button onclick="openModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 px-4 rounded-2xl shadow-md shadow-emerald-100 transition flex items-center justify-center gap-2 text-base">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            บันทึกมื้ออาหาร
+        </button>
+
+        <!-- Main Navigation Tabs -->
+        <div class="flex bg-slate-200/70 p-1 rounded-2xl gap-1">
+            <button onclick="switchTab('logs')" id="tab-btn-logs" class="flex-1 py-2.5 text-xs font-bold rounded-xl bg-white text-slate-800 shadow-xs transition flex items-center justify-center gap-1.5">
+                📋 รายการวันนี้
+            </button>
+            <button onclick="switchTab('presets')" id="tab-btn-presets" class="flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-500 transition flex items-center justify-center gap-1.5">
+                📖 คลังเมนู
+            </button>
+        </div>
+
+        <!-- TAB 1: Today's Log -->
+        <div id="tab-logs" class="space-y-3">
+            <div class="flex justify-between items-center px-1">
+                <h3 class="font-bold text-slate-800 text-sm">รายการอาหารที่ทาน</h3>
+                <span class="text-xs font-semibold text-slate-400" id="log-count">0 รายการ</span>
+            </div>
+            <div id="log-list" class="space-y-2.5">
+                <!-- Dynamic Log Items -->
+            </div>
+        </div>
+
+        <!-- TAB 2: Presets Menu Library -->
+        <div id="tab-presets" class="space-y-3 hidden">
+            <div class="flex justify-between items-center px-1">
+                <h3 class="font-bold text-slate-800 text-sm">คลังเมนูอาหารทั้งหมด</h3>
+                <button onclick="openCustomPresetModal()" class="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl transition">
+                    + เพิ่มเมนูใหม่
+                </button>
             </div>
             <div>
-              <h4 class="font-medium text-slate-800 text-sm">${escapeHtml(p.name)}</h4>
-              <p class="text-xs text-slate-400">
-                ${p.cal} kcal ${p.protein ? `| โปรตีน ${p.protein}g` : ''}
-              </p>
+                <input type="text" id="library-search" placeholder="🔍 ค้นหาเมนูในคลัง..." oninput="renderLibrary()" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs">
             </div>
-          </div>
-          <div class="flex items-center gap-1">
-            <button onclick="quickLogFromPreset('${p.id}')" class="bg-brand-50 hover:bg-brand-100 text-brand-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1">
-              <i class="fa-solid fa-plus text-2xs"></i> กินเมนูนี้
-            </button>
-            <button onclick="deletePreset('${p.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 transition">
-              <i class="fa-regular fa-trash-can text-xs"></i>
-            </button>
-          </div>
+            <div id="preset-library-list" class="space-y-2.5">
+                <!-- Dynamic Preset Cards -->
+            </div>
         </div>
-      `).join('');
-    }
+    </main>
 
-    function populatePresetDropdown() {
-      const select = document.getElementById('quick-preset-select');
-      select.innerHTML = `<option value="">-- เลือกเมนูโปรด (ถ้ามี) --</option>` +
-        presets.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${p.cal} kcal${p.protein ? `, โปรตีน ${p.protein}g` : ''})</option>`).join('');
-    }
-
-    function applyPresetSelection(presetId) {
-      if (!presetId) return;
-      const p = presets.find(item => item.id === presetId);
-      if (p) {
-        document.getElementById('meal-name-input').value = p.name;
-        document.getElementById('meal-cal-input').value = p.cal;
-        document.getElementById('meal-protein-input').value = p.protein || '';
-      }
-    }
-
-    function quickLogFromPreset(presetId) {
-      const p = presets.find(item => item.id === presetId);
-      if (!p) return;
-
-      const newLog = {
-        id: 'log_' + Date.now(),
-        date: selectedDate,
-        mealType: 'กลางวัน',
-        name: p.name,
-        cal: p.cal,
-        protein: p.protein || 0
-      };
-
-      logs.push(newLog);
-      saveDataToStorage();
-      renderApp();
-      switchTab('logs');
-    }
-
-    // --- HISTORY TAB RENDER ---
-    function renderHistory() {
-      const container = document.getElementById('history-list-container');
-      
-      // Group logs by date
-      const grouped = {};
-      logs.forEach(log => {
-        if (!grouped[log.date]) grouped[log.date] = [];
-        grouped[log.date].push(log);
-      });
-
-      const dates = Object.keys(grouped).sort().reverse();
-
-      if (dates.length === 0) {
-        container.innerHTML = `<div class="bg-white rounded-2xl p-6 text-center text-slate-400 text-xs">ยังไม่มีประวัติการบันทึก</div>`;
-        return;
-      }
-
-      container.innerHTML = dates.map(dateStr => {
-        const dayItems = grouped[dateStr];
-        const totalCal = dayItems.reduce((sum, item) => sum + Number(item.cal || 0), 0);
-        const totalProtein = dayItems.reduce((sum, item) => sum + Number(item.protein || 0), 0);
-        const isTargetPassed = totalCal <= userTargets.targetCal;
-
-        return `
-          <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-slate-800 text-sm">${formatDateThai(dateStr)}</span>
-              <span class="px-2.5 py-0.5 rounded-full text-2xs font-semibold ${isTargetPassed ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">
-                ${totalCal} / ${userTargets.targetCal} kcal
-              </span>
+    <!-- Modal Form (Add Food) -->
+    <div id="food-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-bold text-slate-900">บันทึกมื้ออาหาร</h3>
+                <button onclick="closeModal()" class="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
-            <div class="flex justify-between text-xs text-slate-500">
-              <span>เมนูที่กิน: ${dayItems.length} รายการ</span>
-              <span>โปรตีนรวม: <strong class="text-amber-600">${Math.round(totalProtein)}g</strong></span>
+
+            <form id="food-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                <!-- Meal Type -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1.5">มื้ออาหาร</label>
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <button type="button" onclick="setMealType('เช้า')" class="meal-btn py-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-700 transition" data-meal="เช้า">☀️ เช้า</button>
+                        <button type="button" onclick="setMealType('เที่ยง')" class="meal-btn py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 transition" data-meal="เที่ยง">⛅ เที่ยง</button>
+                        <button type="button" onclick="setMealType('เย็น')" class="meal-btn py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 transition" data-meal="เย็น">🌙 เย็น</button>
+                        <button type="button" onclick="setMealType('ว่าง')" class="meal-btn py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 transition" data-meal="ว่าง">🍎 ว่าง</button>
+                    </div>
+                </div>
+
+                <!-- Searchable Preset Selection -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1.5">🔍 ค้นหาหรือเลือกจากคลังเมนู</label>
+                    <input type="text" id="menu-search" placeholder="พิมพ์ชื่อเพื่อค้นหาเมนู..." oninput="filterPresetsModal()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-2">
+                    
+                    <div id="preset-list-container" class="max-h-36 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Food Name -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1.5">ชื่อรายการอาหาร</label>
+                    <input type="text" id="food-name" required placeholder="เช่น อกไก่ 7-11, ข้าวสวย" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- Multiplier & Calculated Preview Grid -->
+                <div class="grid grid-cols-3 gap-2 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                    <div>
+                        <label class="block text-[11px] font-bold text-emerald-800 mb-1">จำนวน/สัดส่วน</label>
+                        <input type="number" id="food-qty" value="1" step="0.1" min="0.1" oninput="calculatePreview()" class="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 mb-1">แคล (ต่อหน่วย)</label>
+                        <input type="number" id="base-cal" required min="0" oninput="calculatePreview()" placeholder="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 mb-1">โปรตีน (ต่อหน่วย)</label>
+                        <input type="number" id="base-protein" min="0" value="0" oninput="calculatePreview()" placeholder="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Real-time Summary preview -->
+                <div class="text-xs text-center font-bold text-emerald-700 bg-emerald-100/50 py-2 rounded-xl">
+                    ✨ รวมมื้อนี้: <span id="preview-total-cal" class="text-sm font-extrabold">0</span> kcal | โปรตีน <span id="preview-total-protein" class="text-sm font-extrabold">0</span> g
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition text-sm">
+                    บันทึกเข้าสู่ระบบ
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Form (Add Custom Preset to Library) -->
+    <div id="custom-preset-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl">
+            <h3 class="text-base font-bold text-slate-900 mb-3">เพิ่มเมนูใหม่เข้าคลัง</h3>
+            <form onsubmit="handleCustomPresetSubmit(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">ชื่อเมนูอาหาร (ต่อ 1 หน่วย/กล่อง/ฟอง)</label>
+                    <input type="text" id="cp-name" required placeholder="เช่น ข้าวสวย (1 กล่อง 150g)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">แคลอรีต่อหน่วย</label>
+                        <input type="number" id="cp-cal" required min="0" placeholder="120" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">โปรตีนต่อหน่วย</label>
+                        <input type="number" id="cp-protein" min="0" value="0" placeholder="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeCustomPresetModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs">ยกเลิก</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-emerald-500 text-white font-bold rounded-xl text-xs">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Export/Import Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-3">
+            <h3 class="text-base font-bold text-slate-900">การตั้งค่าข้อมูลสำรอง</h3>
+            <p class="text-xs text-slate-500">สำรองไฟล์ข้อมูลเพื่อความปลอดภัย หรือย้ายไปใช้งานบนอุปกรณ์อื่น</p>
+            <div class="space-y-2 pt-2">
+                <button onclick="exportData()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">📤 สำรองข้อมูลเป็นไฟล์ (JSON)</button>
+                <label class="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition block text-center cursor-pointer">
+                    📥 กู้คืนข้อมูลจากไฟล์
+                    <input type="file" accept=".json" onchange="importData(event)" class="hidden">
+                </label>
+                <button onclick="closeExportModal()" class="w-full py-2.5 px-4 bg-slate-900 text-white font-bold rounded-xl text-xs transition">ปิดหน้าต่าง</button>
             </div>
-          </div>
-        `;
-      }).join('');
-    }
+        </div>
+    </div>
 
-    // --- MEAL MODAL & LOG ACTIONS ---
-    function openAddMealModal() {
-      document.getElementById('meal-modal-title').textContent = 'บันทึกมื้ออาหาร';
-      document.getElementById('meal-log-id').value = '';
-      document.getElementById('meal-form').reset();
-      document.getElementById('save-as-preset-check').checked = false;
-      document.getElementById('meal-modal').classList.remove('hidden');
-    }
+    <script>
+        const defaultPresets = [
+            { name: "ข้าวสวย (1 กล่อง ~150g)", cal: 120, protein: 2 },
+            { name: "ไข่ต้ม (1 ฟอง)", cal: 70, protein: 6 },
+            { name: "อกไก่ 7-11", cal: 90, protein: 17 },
+            { name: "ไข่ต้ม 7-11 (2 ฟอง)", cal: 150, protein: 13 },
+            { name: "ข้าวมันไก่ไม่หนัง", cal: 325, protein: 24 },
+            { name: "สลัดโรล (4 ชิ้น)", cal: 150, protein: 8 },
+            { name: "น้ำจิ้มสลัดโรล", cal: 35, protein: 0 },
+            { name: "เล้งต้มยำ / เล้งแซ่บ", cal: 350, protein: 30 },
+            { name: "ไข่ตุ๋น 7-11", cal: 90, protein: 7 },
+            { name: "ผัดผักหมู (ใช้น้ำมันน้อย)", cal: 275, protein: 15 },
+            { name: "ข้าวหน้ากะเพราไก่คั่ว (7-11)", cal: 530, protein: 22 },
+            { name: "แคนตาลูป 7-11", cal: 60, protein: 1 }
+        ];
 
-    function closeMealModal() {
-      document.getElementById('meal-modal').classList.add('hidden');
-    }
+        let presets = JSON.parse(localStorage.getItem('calorie_presets')) || defaultPresets;
+        let logs = JSON.parse(localStorage.getItem('calorie_logs')) || [];
+        
+        let currentDate = new Date().toISOString().split('T')[0];
+        let selectedMeal = 'เช้า';
+        let currentTab = 'logs';
 
-    function handleSaveMeal(e) {
-      e.preventDefault();
-      const id = document.getElementById('meal-log-id').value || ('log_' + Date.now());
-      const mealType = document.querySelector('input[name="mealType"]:checked').value;
-      const name = document.getElementById('meal-name-input').value.trim();
-      const cal = Number(document.getElementById('meal-cal-input').value);
-      const protein = Number(document.getElementById('meal-protein-input').value || 0);
-      const saveAsPreset = document.getElementById('save-as-preset-check').checked;
-
-      if (!name || isNaN(cal)) return;
-
-      const logData = { id, date: selectedDate, mealType, name, cal, protein };
-      
-      const existingIdx = logs.findIndex(l => l.id === id);
-      if (existingIdx > -1) {
-        logs[existingIdx] = logData;
-      } else {
-        logs.push(logData);
-      }
-
-      // Save to presets if checked
-      if (saveAsPreset) {
-        const existsPreset = presets.some(p => p.name.toLowerCase() === name.toLowerCase());
-        if (!existsPreset) {
-          presets.push({ id: 'p_' + Date.now(), name, cal, protein });
+        function initApp() {
+            updateDateDisplay();
+            syncPresetsFromLogs();
+            updateDashboard();
+            renderLogs();
+            renderLibrary();
         }
-      }
 
-      saveDataToStorage();
-      closeMealModal();
-      renderApp();
-    }
-
-    function deleteMealLog(id) {
-      logs = logs.filter(item => item.id !== id);
-      saveDataToStorage();
-      renderApp();
-    }
-
-    // --- PRESET MODAL & ACTIONS ---
-    function openAddPresetModal() {
-      document.getElementById('preset-modal-title').textContent = 'เพิ่มเมนูโปรดใหม่';
-      document.getElementById('preset-id').value = '';
-      document.getElementById('preset-form').reset();
-      document.getElementById('preset-modal').classList.remove('hidden');
-    }
-
-    function closePresetModal() {
-      document.getElementById('preset-modal').classList.add('hidden');
-    }
-
-    function handleSavePreset(e) {
-      e.preventDefault();
-      const name = document.getElementById('preset-name-input').value.trim();
-      const cal = Number(document.getElementById('preset-cal-input').value);
-      const protein = Number(document.getElementById('preset-protein-input').value || 0);
-
-      if (!name || isNaN(cal)) return;
-
-      presets.push({ id: 'p_' + Date.now(), name, cal, protein });
-      saveDataToStorage();
-      closePresetModal();
-      renderApp();
-    }
-
-    function deletePreset(id) {
-      presets = presets.filter(p => p.id !== id);
-      saveDataToStorage();
-      renderApp();
-    }
-
-    // --- TAB SWITCHING ---
-    function switchTab(tabName) {
-      const tabs = ['logs', 'presets', 'history'];
-      tabs.forEach(t => {
-        const content = document.getElementById(`tab-content-${t}`);
-        const btn = document.getElementById(`tab-btn-${t}`);
-        if (t === tabName) {
-          content.classList.remove('hidden');
-          btn.className = 'flex-1 py-2 rounded-xl transition-all shadow-sm bg-white text-brand-700';
-        } else {
-          content.classList.add('hidden');
-          btn.className = 'flex-1 py-2 rounded-xl transition-all text-slate-500 hover:text-slate-700';
+        function syncPresetsFromLogs() {
+            let updated = false;
+            logs.forEach(log => {
+                const exists = presets.some(p => p.name.toLowerCase() === log.name.toLowerCase());
+                if(!exists) {
+                    presets.push({ name: log.name, cal: log.cal, protein: log.protein });
+                    updated = true;
+                }
+            });
+            if(updated) {
+                localStorage.setItem('calorie_presets', JSON.stringify(presets));
+            }
         }
-      });
-    }
 
-    // --- SETTINGS & BACKUP ---
-    function toggleSettingsModal() {
-      const modal = document.getElementById('settings-modal');
-      modal.classList.toggle('hidden');
-    }
-
-    function saveTargets() {
-      const cal = Number(document.getElementById('setting-target-cal').value);
-      const protein = Number(document.getElementById('setting-target-protein').value);
-
-      if (cal > 0) userTargets.targetCal = cal;
-      if (protein > 0) userTargets.targetProtein = protein;
-
-      saveDataToStorage();
-      toggleSettingsModal();
-      renderApp();
-    }
-
-    function exportDataJSON() {
-      const data = { logs, presets, userTargets, exportDate: new Date().toISOString() };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `CalorieTracker_Backup_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function importDataJSON(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        try {
-          const parsed = JSON.parse(evt.target.result);
-          if (parsed.logs) logs = parsed.logs;
-          if (parsed.presets) presets = parsed.presets;
-          if (parsed.userTargets) userTargets = parsed.userTargets;
-
-          saveDataToStorage();
-          renderApp();
-          toggleSettingsModal();
-          alert('นำเข้าข้อมูลสำเร็จแล้ว!');
-        } catch (err) {
-          alert('ไฟล์ไม่ถูกต้อง กรุณาตรวจสอบไฟล์อีกครั้ง');
+        function changeDate(days) {
+            const d = new Date(currentDate);
+            d.setDate(d.getDate() + days);
+            currentDate = d.toISOString().split('T')[0];
+            updateDateDisplay();
+            updateDashboard();
+            renderLogs();
         }
-      };
-      reader.readAsText(file);
-    }
 
-    function exportDataCSV() {
-      if (logs.length === 0) {
-        alert('ยังไม่มีข้อมูลสำหรับส่งออก');
-        return;
-      }
-      let csv = '\uFEFFวันที่,มื้ออาหาร,รายการ,แคลอรี(kcal),โปรตีน(g)\n';
-      logs.forEach(l => {
-        csv += `"${l.date}","${l.mealType}","${l.name.replace(/"/g, '""')}",${l.cal},${l.protein || 0}\n`;
-      });
+        function updateDateDisplay() {
+            const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+            const dateObj = new Date(currentDate);
+            const formatted = dateObj.toLocaleDateString('th-TH', options);
+            
+            const todayStr = new Date().toISOString().split('T')[0];
+            let label = `📅 ${formatted}`;
+            if(currentDate === todayStr) label = `📅 วันนี้ (${formatted})`;
 
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Calorie_Logs_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+            document.getElementById('current-date-display').innerText = label;
+        }
 
-    // --- HELPER ---
-    function escapeHtml(str) {
-      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-  </script>
+        function switchTab(tab) {
+            currentTab = tab;
+            const btnLogs = document.getElementById('tab-btn-logs');
+            const btnPresets = document.getElementById('tab-btn-presets');
+            const divLogs = document.getElementById('tab-logs');
+            const divPresets = document.getElementById('tab-presets');
+
+            if(tab === 'logs') {
+                btnLogs.className = "flex-1 py-2.5 text-xs font-bold rounded-xl bg-white text-slate-800 shadow-xs transition flex items-center justify-center gap-1.5";
+                btnPresets.className = "flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-500 transition flex items-center justify-center gap-1.5";
+                divLogs.classList.remove('hidden');
+                divPresets.classList.add('hidden');
+            } else {
+                btnPresets.className = "flex-1 py-2.5 text-xs font-bold rounded-xl bg-white text-slate-800 shadow-xs transition flex items-center justify-center gap-1.5";
+                btnLogs.className = "flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-500 transition flex items-center justify-center gap-1.5";
+                divPresets.classList.remove('hidden');
+                divLogs.classList.add('hidden');
+                renderLibrary();
+            }
+        }
+
+        function setMealType(meal) {
+            selectedMeal = meal;
+            document.querySelectorAll('.meal-btn').forEach(btn => {
+                if(btn.dataset.meal === meal) {
+                    btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-700 transition";
+                } else {
+                    btn.className = "meal-btn py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 transition";
+                }
+            });
+        }
+
+        function renderPresetsModalList(listToRender) {
+            const container = document.getElementById('preset-list-container');
+            if(listToRender.length === 0) {
+                container.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">ไม่พบเมนูในคลัง</div>`;
+                return;
+            }
+            container.innerHTML = listToRender.map(item => `
+                <div onclick="selectPreset('${item.name.replace(/'/g, "\\'")}', ${item.cal}, ${item.protein})" class="p-2.5 hover:bg-slate-50 cursor-pointer flex justify-between items-center text-xs">
+                    <span class="font-bold text-slate-800">${item.name}</span>
+                    <span class="text-slate-500 font-medium">${item.cal} kcal | โปรตีน ${item.protein}g</span>
+                </div>
+            `).join('');
+        }
+
+        function filterPresetsModal() {
+            const query = document.getElementById('menu-search').value.toLowerCase();
+            const filtered = presets.filter(p => p.name.toLowerCase().includes(query));
+            renderPresetsModalList(filtered);
+        }
+
+        function selectPreset(name, cal, protein) {
+            document.getElementById('food-name').value = name;
+            document.getElementById('base-cal').value = cal;
+            document.getElementById('base-protein').value = protein;
+            document.getElementById('food-qty').value = 1;
+            document.getElementById('menu-search').value = '';
+            renderPresetsModalList(presets);
+            calculatePreview();
+        }
+
+        function calculatePreview() {
+            const qty = parseFloat(document.getElementById('food-qty').value) || 0;
+            const baseCal = parseFloat(document.getElementById('base-cal').value) || 0;
+            const baseProtein = parseFloat(document.getElementById('base-protein').value) || 0;
+
+            const totalCal = Math.round(qty * baseCal);
+            const totalProtein = Math.round((qty * baseProtein) * 10) / 10;
+
+            document.getElementById('preview-total-cal').innerText = totalCal;
+            document.getElementById('preview-total-protein').innerText = totalProtein;
+        }
+
+        function renderLibrary() {
+            const query = document.getElementById('library-search') ? document.getElementById('library-search').value.toLowerCase() : '';
+            const filtered = presets.filter(p => p.name.toLowerCase().includes(query));
+            const container = document.getElementById('preset-library-list');
+
+            if(filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs bg-white rounded-2xl border border-slate-100">ไม่พบเมนูอาหารในคลัง</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => `
+                <div class="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-800">${item.name}</h4>
+                        <p class="text-[11px] text-slate-500 mt-0.5">หน่วยละ: ${item.cal} kcal | โปรตีน ${item.protein}g</p>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="openModalWithPreset('${item.name.replace(/'/g, "\\'")}', ${item.cal}, ${item.protein})" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl transition">
+                            + เลือกกิน
+                        </button>
+                        <button onclick="deletePreset('${item.name.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-300 hover:text-rose-500 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openModalWithPreset(name, cal, protein) {
+            openModal();
+            selectPreset(name, cal, protein);
+        }
+
+        function deletePreset(name) {
+            if(confirm(`ต้องการลบ "${name}" ออกจากคลังเมนูใช่หรือไม่?`)) {
+                presets = presets.filter(p => p.name !== name);
+                localStorage.setItem('calorie_presets', JSON.stringify(presets));
+                renderLibrary();
+            }
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('food-name').value.trim();
+            const qty = parseFloat(document.getElementById('food-qty').value) || 1;
+            const baseCal = parseFloat(document.getElementById('base-cal').value) || 0;
+            const baseProtein = parseFloat(document.getElementById('base-protein').value) || 0;
+
+            const finalCal = Math.round(qty * baseCal);
+            const finalProtein = Math.round((qty * baseProtein) * 10) / 10;
+            const displayName = qty !== 1 ? `${name} (x${qty})` : name;
+
+            const newLog = {
+                id: Date.now(),
+                date: currentDate,
+                meal: selectedMeal,
+                name: displayName,
+                cal: finalCal,
+                protein: finalProtein
+            };
+
+            logs.push(newLog);
+            localStorage.setItem('calorie_logs', JSON.stringify(logs));
+
+            // Save base unit to preset if new
+            if(!presets.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+                presets.push({ name, cal: baseCal, protein: baseProtein });
+                localStorage.setItem('calorie_presets', JSON.stringify(presets));
+            }
+
+            closeModal();
+            updateDashboard();
+            renderLogs();
+            renderLibrary();
+        }
+
+        function handleCustomPresetSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('cp-name').value.trim();
+            const cal = parseFloat(document.getElementById('cp-cal').value) || 0;
+            const protein = parseFloat(document.getElementById('cp-protein').value) || 0;
+
+            if(!presets.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+                presets.push({ name, cal, protein });
+                localStorage.setItem('calorie_presets', JSON.stringify(presets));
+                renderLibrary();
+                alert(`เพิ่ม "${name}" ลงในคลังเมนูสำเร็จ!`);
+            } else {
+                alert('มีชื่อเมนูนี้อยู่ในคลังแล้ว');
+            }
+            closeCustomPresetModal();
+        }
+
+        function deleteLog(id) {
+            logs = logs.filter(l => l.id !== id);
+            localStorage.setItem('calorie_logs', JSON.stringify(logs));
+            updateDashboard();
+            renderLogs();
+        }
+
+        function updateDashboard() {
+            const targetLogs = logs.filter(l => l.date === currentDate);
+
+            const totalCal = targetLogs.reduce((sum, item) => sum + item.cal, 0);
+            const totalProtein = targetLogs.reduce((sum, item) => sum + item.protein, 0);
+            const remaining = 1500 - totalCal;
+
+            document.getElementById('total-cal').innerText = totalCal;
+            document.getElementById('remaining-cal').innerText = remaining > 0 ? remaining : 0;
+            document.getElementById('total-protein').innerText = totalProtein;
+
+            const progressPercent = Math.min((totalCal / 1500) * 100, 100);
+            const progressBar = document.getElementById('cal-progress');
+            progressBar.style.width = `${progressPercent}%`;
+
+            const statusBadge = document.getElementById('status-badge');
+            const percentCal = document.getElementById('percent-cal');
+            percentCal.innerText = `${Math.round((totalCal / 1500) * 100)}%`;
+
+            if(totalCal > 1500) {
+                statusBadge.innerText = "⚠️ เกินเป้าหมาย";
+                statusBadge.className = "px-3 py-1.5 rounded-xl bg-rose-500 text-white text-xs font-bold backdrop-blur-sm";
+            } else if(totalCal >= 1400) {
+                statusBadge.innerText = "🔥 ผ่านเกณฑ์ 👍";
+                statusBadge.className = "px-3 py-1.5 rounded-xl bg-white text-emerald-800 text-xs font-bold shadow-xs";
+            } else {
+                statusBadge.innerText = "กำลังคุมแคล";
+                statusBadge.className = "px-3 py-1.5 rounded-xl bg-white/20 text-white text-xs font-bold backdrop-blur-sm";
+            }
+
+            const pStatus = document.getElementById('protein-status');
+            if(totalProtein >= 96) {
+                pStatus.innerText = "🎯 ถึงเป้าโปรตีนแล้ว!";
+                pStatus.className = "text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-400 text-emerald-950 shadow-xs";
+            } else {
+                pStatus.innerText = `ต้องการอีก ${96 - totalProtein}g`;
+                pStatus.className = "text-xs font-bold px-3 py-1.5 rounded-xl bg-amber-400 text-amber-950 shadow-xs";
+            }
+        }
+
+        function renderLogs() {
+            const targetLogs = logs.filter(l => l.date === currentDate);
+            const container = document.getElementById('log-list');
+
+            document.getElementById('log-count').innerText = `${targetLogs.length} รายการ`;
+
+            if(targetLogs.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs bg-white rounded-2xl border border-slate-100">ยังไม่มีรายการบันทึกในวันนี้</div>`;
+                return;
+            }
+
+            container.innerHTML = targetLogs.map(item => `
+                <div class="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg">${item.meal}</span>
+                            <h4 class="text-xs font-bold text-slate-800">${item.name}</h4>
+                        </div>
+                        <p class="text-[11px] text-slate-500">โปรตีน ${item.protein}g</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-extrabold text-slate-900">${item.cal} kcal</span>
+                        <button onclick="deleteLog(${item.id})" class="text-slate-300 hover:text-rose-500 p-1 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openModal() {
+            document.getElementById('food-modal').classList.remove('hidden');
+            renderPresetsModalList(presets);
+            document.getElementById('food-qty').value = 1;
+            calculatePreview();
+        }
+
+        function closeModal() {
+            document.getElementById('food-modal').classList.add('hidden');
+            document.getElementById('food-form').reset();
+            document.getElementById('menu-search').value = '';
+            selectedMeal = 'เช้า';
+            setMealType('เช้า');
+        }
+
+        function openCustomPresetModal() {
+            document.getElementById('custom-preset-modal').classList.remove('hidden');
+        }
+
+        function closeCustomPresetModal() {
+            document.getElementById('custom-preset-modal').classList.add('hidden');
+        }
+
+        function openExportModal() {
+            document.getElementById('export-modal').classList.remove('hidden');
+        }
+
+        function closeExportModal() {
+            document.getElementById('export-modal').classList.add('hidden');
+        }
+
+        function exportData() {
+            const data = { presets, logs };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fit-tracker-backup-${currentDate}.json`;
+            a.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if(parsed.presets && parsed.logs) {
+                        presets = parsed.presets;
+                        logs = parsed.logs;
+                        localStorage.setItem('calorie_presets', JSON.stringify(presets));
+                        localStorage.setItem('calorie_logs', JSON.stringify(logs));
+                        initApp();
+                        alert('นำเข้าข้อมูลสำเร็จ!');
+                        closeExportModal();
+                    } else {
+                        alert('รูปแบบไฟล์ไม่ถูกต้อง');
+                    }
+                } catch(err) {
+                    alert('เกิดข้อผิดพลาดในการอ่านไฟล์');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        window.onload = initApp;
+    </script>
 </body>
 </html>
