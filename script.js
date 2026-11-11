@@ -20,6 +20,9 @@ let currentDate = new Date().toISOString().split('T')[0];
 let selectedMeal = 'เช้า';
 let currentTab = 'logs';
 
+let calViewDate = new Date(); // สำหรับหน้าต่างปฏิทิน
+let selectedCalendarDateStr = null;
+
 function initApp() {
     updateDateDisplay();
     syncPresetsFromLogs();
@@ -291,11 +294,9 @@ function renderLogs() {
         return;
     }
 
-    // Sort order: เช้า -> เที่ยง -> เย็น -> ว่าง
     const mealOrder = { 'เช้า': 1, 'เที่ยง': 2, 'เย็น': 3, 'ว่าง': 4 };
     const sortedLogs = [...targetLogs].sort((a, b) => (mealOrder[a.meal] || 99) - (mealOrder[b.meal] || 99));
 
-    // Group by meal
     const grouped = {};
     sortedLogs.forEach(item => {
         if(!grouped[item.meal]) grouped[item.meal] = [];
@@ -307,9 +308,7 @@ function renderLogs() {
 
     mealDisplayOrder.forEach(mealName => {
         if(grouped[mealName] && grouped[mealName].length > 0) {
-            // Header for each meal group
-            let headerBg = '';
-            let headerText = '';
+            let headerBg = '', headerText = '';
             if(mealName === 'เช้า') { headerBg = 'bg-orange-50 border-orange-200'; headerText = 'text-orange-900'; }
             else if(mealName === 'เที่ยง') { headerBg = 'bg-rose-50 border-rose-200'; headerText = 'text-rose-900'; }
             else if(mealName === 'เย็น') { headerBg = 'bg-sky-50 border-sky-200'; headerText = 'text-sky-900'; }
@@ -359,6 +358,132 @@ function renderLogs() {
 
     container.innerHTML = htmlContent;
 }
+
+// ================= CALENDAR SYSTEM =================
+function openCalendarModal() {
+    renderCalendar();
+    document.getElementById('calendar-modal').classList.remove('hidden');
+}
+
+function closeCalendarModal() {
+    document.getElementById('calendar-modal').classList.add('hidden');
+    document.getElementById('cal-day-detail').classList.add('hidden');
+    selectedCalendarDateStr = null;
+}
+
+function changeCalendarMonth(direction) {
+    calViewDate.setMonth(calViewDate.getMonth() + direction);
+    renderCalendar();
+    document.getElementById('cal-day-detail').classList.add('hidden');
+}
+
+function renderCalendar() {
+    const year = calViewDate.getFullYear();
+    const month = calViewDate.getMonth();
+
+    const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+    document.getElementById('cal-month-title').innerText = `${monthNames[month]} ${year + 543}`;
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    const gridContainer = document.getElementById('calendar-grid');
+    let html = '';
+
+    // Blank spaces for previous month offset
+    for(let i = 0; i < firstDayIndex; i++) {
+        html += `<div class="h-14 bg-slate-50/40 rounded-xl"></div>`;
+    }
+
+    // Days of current month
+    for(let day = 1; day <= totalDays; day++) {
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        const dateStr = `${year}-${mm}-${dd}`;
+
+        // Calculate totals for this date
+        const dayLogs = logs.filter(l => l.date === dateStr);
+        const dayCal = dayLogs.reduce((sum, item) => sum + item.cal, 0);
+        const dayProtein = dayLogs.reduce((sum, item) => sum + item.protein, 0);
+
+        // Dot 1: Calorie Color
+        // <=1500 green, >1500 & <=2000 orange, >2000 red
+        let calDotColor = 'bg-slate-200';
+        if(dayLogs.length > 0) {
+            if(dayCal <= 1500) calDotColor = 'bg-emerald-500';
+            else if(dayCal <= 2000) calDotColor = 'bg-amber-500';
+            else calDotColor = 'bg-rose-500';
+        }
+
+        // Dot 2: Protein Color (Goal 96g)
+        // <48 (50%) red, 48-71.9 (50-75%) yellow, >=72 (75%+) green
+        let proDotColor = 'bg-slate-200';
+        if(dayLogs.length > 0) {
+            if(dayProtein < 48) proDotColor = 'bg-rose-500';
+            else if(dayProtein < 72) proDotColor = 'bg-amber-400';
+            else proDotColor = 'bg-emerald-500';
+        }
+
+        const isSelected = selectedCalendarDateStr === dateStr ? 'ring-2 ring-emerald-500 bg-emerald-50/50' : 'bg-white hover:bg-slate-50';
+        const isToday = dateStr === new Date().toISOString().split('T')[0] ? 'border-emerald-400 font-bold' : 'border-slate-100';
+
+        html += `
+            <div onclick="selectCalendarDate('${dateStr}')" class="h-14 border ${isToday} ${isSelected} rounded-xl p-1.5 flex flex-col justify-between cursor-pointer transition relative">
+                <span class="text-[11px] text-slate-700">${day}</span>
+                <div class="flex justify-center gap-1 pb-0.5">
+                    <div class="w-2 h-2 rounded-full ${calDotColor}" title="แคล: ${dayCal} kcal"></div>
+                    <div class="w-2 h-2 rounded-full ${proDotColor}" title="โปรตีน: ${dayProtein}g"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    gridContainer.innerHTML = html;
+}
+
+function selectCalendarDate(dateStr) {
+    selectedCalendarDateStr = dateStr;
+    renderCalendar(); // re-render to show selection ring
+
+    const detailBox = document.getElementById('cal-day-detail');
+    const titleEl = document.getElementById('detail-date-title');
+    const contentEl = document.getElementById('detail-date-content');
+
+    const dateObj = new Date(dateStr);
+    const formatted = dateObj.toLocaleDateString('th-TH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    titleEl.innerText = `📅 ${formatted}`;
+
+    const dayLogs = logs.filter(l => l.date === dateStr);
+    const totalCal = dayLogs.reduce((s, i) => s + i.cal, 0);
+    const totalProtein = dayLogs.reduce((s, i) => s + i.protein, 0);
+
+    if(dayLogs.length === 0) {
+        contentEl.innerHTML = `<p class="text-slate-400 italic py-1">ไม่มีบันทึกอาหารในวันนี้</p>`;
+    } else {
+        let listHtml = `<div class="font-semibold text-slate-700 mb-1">รวม: ${totalCal} kcal | โปรตีน ${totalProtein}g (${dayLogs.length} รายการ)</div><div class="space-y-1 max-h-32 overflow-y-auto pr-1">`;
+        dayLogs.forEach(item => {
+            listHtml += `<div class="flex justify-between bg-white px-2.5 py-1 rounded-lg border border-slate-100 text-[11px]">
+                <span class="font-medium text-slate-800">[${item.meal}] ${item.name}</span>
+                <span class="text-slate-500">${item.cal} kcal | โปรตีน ${item.protein}g</span>
+            </div>`;
+        });
+        listHtml += `</div>`;
+        contentEl.innerHTML = listHtml;
+    }
+
+    detailBox.classList.remove('hidden');
+}
+
+function jumpToDateFromCalendar() {
+    if(selectedCalendarDateStr) {
+        currentDate = selectedCalendarDateStr;
+        updateDateDisplay();
+        updateDashboard();
+        renderLogs();
+        closeCalendarModal();
+    }
+}
+// ===================================================
 
 function openModal() {
     document.getElementById('food-modal').classList.remove('hidden');
