@@ -1,12 +1,51 @@
-// ใส่ Gemini API Key ของคุณที่นี่
+// ตั้งค่า Gemini API Key ของคุณที่นี่
 const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
 
 const DAILY_TARGET_CAL = 1500;
 let currentDate = new Date().toISOString().split('T')[0];
 let allData = JSON.parse(localStorage.getItem('fit_tracker_data') || '{}');
 
-if (allData.presets) delete allData.presets;
-if (allData.logs) delete allData.logs;
+// ฟังก์ชันช่วยแปลงข้อมูลโครงสร้างเก่า (logs) ให้เป็นโครงสร้างปฏิทินปัจจุบัน
+function migrateOldData(rawData) {
+    let converted = {};
+    
+    // ถ้ามีโครงสร้างแบบ logs (อาร์เรย์รายการอาหาร)
+    if (rawData.logs && Array.isArray(rawData.logs)) {
+        rawData.logs.forEach(item => {
+            const date = item.date || currentDate;
+            if (!converted[date]) {
+                converted[date] = { morning: [], lunch: [], dinner: [], snack: [] };
+            }
+            
+            // แปลงชื่อมื้อจากภาษาไทยเดิมให้เข้ากับระบบคีย์ระบบใหม่
+            let mKey = 'morning';
+            if (item.meal === 'เที่ยง') mKey = 'lunch';
+            else if (item.meal === 'เย็น') mKey = 'dinner';
+            else if (item.meal === 'ว่าง' || item.meal === 'อื่นๆ') mKey = 'snack';
+            
+            converted[date][mKey].push({
+                name: item.name || 'ไม่ระบุชื่อ',
+                cal: item.cal || 0,
+                protein: item.protein || 0,
+                carbs: item.carbs || 0,
+                fat: item.fat || 0,
+                sodium: item.sodium || 0,
+                cholesterol: item.cholesterol || 0,
+                qty: item.qty || 1
+            });
+        });
+    } else {
+        // ถ้าเป็นโครงสร้างใหม่อยู่แล้ว
+        converted = rawData;
+    }
+    
+    if (converted.presets) delete converted.presets;
+    if (converted.logs) delete converted.logs;
+    return converted;
+}
+
+// โหลดและแปลงข้อมูลทันที
+allData = migrateOldData(allData);
 
 const mealConfig = {
     morning: { title: 'มื้อเช้า', color: 'orange', border: 'border-orange-100', text: 'text-orange-600', badge: 'bg-orange-50' },
@@ -118,7 +157,6 @@ function updateDashboard() {
     }
 }
 
-// Modal Form Management
 function openAddFoodModal(defaultMeal = 'morning') {
     document.getElementById('modal-title').innerText = "บันทึกมื้ออาหาร";
     document.getElementById('meal-type').value = defaultMeal;
@@ -278,10 +316,8 @@ function importDataJSON(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const imported = JSON.parse(e.target.result);
-            allData = imported.logs ? imported.logs : imported;
-            if (allData.presets) delete allData.presets;
-            if (allData.logs) delete allData.logs;
+            const raw = JSON.parse(e.target.result);
+            allData = migrateOldData(raw);
             localStorage.setItem('fit_tracker_data', JSON.stringify(allData));
             initApp();
             alert('✨ กู้คืนข้อมูลสำเร็จ!');
@@ -294,7 +330,7 @@ function importDataJSON(event) {
 }
 
 // ==========================================
-// AI & Scanner Functions (วิเคราะห์สารอาหารทั้ง 6 ชนิด)
+// AI & Scanner Functions
 // ==========================================
 const aiPromptInstruction = "Analyze this food image. Estimate food name in Thai, calories (kcal), protein (g), carbs (g), fat (g), sodium (mg), and cholesterol (mg). Return strictly ONLY a JSON object with keys: food_name (string), calories (number), protein (number), carbs (number), fat (number), sodium (number), cholesterol (number).";
 
@@ -420,9 +456,9 @@ async function fetchProductByBarcode(barcode) {
             
             const cal = nutriments['energy-kcal_100g'] || nutriments['energy-kcal'] || 0;
             const protein = nutriments['proteins_100g'] || nutriments['proteins'] || 0;
-            const carbs = nutris = nutriments['carbohydrates_100g'] || nutriments['carbohydrates'] || 0;
+            const carbs = nutriments['carbohydrates_100g'] || nutriments['carbohydrates'] || 0;
             const fat = nutriments['fat_100g'] || nutriments['fat'] || 0;
-            const sodium = (nutriments['sodium_100g'] || nutriments['sodium'] || 0) * 2.5 * 1000; // แปลงเกลือเป็นโซเดียม (mg) คร่าวๆ ถ้ามี
+            const sodium = (nutriments['sodium_100g'] || nutriments['sodium'] || 0) * 2.5 * 1000;
             const cholesterol = nutriments['cholesterol_100g'] || nutriments['cholesterol'] || 0;
 
             document.getElementById('food-name').value = name;
