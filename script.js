@@ -481,4 +481,50 @@ async function fetchProductByBarcode(barcode) {
     }
 }
 
+// 1. โหลดคลังเมนูเดิมจาก LocalStorage (ถ้าไม่มีให้เป็นอาร์เรย์ว่าง)
+let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [];
+
+// ฟังก์ชันเมื่อกดบันทึกรายการอาหาร
+function saveFoodEntry(name, calories, protein, carbs, fat, sodium, cholesterol) {
+    const cleanName = name.trim();
+    
+    // เช็กว่ามีเมนูนี้ในคลังหรือยัง (เปรียบเทียบชื่อ)
+    const existingIndex = foodCatalog.findIndex(item => item.name.toLowerCase() === cleanName.toLowerCase());
+
+    if (existingIndex === -1) {
+        // ถ้ายังไม่มี -> แอดเพิ่มเข้าไปในคลังเมนู
+        foodCatalog.push({
+            name: cleanName,
+            calories: Number(calories),
+            protein: Number(protein),
+            carbs: Number(carbs),
+            fat: Number(fat),
+            sodium: Number(sodium),
+            cholesterol: Number(cholesterol)
+        });
+        // อัปเดตคลังลง LocalStorage
+        localStorage.setItem('foodCatalog', JSON.stringify(foodCatalog));
+        console.log(`เพิ่ม "${cleanName}" เข้าคลังเมนูเรียบร้อย`);
+    } else {
+        // ถ้ามีอยู่แล้ว -> ไม่ต้องเพิ่มซ้ำ
+        console.log(`เมนู "${cleanName}" มีในคลังแล้ว`);
+    }
+}
+
+// 2. ฟังก์ชันค้นหาและดึงข้อมูลอัตโนมัติเมื่อผู้ใช้พิมพ์ชื่ออาหาร
+function autoFillFoodData(inputName) {
+    const cleanName = inputName.trim().toLowerCase();
+    const foundItem = foodCatalog.find(item => item.name.toLowerCase() === cleanName);
+
+    if (foundItem) {
+        // ดึงค่ามาเติมลงในช่อง input ของฟอร์มให้อัตโนมัติ
+        document.getElementById('caloriesInput').value = foundItem.calories;
+        document.getElementById('proteinInput').value = foundItem.protein;
+        document.getElementById('carbsInput').value = foundItem.carbs;
+        document.getElementById('fatInput').value = foundItem.fat;
+        document.getElementById('sodiumInput').value = foundItem.sodium;
+        document.getElementById('cholesterolInput').value = foundItem.cholesterol;
+    }
+}
+
 window.onload = initApp;
