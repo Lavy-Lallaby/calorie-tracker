@@ -363,6 +363,34 @@ function deleteMealItem(mealKey, index) {
     renderApp();
 }
 
+// ฟังก์ชันเรียกใช้งานเมื่อกดปุ่มสแกนต่างๆ
+function triggerScan(type) {
+    const fileInput = document.getElementById('hiddenFileInput');
+    if (!fileInput) return;
+
+    if (type === 'camera') {
+        // บังคับเปิดกล้องหลังมือถือ (ถ้าใช้งานบนมือถือ)
+        fileInput.setAttribute('capture', 'environment');
+    } else {
+        // สำหรับสแกนฉลากหรือบาร์โค้ด ให้เลือกรูปจากอัลบั้มหรือถ่ายใหม่ได้
+        fileInput.removeAttribute('capture');
+    }
+
+    fileInput.click(); // จำลองการคลิกเพื่อให้มือถือเปิดกล้อง/แกลเลอรี
+}
+
+// ฟังก์ชันหลังจากผู้ใช้ถ่ายรูปหรือเลือกรูปเสร็จแล้ว
+function handleFileSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // ตัวอย่างจำลอง: เมื่อเลือกรูปแล้ว สามารถนำรูปนี้ไปส่งต่อให้ AI หรือจำลองการกรอกข้อมูล
+    alert("ได้รับรูปภาพแล้ว! (สามารถนำไปเชื่อมต่อระบบ AI Vision หรือ OCR เพื่อดึงสารอาหารอัตโนมัติในขั้นตอนต่อไป)");
+    
+    // เคลียร์ค่าเพื่อให้เลือกรูปเดิมซ้ำได้
+    event.target.value = '';
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     updateFoodDatalist();
     renderApp();
