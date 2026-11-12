@@ -6,6 +6,9 @@ const GITHUB_REPO  = "fittracker-db";
 const GITHUB_PATH  = "db.json";
 let currentFileSha = null;
 let baseNutrition = null;
+let calendarViewYear = new Date().getFullYear();
+let calendarViewMonth = new Date().getMonth();
+let calendarSelectedKey = currentDateKey;
 
 // State Management
 let currentDateKey = getFormattedDateKey(new Date());
@@ -1114,32 +1117,218 @@ function renderWeeklyChart() {
     `;
 }
 
+// ==========================================
+// Monthly Calendar with Dual Status Dots & Detail Expand
+// ==========================================
 function openCalendarModal() {
-    const container = document.getElementById('calendar-grid-container');
-    container.innerHTML = '';
-    
-    const today = new Date();
-    for (let i = -3; i <= 3; i++) {
-        let d = new Date(today);
-        d.setDate(today.getDate() + i);
-        let key = getFormattedDateKey(d);
-        let isCurrent = key === currentDateKey;
+    const parts = currentDateKey.split('-');
+    calendarViewYear = parseInt(parts[0], 10);
+    calendarViewMonth = parseInt(parts[1], 10) - 1;
+    calendarSelectedKey = currentDateKey;
 
-        let btn = document.createElement('button');
-        btn.className = `w-full text-left px-4 py-2.5 rounded-xl text-sm flex justify-between items-center transition ${isCurrent ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-950/60 hover:bg-slate-800 text-slate-300'}`;
-        btn.innerHTML = `<span>${formatDisplayDate(key)}</span> ${isCurrent ? '<i class="fa-solid fa-check text-xs"></i>' : ''}`;
-        btn.onclick = () => {
-            currentDateKey = key;
-            closeCalendarModal();
-            renderUIOnly();
-        };
-        container.appendChild(btn);
-    }
+    renderCalendarMonth();
+    renderCalendarDayDetail(calendarSelectedKey);
     document.getElementById('calendar-modal').classList.remove('hidden');
 }
 
 function closeCalendarModal() {
     document.getElementById('calendar-modal').classList.add('hidden');
+}
+
+function changeCalendarMonth(delta) {
+    calendarViewMonth += delta;
+    if (calendarViewMonth < 0) {
+        calendarViewMonth = 11;
+        calendarViewYear--;
+    } else if (calendarViewMonth > 11) {
+        calendarViewMonth = 0;
+        calendarViewYear++;
+    }
+    renderCalendarMonth();
+}
+
+function getDayStatsForCalendar(dateKey) {
+    const dayObj = allMealsHistory[dateKey];
+    if (!dayObj) return null;
+
+    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSugar = 0, totalSodium = 0;
+    let itemCount = 0;
+
+    if (dayObj.meals) {
+        Object.values(dayObj.meals).forEach(list => {
+            list.forEach(item => {
+                totalCal += Number(item.calories || 0);
+                totalProt += Number(item.protein || 0);
+                totalCarbs += Number(item.carbs || 0);
+                totalFat += Number(item.fat || 0);
+                totalSugar += Number(item.sugar || 0);
+                totalSodium += Number(item.sodium || 0);
+                itemCount++;
+            });
+        });
+    }
+
+    const steps = Number(dayObj.steps || 0);
+    const stepsCal = Math.round(steps * 0.04);
+    const workoutCal = (dayObj.workouts || []).reduce((s, w) => s + Number(w.calories || 0), 0);
+    const totalBurn = stepsCal + workoutCal;
+
+    // ถือว่ามีข้อมูลถ้ามีรายการอาหาร หรือมีก้าวเดิน/ออกกำลังกาย
+    if (itemCount === 0 && steps === 0 && workoutCal === 0) return null;
+
+    return { totalCal, totalProt, totalCarbs, totalFat, totalSugar, totalSodium, steps, totalBurn, dayObj };
+}
+
+function renderCalendarMonth() {
+    const monthNames = [
+        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ];
+    document.getElementById('calendar-month-title').innerText = `${monthNames[calendarViewMonth]} ${calendarViewYear + 543}`;
+
+    const container = document.getElementById('calendar-grid-container');
+    container.innerHTML = '';
+
+    const firstDayOfWeek = new Date(calendarViewYear, calendarViewMonth, 1).getDay(); // 0 = อา.
+    const daysInMonth = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
+    const todayKey = getFormattedDateKey(new Date());
+
+    // ช่องว่างก่อนวันที่ 1
+    for (let i = 0; i < firstDayOfWeek; i++) {
+        container.innerHTML += `<div class="h-11"></div>`;
+    }
+
+    // วาดวันที่ 1 ถึงวันสุดท้ายของเดือน
+    for (let day = 1; day <= daysInMonth; day++) {
+        const key = `${calendarViewYear}-${String(calendarViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const stats = getDayStatsForCalendar(key);
+        const isSelected = key === calendarSelectedKey;
+        const isToday = key === todayKey;
+
+        let dotsHtml = `<div class="h-2 flex items-center justify-center gap-1 mt-0.5"></div>`;
+        if (stats && stats.totalCal > 0) {
+            // 1. จุดซ้าย: แคลอรี (<1500 เขียว, 1500-2000 ส้ม, >2000 แดง)
+            let calDotClass = 'bg-emerald-400';
+            if (stats.totalCal > 2000) {
+                calDotClass = 'bg-rose-500';
+            } else if (stats.totalCal >= 1500) {
+                calDotClass = 'bg-orange-400';
+            }
+
+            // 2. จุดขวา: โปรตีนเทียบเป้า 96g (<50% แดง, 50-75% เหลือง, >=75% เขียว)
+            const protPct = (stats.totalProt / 96) * 100;
+            let protDotClass = 'bg-emerald-400';
+            if (protPct < 50) {
+                protDotClass = 'bg-rose-500';
+            } else if (protPct < 75) {
+                protDotClass = 'bg-amber-300';
+            }
+
+            dotsHtml = `
+                <div class="h-2 flex items-center justify-center gap-1 mt-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full ${calDotClass}"></span>
+                    <span class="w-1.5 h-1.5 rounded-full ${protDotClass}"></span>
+                </div>
+            `;
+        }
+
+        const btnClass = isSelected
+            ? 'bg-indigo-600 text-white font-bold ring-2 ring-indigo-400'
+            : (isToday ? 'bg-slate-800 text-amber-300 font-bold border border-amber-500/40' : 'bg-slate-950/60 hover:bg-slate-800 text-slate-200');
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `h-11 rounded-xl flex flex-col items-center justify-center transition ${btnClass}`;
+        btn.innerHTML = `<span class="text-xs leading-none">${day}</span>${dotsHtml}`;
+        btn.onclick = () => {
+            calendarSelectedKey = key;
+            renderCalendarMonth();
+            renderCalendarDayDetail(key);
+        };
+        container.appendChild(btn);
+    }
+}
+
+function renderCalendarDayDetail(dateKey) {
+    const detailBox = document.getElementById('calendar-day-detail');
+    const stats = getDayStatsForCalendar(dateKey);
+
+    if (!stats) {
+        detailBox.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div>
+                    <div class="text-xs font-bold text-white">${formatDisplayDate(dateKey)}</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">ยังไม่มีข้อมูลบันทึกในวันนี้</div>
+                </div>
+                <button type="button" onclick="jumpToDate('${dateKey}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-xl font-semibold transition shrink-0">
+                    เปิดวันนี้
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    const protPct = Math.round((stats.totalProt / 96) * 100);
+    const remaining = (1500 + stats.totalBurn) - stats.totalCal;
+
+    // สร้างรายการอาหารย่อแยกตามมื้อสำหรับกดขยายดู
+    let mealsBreakdown = '';
+    mealTypes.forEach(mType => {
+        const list = (stats.dayObj.meals && stats.dayObj.meals[mType]) || [];
+        if (list.length > 0) {
+            const itemsStr = list.map(i => `${i.name} (${i.calories} kcal, P:${i.protein || 0}g)`).join(', ');
+            mealsBreakdown += `<div class="text-[11px] text-slate-300"><span class="text-indigo-400 font-semibold">${mType}:</span> ${itemsStr}</div>`;
+        }
+    });
+
+    detailBox.innerHTML = `
+        <div class="flex justify-between items-start gap-2 border-b border-slate-800 pb-2">
+            <div>
+                <div class="text-xs font-bold text-white">${formatDisplayDate(dateKey)}</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">
+                    ทาน <b class="text-white">${stats.totalCal}</b> kcal | เผาผลาญ <b class="text-orange-400">${stats.totalBurn}</b> kcal (${stats.steps.toLocaleString()} ก้าว)
+                </div>
+            </div>
+            <button type="button" onclick="jumpToDate('${dateKey}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-xl font-semibold transition shrink-0">
+                ดู/แก้ไขวันนั้น
+            </button>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5 text-center text-[11px]">
+            <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">โปรตีน (${protPct}%)</span>
+                <span class="font-bold text-emerald-400">${stats.totalProt.toFixed(1)}g</span>
+            </div>
+            <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">คาร์บ</span>
+                <span class="font-bold text-slate-200">${stats.totalCarbs.toFixed(1)}g</span>
+            </div>
+            <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">ไขมัน</span>
+                <span class="font-bold text-slate-200">${stats.totalFat.toFixed(1)}g</span>
+            </div>
+            <div class="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">คงเหลือ</span>
+                <span class="font-bold ${remaining < 0 ? 'text-rose-400' : 'text-sky-400'}">${remaining}</span>
+            </div>
+        </div>
+
+        <!-- ปุ่มกดขยายดูรายการอาหารทั้งหมดของวันนั้น -->
+        <details class="pt-1">
+            <summary class="text-[11px] text-amber-400 font-medium cursor-pointer select-none hover:underline">
+                กดเพื่อขยายดูรายการอาหารทั้งหมดของวันนี้
+            </summary>
+            <div class="mt-2 space-y-1 pl-2 border-l-2 border-slate-800">
+                ${mealsBreakdown || '<div class="text-[11px] text-slate-500">ไม่มีรายการอาหาร</div>'}
+            </div>
+        </details>
+    `;
+}
+
+function jumpToDate(dateKey) {
+    currentDateKey = dateKey;
+    closeCalendarModal();
+    renderUIOnly();
 }
 
 // Initialize on load
