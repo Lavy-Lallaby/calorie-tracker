@@ -10,15 +10,19 @@
 <body>
 
     <div class="container">
-        <!-- Header (เอาปุ่มขวาบนออกแล้ว) -->
+        <!-- Header พร้อมปุ่มปฏิทินเลือกวัน/ดูสรุป -->
         <header>
             <div class="logo-area">
+                <span style="font-size: 22px;">🦦</span>
                 <h1 class="logo-title">FitTracker</h1>
                 <span class="calorie-badge">1,500 kcal</span>
             </div>
+            <div class="header-icons">
+                <button class="icon-btn" id="openCalendarBtn" title="ปฏิทิน / ดูสรุปย้อนหลัง">📅</button>
+            </div>
         </header>
 
-        <div class="date-display">วันพฤหัสบดีที่ 12 พฤศจิกายน 2569</div>
+        <div class="date-display" id="currentDateText">วันพฤหัสบดีที่ 12 พฤศจิกายน 2569</div>
 
         <!-- Summary Card -->
         <div class="summary-card">
@@ -42,7 +46,7 @@
 
             <div class="progress-footer">
                 <span id="consumedText" style="color: #9ca3af; font-size: 13px;">ทานไป 0 kcal</span>
-                <span class="status-badge" id="statusBadge">กำลังคุม</span>
+                <span class="status-badge" id="statusBadge">ต่ำกว่าเกณฑ์ / กำลังคุม</span>
             </div>
             <div class="progress-bar-bg">
                 <div class="progress-bar-fill" id="progressBar"></div>
@@ -50,8 +54,28 @@
         </div>
 
         <!-- Meal Sections Container -->
-        <div id="mealSectionsContainer">
-            <!-- จะถูกเรนเดอร์ด้วย JavaScript -->
+        <div id="mealSectionsContainer"></div>
+    </div>
+
+    <!-- Modal ปฏิทิน & สรุปประวัติย้อนหลัง -->
+    <div id="calendarModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">📅 ปฏิทิน & สรุปข้อมูล</h3>
+                <button type="button" id="closeCalendarBtn" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #6b7280;">✕</button>
+            </div>
+            
+            <div class="form-group">
+                <label>เลือกวันที่ต้องการดูหรือบันทึกข้อมูล</label>
+                <input type="date" id="datePickerInput" class="form-control">
+            </div>
+
+            <div style="margin-top: 16px;">
+                <div style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px;">ประวัติการบันทึกที่ผ่านมา</div>
+                <div id="historySummaryList" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- รายการสรุปแต่ละวันจะแสดงตรงนี้ -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -65,7 +89,6 @@
 
                 <div class="form-group">
                     <label>ชื่ออาหาร</label>
-                    <!-- ใส่ list="food-list" เพื่อให้พิมพ์ค้นหาจากคลังอัตโนมัติได้ -->
                     <input type="text" id="foodNameInput" list="food-list" class="form-control" required placeholder="พิมพ์หรือเลือกชื่ออาหาร เช่น หมูย่าง...">
                     <datalist id="food-list"></datalist>
                 </div>
@@ -76,7 +99,7 @@
                         <input type="number" id="caloriesInput" class="form-control" required min="0">
                     </div>
                     <div class="form-group">
-                        <label>โปรตีน (g)</label>
+                        <label style="color: #059669;">โปรตีน (g)</label>
                         <input type="number" id="proteinInput" class="form-control" step="0.1" min="0">
                     </div>
                 </div>
@@ -98,7 +121,7 @@
                         <input type="number" id="sodiumInput" class="form-control" min="0">
                     </div>
                     <div class="form-group">
-                        <label>คอเลสเตอรอล (mg)</label>
+                        <label style="color: #d97706;">คอเลสเตอรอล (mg)</label>
                         <input type="number" id="cholesterolInput" class="form-control" min="0">
                     </div>
                 </div>
