@@ -65,10 +65,19 @@ function changeDay(direction) {
     initApp();
 }
 
+// ✅ แก้เป็น (เช็กให้ครบทั้ง 4 มื้อ แม้จะเป็นข้อมูลเก่าที่เคยเซฟไว้แล้ว)
 function getDayData(dateKey) {
     if (!allMealsHistory[dateKey]) {
-        allMealsHistory[dateKey] = { meals: { "มื้อเช้า": [], "มื้อเที่ยง": [], "มื้อเย็น": [], "มื้อว่าง/อื่นๆ": [] } };
+        allMealsHistory[dateKey] = { meals: {} };
     }
+    if (!allMealsHistory[dateKey].meals) {
+        allMealsHistory[dateKey].meals = {};
+    }
+    mealTypes.forEach(type => {
+        if (!allMealsHistory[dateKey].meals[type]) {
+            allMealsHistory[dateKey].meals[type] = [];
+        }
+    });
     return allMealsHistory[dateKey];
 }
 
