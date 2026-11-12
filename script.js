@@ -97,12 +97,27 @@ function renderApp() {
 
     // อัปเดตส่วนสรุปด้านบน
     const remaining = TARGET_CALORIES - totalCals;
-    document.getElementById('remainingCalories').innerHTML = `${remaining} <span style="font-size: 16px; font-weight: normal;">kcal</span>`;
-    document.getElementById('totalProtein').innerHTML = `${totalProtein.toFixed(1)} <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span>`;
-    document.getElementById('totalCarbs').innerText = `${totalCarbs.toFixed(1)}g`;
-    document.getElementById('totalFat').innerText = `${totalFat.toFixed(1)}g`;
-    document.getElementById('totalSodium').innerText = `${totalSodium}mg`;
-    document.getElementById('totalCholesterol').innerText = `${totalCholesterol}mg`;
+    const remainingEl = document.getElementById('remainingCalories');
+    if (remainingEl) {
+        remainingEl.innerHTML = `${remaining} <span style="font-size: 16px; font-weight: normal;">kcal</span>`;
+    }
+    
+    const totalProteinEl = document.getElementById('totalProtein');
+    if (totalProteinEl) {
+        totalProteinEl.innerHTML = `${totalProtein.toFixed(1)} <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span>`;
+    }
+
+    const totalCarbsEl = document.getElementById('totalCarbs');
+    if (totalCarbsEl) totalCarbsEl.innerText = `${totalCarbs.toFixed(1)}g`;
+
+    const totalFatEl = document.getElementById('totalFat');
+    if (totalFatEl) totalFatEl.innerText = `${totalFat.toFixed(1)}g`;
+
+    const totalSodiumEl = document.getElementById('totalSodium');
+    if (totalSodiumEl) totalSodiumEl.innerText = `${totalSodium}mg`;
+
+    const totalCholesterolEl = document.getElementById('totalCholesterol');
+    if (totalCholesterolEl) totalCholesterolEl.innerText = `${totalCholesterol}mg`;
 
     // บันทึกลง LocalStorage ของวัน
     localStorage.setItem('dailyMeals', JSON.stringify(dailyMeals));
@@ -117,7 +132,7 @@ function openAddModal(mealKey) {
     document.getElementById('editItemIndex').value = "";
     document.getElementById('foodForm').reset();
     document.getElementById('qtyInput').value = 1;
-    modal.classList.add('active');
+    if (modal) modal.classList.add('active');
 }
 
 function openEditModal(mealKey, index) {
@@ -135,13 +150,13 @@ function openEditModal(mealKey, index) {
     document.getElementById('cholesterolInput').value = item.cholesterol;
     document.getElementById('qtyInput').value = item.qty || 1;
 
-    modal.classList.add('active');
+    if (modal) modal.classList.add('active');
 }
 
 const closeModalBtn = document.getElementById('closeModalBtn');
 if (closeModalBtn) {
     closeModalBtn.addEventListener('click', () => {
-        modal.classList.remove('active');
+        if (modal) modal.classList.remove('active');
     });
 }
 
@@ -204,7 +219,7 @@ if (foodForm) {
             dailyMeals[mealKey].items[editIndex] = newItem;
         }
 
-        modal.classList.remove('active');
+        if (modal) modal.classList.remove('active');
         renderApp();
     });
 }
