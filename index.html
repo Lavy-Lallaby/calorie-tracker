@@ -8,29 +8,31 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- ไลบรารีสำหรับสแกนบาร์โค้ด -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- ไลบรารี OCR อ่านฉลากแบบไม่ใช้ AI (ฟรี 100%) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center pb-24">
 
     <!-- Header -->
-    <header class="w-full max-w-md px-4 py-4 flex justify-between items-center bg-slate-900/60 backdrop-blur-md sticky top-0 z-20 border-b border-slate-800/80">
+    <header class="w-full max-w-md px-4 py-3 flex justify-between items-center bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-800/80">
         <div class="flex items-center space-x-2">
             <img src="animal.png" alt="Logo" class="w-8 h-8 rounded-full object-cover border border-amber-500/30">
-            <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-                FitTracker <i class="fa-solid fa-dumbbell text-amber-500 text-sm"></i>
+            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+                FitTracker <i class="fa-solid fa-dumbbell text-amber-500 text-xs"></i>
             </h1>
         </div>
-        <div class="flex items-center space-x-2">
-            <button onclick="openSettingsModal()" title="ตั้งค่า AI API Key" class="bg-slate-800 hover:bg-slate-700 text-slate-300 w-8 h-8 rounded-full flex items-center justify-center transition border border-slate-700">
-                <i class="fa-solid fa-gear text-xs"></i>
-            </button>
-            <button onclick="openCalendarModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-full font-medium transition flex items-center gap-1.5 border border-slate-700">
+        <div class="flex items-center space-x-1.5">
+            <button type="button" onclick="openCalendarModal()" class="bg-slate-800 active:bg-slate-700 text-slate-200 text-xs px-2.5 py-2 rounded-full font-medium transition flex items-center gap-1 border border-slate-700">
                 <i class="fa-solid fa-calendar-days text-amber-400"></i> <span id="current-date-badge">วันนี้</span>
             </button>
-            <div class="bg-indigo-950/80 text-indigo-300 border border-indigo-800/50 text-xs px-3 py-1.5 rounded-full font-semibold">
+            <div class="bg-indigo-950/80 text-indigo-300 border border-indigo-800/50 text-[11px] px-2.5 py-1.5 rounded-full font-semibold">
                 1,500 kcal
             </div>
+            <button type="button" onclick="openSettingsModal()" aria-label="ตั้งค่า" class="bg-slate-800 active:bg-slate-700 text-slate-200 w-9 h-9 rounded-full flex items-center justify-center transition border border-slate-700 touch-manipulation">
+                <i class="fa-solid fa-gear text-xs"></i>
+            </button>
         </div>
     </header>
 
@@ -101,7 +103,7 @@
 
     </main>
 
-    <!-- Food Entry Modal -->
+    <!-- Food Entry Modal (อยู่กลางจอทั้ง PC และมือถือ) -->
     <div id="food-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 w-full max-w-md rounded-3xl border border-slate-800 p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -111,21 +113,17 @@
                 </button>
             </div>
 
-            <!-- AI & Barcode Quick Scan Box -->
+            <!-- Quick Scan Box -->
             <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">
-                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> สแกนอัตโนมัติ (AI & บาร์โค้ด)
+                    <span class="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fa-solid fa-bolt mr-1"></i> สแกนด่วน (ไม่ใช้ AI / บาร์โค้ด)
                     </span>
                     <span id="ai-loading-indicator" class="text-[11px] text-amber-400 hidden">
-                        <i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังวิเคราะห์...
+                        <i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังประมวลผล...
                     </span>
                 </div>
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="triggerImageCapture('food')" class="bg-slate-900 hover:bg-indigo-950/60 border border-slate-800 hover:border-indigo-500/50 rounded-xl py-2.5 px-1 flex flex-col items-center justify-center gap-1 transition text-slate-200">
-                        <i class="fa-solid fa-camera text-indigo-400 text-sm"></i>
-                        <span class="text-[11px] font-medium">ถ่ายรูปอาหาร</span>
-                    </button>
                     <button type="button" onclick="triggerImageCapture('label')" class="bg-slate-900 hover:bg-emerald-950/60 border border-slate-800 hover:border-emerald-500/50 rounded-xl py-2.5 px-1 flex flex-col items-center justify-center gap-1 transition text-slate-200">
                         <i class="fa-solid fa-file-invoice text-emerald-400 text-sm"></i>
                         <span class="text-[11px] font-medium">สแกนฉลาก</span>
@@ -134,8 +132,11 @@
                         <i class="fa-solid fa-barcode text-amber-400 text-sm"></i>
                         <span class="text-[11px] font-medium">บาร์โค้ด</span>
                     </button>
+                    <button type="button" onclick="triggerImageCapture('food')" class="bg-slate-900 hover:bg-indigo-950/60 border border-slate-800 hover:border-indigo-500/50 rounded-xl py-2.5 px-1 flex flex-col items-center justify-center gap-1 transition text-slate-200">
+                        <i class="fa-solid fa-camera text-indigo-400 text-sm"></i>
+                        <span class="text-[11px] font-medium">ถ่ายรูป (AI)</span>
+                    </button>
                 </div>
-                <!-- Hidden file input for Camera/Gallery -->
                 <input type="file" id="ai-image-input" accept="image/*" capture="environment" class="hidden" onchange="handleImageSelected(event)">
             </div>
 
@@ -224,7 +225,7 @@
         <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-800 p-5 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-key text-indigo-400"></i> ตั้งค่า Gemini AI
+                    <i class="fa-solid fa-key text-indigo-400"></i> ตั้งค่า Gemini AI (เสริม)
                 </h3>
                 <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
                     <i class="fa-solid fa-xmark"></i>
@@ -232,16 +233,13 @@
             </div>
             <div class="space-y-3">
                 <p class="text-xs text-slate-400 leading-relaxed">
-                    ใส่รหัส <b>Gemini API Key</b> ของคุณเพื่อเปิดใช้งานระบบถ่ายรูปอาหารและสแกนฉลากโภชนาการ (รหัสจะถูกบันทึกไว้ในเครื่องของคุณเท่านั้น)
+                    ปุ่ม <b>สแกนฉลาก</b> และ <b>บาร์โค้ด</b> ใช้งานได้ทันทีโดยไม่ต้องใช้ Key ส่วนช่องนี้สำหรับปุ่มถ่ายรูปอาหาร (AI) เท่านั้น
                 </p>
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">Gemini API Key</label>
                     <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." 
                         class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="inline-block text-xs text-indigo-400 hover:underline">
-                    <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> ขอรับ API Key ฟรีจาก Google AI Studio
-                </a>
                 <div class="pt-2 flex space-x-2">
                     <button type="button" onclick="saveApiKey()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">
                         บันทึกการตั้งค่า
@@ -268,6 +266,6 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=3"></script>
 </body>
 </html>
