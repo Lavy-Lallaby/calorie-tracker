@@ -363,31 +363,39 @@ function deleteMealItem(mealKey, index) {
     renderApp();
 }
 
-// ฟังก์ชันเรียกใช้งานเมื่อกดปุ่มสแกนต่างๆ
-function triggerScan(type) {
-    const fileInput = document.getElementById('hiddenFileInput');
-    if (!fileInput) return;
-
-    if (type === 'camera') {
-        // บังคับเปิดกล้องหลังมือถือ (ถ้าใช้งานบนมือถือ)
-        fileInput.setAttribute('capture', 'environment');
-    } else {
-        // สำหรับสแกนฉลากหรือบาร์โค้ด ให้เลือกรูปจากอัลบั้มหรือถ่ายใหม่ได้
-        fileInput.removeAttribute('capture');
-    }
-
-    fileInput.click(); // จำลองการคลิกเพื่อให้มือถือเปิดกล้อง/แกลเลอรี
+// เปิดกล้องถ่ายรูป (สำหรับปุ่มถ่ายรูปอาหาร)
+function triggerCamera() {
+    const input = document.getElementById('cameraInput');
+    if (input) input.click();
 }
 
-// ฟังก์ชันหลังจากผู้ใช้ถ่ายรูปหรือเลือกรูปเสร็จแล้ว
-function handleFileSelected(event) {
+// เปิดอัลบั้มรูปในเครื่อง (สำหรับปุ่มสแกนฉลากและบาร์โค้ด)
+function triggerGallery(type) {
+    const input = document.getElementById('galleryInput');
+    if (input) {
+        // เก็บประเภทไว้ใช้งานต่อได้ถ้าต้องการ
+        input.setAttribute('data-scan-type', type);
+        input.click();
+    }
+}
+
+// จัดการไฟล์รูปที่ได้จากการถ่ายหรือเลือกจากอัลบั้ม
+function handleFileSelected(event, source) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // ตัวอย่างจำลอง: เมื่อเลือกรูปแล้ว สามารถนำรูปนี้ไปส่งต่อให้ AI หรือจำลองการกรอกข้อมูล
-    alert("ได้รับรูปภาพแล้ว! (สามารถนำไปเชื่อมต่อระบบ AI Vision หรือ OCR เพื่อดึงสารอาหารอัตโนมัติในขั้นตอนต่อไป)");
-    
-    // เคลียร์ค่าเพื่อให้เลือกรูปเดิมซ้ำได้
+    if (source === 'camera') {
+        alert("ได้รับรูปถ่ายอาหารจากกล้องแล้ว! (พร้อมส่งประมวลผล AI ต่อไป)");
+    } else {
+        const scanType = event.target.getAttribute('data-scan-type');
+        if (scanType === 'label') {
+            alert("เลือกรูปฉลากโภชนาการจากคลังภาพเรียบร้อย! (พร้อมอ่านข้อมูล OCR ต่อไป)");
+        } else if (scanType === 'barcode') {
+            alert("เลือกรูปบาร์โค้ดจากคลังภาพเรียบร้อย! (พร้อมถอดรหัสบาร์โค้ดต่อไป)");
+        }
+    }
+
+    // เคลียร์ค่าเพื่อให้เลือกไฟล์เดิมซ้ำได้
     event.target.value = '';
 }
 
