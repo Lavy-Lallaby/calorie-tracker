@@ -145,6 +145,37 @@ function renderApp() {
     localStorage.setItem('allMealsHistory', JSON.stringify(allMealsHistory));
 }
 
+// Scanner Functions (เปิดกล้อง / เปิดคลังรูปภาพ)
+function triggerCamera() {
+    const input = document.getElementById('cameraInput');
+    if (input) input.click();
+}
+
+function triggerGallery(type) {
+    const input = document.getElementById('galleryInput');
+    if (input) {
+        input.setAttribute('data-scan-type', type);
+        input.click();
+    }
+}
+
+function handleFileSelected(event, source) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (source === 'camera') {
+        alert("ได้รับรูปถ่ายอาหารจากกล้องแล้ว!");
+    } else {
+        const scanType = event.target.getAttribute('data-scan-type');
+        if (scanType === 'label') {
+            alert("เลือกรูปฉลากโภชนาการเรียบร้อย!");
+        } else if (scanType === 'barcode') {
+            alert("เลือกรูปบาร์โค้ดเรียบร้อย!");
+        }
+    }
+    event.target.value = '';
+}
+
 // Calendar Modal Logic
 const calendarModal = document.getElementById('calendarModal');
 let previewDate = selectedDate;
@@ -361,42 +392,6 @@ function deleteMealItem(mealKey, index) {
     const dailyMeals = getMealsForDate(selectedDate);
     dailyMeals[mealKey].items.splice(index, 1);
     renderApp();
-}
-
-// เปิดกล้องถ่ายรูป (สำหรับปุ่มถ่ายรูปอาหาร)
-function triggerCamera() {
-    const input = document.getElementById('cameraInput');
-    if (input) input.click();
-}
-
-// เปิดอัลบั้มรูปในเครื่อง (สำหรับปุ่มสแกนฉลากและบาร์โค้ด)
-function triggerGallery(type) {
-    const input = document.getElementById('galleryInput');
-    if (input) {
-        // เก็บประเภทไว้ใช้งานต่อได้ถ้าต้องการ
-        input.setAttribute('data-scan-type', type);
-        input.click();
-    }
-}
-
-// จัดการไฟล์รูปที่ได้จากการถ่ายหรือเลือกจากอัลบั้ม
-function handleFileSelected(event, source) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (source === 'camera') {
-        alert("ได้รับรูปถ่ายอาหารจากกล้องแล้ว! (พร้อมส่งประมวลผล AI ต่อไป)");
-    } else {
-        const scanType = event.target.getAttribute('data-scan-type');
-        if (scanType === 'label') {
-            alert("เลือกรูปฉลากโภชนาการจากคลังภาพเรียบร้อย! (พร้อมอ่านข้อมูล OCR ต่อไป)");
-        } else if (scanType === 'barcode') {
-            alert("เลือกรูปบาร์โค้ดจากคลังภาพเรียบร้อย! (พร้อมถอดรหัสบาร์โค้ดต่อไป)");
-        }
-    }
-
-    // เคลียร์ค่าเพื่อให้เลือกไฟล์เดิมซ้ำได้
-    event.target.value = '';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
