@@ -3,228 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FitTracker 1,500 - Calorie & Protein Tracker</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Plus Jakarta Sans -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Barcode Scanner Library (Html5-Qrcode) -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="animal.png">
-    <link rel="apple-touch-icon" href="animal.png">
+    <title>FitTracker - บันทึกและควบคุมพลังงาน</title>
+    <!-- นำเข้า Google Fonts (Inter) และ CSS ตามดีไซน์เดิมของคุณ -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> <!-- หากมีไฟล์ CSS แยกสามารถใส่ลิงก์ไว้ได้ครับ -->
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        /* สไตล์เบื้องต้นสำหรับ Modal และ Datalist เพื่อความเรียบร้อย */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #fff;
+            padding: 24px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center justify-start p-3 sm:p-6">
+<body>
 
-    <div class="w-full max-w-md bg-white shadow-xl rounded-3xl p-5 sm:p-6 mb-6">
+    <div class="container" style="max-width: 480px; margin: 0 auto; padding: 16px; font-family: 'Inter', sans-serif;">
         <!-- Header -->
-        <div class="flex justify-between items-center mb-6">
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <h1 style="font-size: 20px; font-weight: 700; margin: 0;">FitTracker</h1>
+                <span style="background: #eef2ff; color: #4f46e5; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">1,500 kcal</span>
+            </div>
             <div>
-                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    🦦 FitTracker <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">1,500 kcal</span>
-                </h1>
-                <p id="current-date-display" class="text-xs text-slate-400 mt-0.5">กำลังโหลดวันที่...</p>
+                <button id="resetDayBtn" style="background: none; border: none; cursor: pointer; font-size: 18px;">🔄</button>
             </div>
-            <div class="flex gap-2">
-                <button onclick="openHistoryModal()" class="p-2.5 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition text-sm font-bold" title="ประวัติและปฏิทิน">
-                    📅
-                </button>
-                <button onclick="openSettingsModal()" class="p-2.5 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition text-sm font-bold" title="สำรอง/กู้คืนข้อมูล">
-                    ⚙️
-                </button>
+        </header>
+
+        <!-- Summary Card -->
+        <div style="background: #111827; color: #fff; padding: 20px; border-radius: 20px; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+                <div>
+                    <div style="font-size: 14px; color: #9ca3af;">พลังงานคงเหลือ</div>
+                    <div id="remainingCalories" style="font-size: 32px; font-weight: 700;">1,500 <span style="font-size: 16px; font-weight: normal;">kcal</span></div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 14px; color: #9ca3af;">โปรตีนวันนี้</div>
+                    <div id="totalProtein" style="font-size: 28px; font-weight: 700; color: #34d399;">0 <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span></div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 12px; color: #9ca3af; text-align: center; border-top: 1px solid #374151; padding-top: 12px;">
+                <div>คาร์บ<br><strong id="totalCarbs" style="color: #fff; font-size: 14px;">0g</strong></div>
+                <div>ไขมัน<br><strong id="totalFat" style="color: #fff; font-size: 14px;">0g</strong></div>
+                <div>โซเดียม<br><strong id="totalSodium" style="color: #fff; font-size: 14px;">0mg</strong></div>
+                <div>คอเลสเตอรอล<br><strong id="totalCholesterol" style="color: #fff; font-size: 14px;">0mg</strong></div>
             </div>
         </div>
 
-        <!-- Dashboard Summary Card -->
-        <div class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-5 mb-6 shadow-lg relative overflow-hidden">
-            <div class="absolute -right-4 -bottom-4 w-28 h-28 bg-indigo-500/10 rounded-full blur-2xl"></div>
-            
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <span class="text-xs text-slate-400 block mb-1 font-medium">พลังงานคงเหลือ</span>
-                    <div class="flex items-baseline gap-1">
-                        <span id="remaining-cal" class="text-3xl font-black tracking-tight">1500</span>
-                        <span class="text-xs text-slate-400 font-bold">kcal</span>
-                    </div>
-                </div>
-                <div>
-                    <span class="text-xs text-slate-400 block mb-1 font-medium">โปรตีนวันนี้</span>
-                    <div class="flex items-baseline gap-1">
-                        <span id="total-protein" class="text-3xl font-black tracking-tight text-emerald-400">0</span>
-                        <span class="text-xs text-slate-400 font-bold">/ 96-128 g</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Additional Nutrients Summary Bar -->
-            <div class="grid grid-cols-4 gap-2 pt-3 border-t border-white/10 text-[11px] text-slate-300 text-center">
-                <div><span class="block text-slate-400 text-[10px]">คาร์บ</span><span id="total-carbs" class="font-bold text-white">0g</span></div>
-                <div><span class="block text-slate-400 text-[10px]">ไขมัน</span><span id="total-fat" class="font-bold text-white">0g</span></div>
-                <div><span class="block text-slate-400 text-[10px]">โซเดียม</span><span id="total-sodium" class="font-bold text-white">0mg</span></div>
-                <div><span class="block text-slate-400 text-[10px]">คอเลสเตอรอล</span><span id="total-cholesterol" class="font-bold text-amber-300">0mg</span></div>
-            </div>
-
-            <!-- Progress Bar -->
-            <div class="space-y-1.5 mt-4">
-                <div class="flex justify-between text-xs font-semibold">
-                    <span id="consumed-cal-text" class="text-slate-300">ทานไป 0 kcal</span>
-                    <span id="status-badge" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px]">กำลังควบคุม</span>
-                </div>
-                <div class="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5">
-                    <div id="calorie-progress-bar" class="bg-indigo-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-            </div>
+        <!-- Meal Sections Container -->
+        <div id="mealSectionsContainer">
+            <!-- จะถูกเรนเดอร์ด้วย JavaScript -->
         </div>
-
-        <!-- Meal Groups Container -->
-        <div id="meals-container" class="space-y-4 mb-6"></div>
-
-        <!-- Add Food Button -->
-        <button onclick="openAddFoodModal()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-md transition flex items-center justify-center gap-2 text-sm">
-            <span>➕</span> เพิ่มรายการอาหาร
-        </button>
     </div>
 
-    <!-- Modal: เพิ่ม/แก้ไขอาหาร -->
-    <div id="food-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="modal-title" class="text-lg font-bold text-slate-900">บันทึกมื้ออาหาร</h2>
-                <button onclick="closeAddFoodModal()" class="text-slate-400 hover:text-slate-600 p-1">✕</button>
-            </div>
+    <!-- Modal ฟอร์มเพิ่ม/แก้ไขรายการอาหาร -->
+    <div id="foodModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="margin-top: 0; font-size: 18px; margin-bottom: 16px;">บันทึกมื้ออาหาร</h3>
+            <form id="foodForm">
+                <input type="hidden" id="editMealType">
+                <input type="hidden" id="editItemIndex" value="">
 
-            <!-- AI & Scanner Tools Section -->
-            <div class="space-y-3 mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</h3>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="document.getElementById('food-image-input').click()" class="py-2 px-1 bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold rounded-xl text-xs hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1">
-                        <span class="text-base">📸</span>
-                        <span id="ai-btn-text">ถ่ายรูปอาหาร</span>
-                    </button>
-                    <button type="button" onclick="document.getElementById('nutrition-label-input').click()" class="py-2 px-1 bg-purple-50 border border-purple-200 text-purple-700 font-bold rounded-xl text-xs hover:bg-purple-100 transition flex flex-col items-center justify-center gap-1">
-                        <span class="text-base">📋</span>
-                        <span>สแกนฉลาก</span>
-                    </button>
-                    <button type="button" onclick="startBarcodeScanner()" class="py-2 px-1 bg-amber-50 border border-amber-200 text-amber-800 font-bold rounded-xl text-xs hover:bg-amber-100 transition flex flex-col items-center justify-center gap-1">
-                        <span class="text-base">📦</span>
-                        <span>บาร์โค้ด</span>
-                    </button>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px;">ชื่ออาหาร</label>
+                    <input type="text" id="foodNameInput" list="food-list" required placeholder="พิมพ์หรือเลือกชื่ออาหาร..." style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                    <datalist id="food-list"></datalist>
                 </div>
 
-                <input type="file" id="food-image-input" accept="image/*" capture="environment" class="hidden" onchange="analyzeFoodImage(event)">
-                <input type="file" id="nutrition-label-input" accept="image/*" capture="environment" class="hidden" onchange="analyzeNutritionLabel(event)">
-
-                <div id="barcode-scanner-container" class="hidden relative bg-black rounded-2xl overflow-hidden p-2 mt-2">
-                    <div id="interactive" class="w-full h-40"></div>
-                    <button type="button" onclick="stopBarcodeScanner()" class="absolute top-3 right-3 bg-rose-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-md">ปิดกล้อง</button>
-                </div>
-            </div>
-
-            <form id="food-form" onsubmit="saveFoodItem(event)" class="space-y-3">
-                <input type="hidden" id="edit-index">
-                <input type="hidden" id="edit-meal-type">
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">มื้ออาหาร</label>
-                    <select id="meal-type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="morning">🌅 มื้อเช้า</option>
-                        <option value="lunch">☀️ มื้อเที่ยง</option>
-                        <option value="dinner">🌙 มื้อเย็น</option>
-                        <option value="snack">🍪 ของว่าง / อื่นๆ</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">ชื่ออาหาร</label>
-                    <input type="text" id="food-name" required placeholder="เช่น อกไก่เซเว่น" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-
-                <!-- Nutrients Grid (ตั้งต้นต่อ 1 หน่วย) -->
-                <div class="grid grid-cols-2 gap-2">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-0.5">แคลอรี (kcal)</label>
-                        <input type="number" id="base-cal" required min="0" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">แคลอรี (kcal)</label>
+                        <input type="number" id="caloriesInput" required min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-emerald-600 mb-0.5">โปรตีน (g)</label>
-                        <input type="number" id="base-protein" required min="0" step="0.1" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-0.5">คาร์โบไฮเดรต (g)</label>
-                        <input type="number" id="base-carbs" required min="0" step="0.1" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-0.5">ไขมัน (g)</label>
-                        <input type="number" id="base-fat" required min="0" step="0.1" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-0.5">โซเดียม (mg)</label>
-                        <input type="number" id="base-sodium" required min="0" step="1" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-amber-600 mb-0.5">คอเลสเตอรอล (mg)</label>
-                        <input type="number" id="base-cholesterol" required min="0" step="1" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">โปรตีน (g)</label>
+                        <input type="number" id="proteinInput" step="0.1" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">จำนวนหน่วย (Qty)</label>
-                    <input type="number" id="food-qty" required min="0.1" step="0.1" value="1" oninput="calculatePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold">
-                </div>
-
-                <!-- Preview Box -->
-                <div class="bg-indigo-50/60 p-3 rounded-2xl text-xs space-y-1 font-bold text-indigo-900">
-                    <div class="flex justify-between"><span>รวมพลังงาน:</span><span id="preview-cal" class="text-indigo-600 text-sm">0</span> kcal</div>
-                    <div class="grid grid-cols-2 gap-1 text-[11px] text-slate-600 pt-1 border-t border-indigo-100">
-                        <span>โปรตีน: <strong id="preview-protein" class="text-emerald-600">0</strong>g</span>
-                        <span>คาร์บ: <strong id="preview-carbs">0</strong>g</span>
-                        <span>ไขมัน: <strong id="preview-fat">0</strong>g</span>
-                        <span>โซเดียม: <strong id="preview-sodium">0</strong>mg</span>
-                        <span class="col-span-2">คอเลสเตอรอล: <strong id="preview-cholesterol" class="text-amber-600">0</strong>mg</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">คาร์โบไฮเดรต (g)</label>
+                        <input type="number" id="carbsInput" step="0.1" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">ไขมัน (g)</label>
+                        <input type="number" id="fatInput" step="0.1" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
                     </div>
                 </div>
 
-                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-md transition text-sm">
-                    บันทึกรายการ
-                </button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">โซเดียม (mg)</label>
+                        <input type="number" id="sodiumInput" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">คอเลสเตอรอล (mg)</label>
+                        <input type="number" id="cholesterolInput" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">จำนวนหน่วย (Qty)</label>
+                    <input type="number" id="qtyInput" value="1" min="1" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" id="closeModalBtn" style="flex: 1; padding: 10px; background: #f3f4f6; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">ยกเลิก</button>
+                    <button type="submit" style="flex: 1; padding: 10px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">บันทึกรายการ</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal: ประวัติและปฏิทิน -->
-    <div id="history-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-bold text-slate-900">📅 ประวัติย้อนหลัง</h2>
-                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 p-1">✕</button>
-            </div>
-            <div id="calendar-container" class="space-y-3"></div>
-        </div>
-    </div>
-
-    <!-- Modal: ตั้งค่าและสำรองข้อมูล -->
-    <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-lg font-bold text-slate-900">⚙️ จัดการข้อมูล</h2>
-                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1">✕</button>
-            </div>
-            <p class="text-xs text-slate-500">สำรองหรือกู้คืนข้อมูลโภชนาการของคุณผ่านไฟล์ JSON</p>
-            <div class="space-y-2">
-                <button onclick="exportDataJSON()" class="w-full py-3 bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold rounded-2xl text-xs hover:bg-indigo-100 transition">
-                    📤 สำรองข้อมูลเป็นไฟล์ (JSON)
-                </button>
-                <label class="w-full py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold rounded-2xl text-xs hover:bg-emerald-100 transition flex items-center justify-center cursor-pointer">
-                    📥 กู้คืนข้อมูลจากไฟล์
-                    <input type="file" accept=".json" onchange="importDataJSON(event)" class="hidden">
-                </label>
-            </div>
-        </div>
-    </div>
-
+    <!-- นำเข้าไฟล์ JavaScript หลัก -->
     <script src="script.js"></script>
 </body>
 </html>
