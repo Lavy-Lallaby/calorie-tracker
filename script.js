@@ -233,8 +233,31 @@ function resizeImageToBase64(file, maxWidth) {
 
 async function analyzeImageWithGemini(base64Data, mode) {
     const apiKey = localStorage.getItem('fitTracker_gemini_key');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
+    // 1. ค้นหาชื่อโมเดลที่ API Key นี้ใช้งานได้จริงอัตโนมัติ
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (!listRes.ok) {
+        const err = await listRes.json();
+        throw new Error(err.error?.message || "API Key ไม่ถูกต้อง");
+    }
+    const listData = await listRes.json();
+    
+    // กรองเฉพาะโมเดลตระกูล gemini ที่รองรับการสร้างเนื้อหา (generateContent)
+    const validModels = (listData.models || []).filter(m => 
+        m.name.includes('gemini') && 
+        !m.name.includes('embedding') &&
+        (m.supportedGenerationMethods || []).includes('generateContent')
+    );
+
+    if (validModels.length === 0) {
+        throw new Error("ไม่พบโมเดล Gemini ที่ใช้งานได้สำหรับ API Key นี้");
+    }
+
+    // เลือกรุ่น flash เป็นอันดับแรก ถ้าไม่มีให้ใช้รุ่นแรกที่เจอ
+    const chosenModel = validModels.find(m => m.name.includes('flash')) || validModels[0];
+    const url = `https://generativelanguage.googleapis.com/v1beta/${chosenModel.name}:generateContent?key=${apiKey}`;
+
+    // 2. ส่งภาพไปวิเคราะห์ด้วยโมเดลที่ระบบเลือกให้
     const promptText = mode === 'label'
         ? `อ่านข้อมูลจากภาพฉลากโภชนาการหรือฉลาก GDA (หวาน มัน เค็ม) นี้ สรุปค่าโภชนาการต่อ 1 หน่วยบริโภค (หรือต่อ 1 ซอง/ขวด/กล่อง ตามที่ระบุเด่นชัดที่สุด) ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
            {"name": "ชื่อสินค้าหรืออาหาร (ถ้าไม่เห็นให้ใส่ว่า สินค้าจากฉลาก)", "qty": "ปริมาณต่อหน่วย เช่น 1 กล่อง, 1 ขวด", "calories": ตัวเลขพลังงาน kcal, "protein": ตัวเลขโปรตีน g, "carbs": ตัวเลขคาร์โบไฮเดรตหรือน้ำตาล g, "fat": ตัวเลขไขมัน g, "sodium": ตัวเลขโซเดียม mg, "cholesterol": ตัวเลขคอเลสเตอรอล mg} (ถ้าช่องไหนไม่มีข้อมูลให้ใส่ 0)`
