@@ -519,5 +519,40 @@ function closeCalendarModal() {
     document.getElementById('calendar-modal').classList.add('hidden');
 }
 
+async function scanLabelOfflineOCR(file) {
+    const loader = document.getElementById('ai-loading-indicator');
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านตัวหนังสือบนฉลาก...';
+    loader.classList.remove('hidden');
+
+    try {
+        const worker = await Tesseract.createWorker(['tha', 'eng']);
+        const ret = await worker.recognize(file);
+        await worker.terminate();
+
+        const text = ret.data.text.replace(/\s+/g, ' ');
+        
+        // จับคู่ตัวเลขที่ตามหลังคำสำคัญบนฉลากไทย
+        const extractValue = (regex) => {
+            const match = text.match(regex);
+            return match ? parseFloat(match[1]) : 0;
+        };
+
+        fillFormWithNutritionData({
+            name: "สินค้าจากฉลาก",
+            qty: "1 หน่วยบริโภค",
+            calories: extractValue(/(?:พลังงานทั้งหมด|พลังงาน|Energy|Calories)[^\d]*(\d+(?:\.\d+)?)/i),
+            protein: extractValue(/(?:โปรตีน|Protein)[^\d]*(\d+(?:\.\d+)?)/i),
+            carbs: extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|น้ำตาล|Carbohydrate|Sugar)[^\d]*(\d+(?:\.\d+)?)/i),
+            fat: extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Fat)[^\d]*(\d+(?:\.\d+)?)/i),
+            sodium: extractValue(/(?:โซเดียม|Sodium)[^\d]*(\d+(?:\.\d+)?)/i),
+            cholesterol: extractValue(/(?:โคเลสเตอรอล|คอเลสเตอรอล|Cholesterol)[^\d]*(\d+(?:\.\d+)?)/i)
+        });
+    } catch (err) {
+        alert("อ่านตัวหนังสือบนฉลากไม่สำเร็จ กรุณาถ่ายให้ชัดเจนขึ้น: " + err.message);
+    } finally {
+        loader.classList.add('hidden');
+    }
+}
+
 // Initialize on load
 window.onload = initApp;
