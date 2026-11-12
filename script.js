@@ -1,7 +1,5 @@
-// ตั้งค่าเป้าหมายแคลอรีประจำวัน
 const TARGET_CALORIES = 1500;
 
-// โครงสร้างข้อมูลมื้ออาหารและคลังอาหาร
 let dailyMeals = JSON.parse(localStorage.getItem('dailyMeals')) || {
     breakfast: { title: "มื้อเช้า", items: [] },
     lunch: { title: "มื้อเที่ยง", items: [] },
@@ -16,7 +14,6 @@ let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [
     { name: "ข้าวต้มหมูสับ", calories: 250, protein: 13.5, carbs: 32.5, fat: 7.5, sodium: 550, cholesterol: 40 }
 ];
 
-// อัปเดตรายการใน datalist (ให้ระบบพิมพ์ค้นหาทำงาน)
 function updateFoodDatalist() {
     const datalist = document.getElementById('food-list');
     if (!datalist) return;
@@ -28,7 +25,6 @@ function updateFoodDatalist() {
     });
 }
 
-// เรนเดอร์หน้าจอหลักและคำนวณผลรวม
 function renderApp() {
     const container = document.getElementById('mealSectionsContainer');
     if (!container) return;
@@ -59,25 +55,24 @@ function renderApp() {
             totalCholesterol += (item.cholesterol * qty);
         });
 
-        // สร้าง HTML แต่ละมื้อ
         const mealCard = document.createElement('div');
-        mealCard.style.cssText = "background: #fff; border: 1px solid #f3f4f6; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+        mealCard.className = 'meal-card';
         
         let itemsHtml = '';
         if (meal.items.length === 0) {
-            itemsHtml = `<div style="color: #9ca3af; font-size: 14px; padding: 8px 0;">ยังไม่มีรายการอาหาร</div>`;
+            itemsHtml = `<div style="color: #9ca3af; font-size: 14px; padding: 4px 0;">ยังไม่มีรายการอาหาร</div>`;
         } else {
             meal.items.forEach((item, index) => {
                 itemsHtml += `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9fafb;">
+                    <div class="meal-item-row">
                         <div>
-                            <span style="font-weight: 500; font-size: 14px;">${item.name}</span>
+                            <span style="font-weight: 500;">${item.name}</span>
                             <span style="color: #6b7280; font-size: 12px; margin-left: 4px;">x${item.qty || 1}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="item-actions">
                             <span style="font-size: 13px; font-weight: 500;">${item.calories * (item.qty || 1)} kcal <span style="color: #059669;">(${item.protein * (item.qty || 1)}g)</span></span>
-                            <button onclick="openEditModal('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 14px;" title="แก้ไข">✏️</button>
-                            <button onclick="deleteMealItem('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 14px;" title="ลบ">🗑️</button>
+                            <button class="action-btn" onclick="openEditModal('${mealKey}', ${index})" title="แก้ไข">✏️</button>
+                            <button class="action-btn" onclick="deleteMealItem('${mealKey}', ${index})" title="ลบ" style="color: #9ca3af;">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -85,12 +80,12 @@ function renderApp() {
         }
 
         mealCard.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <span style="font-weight: 600; font-size: 15px; color: #374151;">${meal.title}</span>
-                <span style="font-size: 13px; color: #6b7280;">${mealCals} kcal | โปรตีน ${mealProtein}g</span>
+            <div class="meal-header">
+                <span class="meal-title">${meal.title}</span>
+                <span class="meal-subtotal">${mealCals} kcal | โปรตีน ${mealProtein}g</span>
             </div>
-            <div style="margin-bottom: 12px;">${itemsHtml}</div>
-            <button onclick="openAddModal('${mealKey}')" style="width: 100%; padding: 8px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #4f46e5; font-weight: 500; font-size: 13px; cursor: pointer;">+ เพิ่ม${meal.title}</button>
+            <div class="meal-items-list">${itemsHtml}</div>
+            <button class="add-meal-btn" onclick="openAddModal('${mealKey}')">+ เพิ่ม${meal.title}</button>
         `;
         container.appendChild(mealCard);
     });
@@ -99,12 +94,12 @@ function renderApp() {
     const remaining = TARGET_CALORIES - totalCals;
     const remainingEl = document.getElementById('remainingCalories');
     if (remainingEl) {
-        remainingEl.innerHTML = `${remaining} <span style="font-size: 16px; font-weight: normal;">kcal</span>`;
+        remainingEl.innerHTML = `${remaining} <span>kcal</span>`;
     }
     
     const totalProteinEl = document.getElementById('totalProtein');
     if (totalProteinEl) {
-        totalProteinEl.innerHTML = `${totalProtein.toFixed(1)} <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span>`;
+        totalProteinEl.innerHTML = `${totalProtein.toFixed(1)} <span>/ 96–128 g</span>`;
     }
 
     const totalCarbsEl = document.getElementById('totalCarbs');
@@ -119,16 +114,37 @@ function renderApp() {
     const totalCholesterolEl = document.getElementById('totalCholesterol');
     if (totalCholesterolEl) totalCholesterolEl.innerText = `${totalCholesterol}mg`;
 
-    // บันทึกลง LocalStorage ของวัน
+    // อัปเดต Progress Bar และสถานะ
+    const consumedText = document.getElementById('consumedText');
+    if (consumedText) consumedText.innerText = `ทานไป ${totalCals} kcal`;
+
+    const progressBar = document.getElementById('progressBar');
+    if (progressBar) {
+        const percent = Math.min((totalCals / TARGET_CALORIES) * 100, 100);
+        progressBar.style.width = `${percent}%`;
+    }
+
+    const statusBadge = document.getElementById('statusBadge');
+    if (statusBadge) {
+        if (totalCals <= TARGET_CALORIES) {
+            statusBadge.innerText = "กำลังคุม";
+            statusBadge.style.color = "#fbbf24";
+        } else {
+            statusBadge.innerText = "เกินเป้าหมาย";
+            statusBadge.style.color = "#f87171";
+        }
+    }
+
     localStorage.setItem('dailyMeals', JSON.stringify(dailyMeals));
 }
 
-// จัดการ Modal
+// Modal การทำงาน
 const modal = document.getElementById('foodModal');
 
 function openAddModal(mealKey) {
-    document.getElementById('modalTitle').innerText = `เพิ่มอาหาร (${dailyMeals[mealKey].title})`;
+    document.getElementById('modalTitle').innerText = `เพิ่มอาหาร`;
     document.getElementById('editMealType').value = mealKey;
+    document.getElementById('mealSelectDropdown').value = mealKey;
     document.getElementById('editItemIndex').value = "";
     document.getElementById('foodForm').reset();
     document.getElementById('qtyInput').value = 1;
@@ -139,6 +155,7 @@ function openEditModal(mealKey, index) {
     const item = dailyMeals[mealKey].items[index];
     document.getElementById('modalTitle').innerText = `แก้ไขรายการอาหาร`;
     document.getElementById('editMealType').value = mealKey;
+    document.getElementById('mealSelectDropdown').value = mealKey;
     document.getElementById('editItemIndex').value = index;
 
     document.getElementById('foodNameInput').value = item.name;
@@ -159,6 +176,11 @@ if (closeModalBtn) {
         if (modal) modal.classList.remove('active');
     });
 }
+
+// ซิงค์ค่ามื้ออาหารจาก Dropdown ใน Modal
+document.getElementById('mealSelectDropdown').addEventListener('change', function(e) {
+    document.getElementById('editMealType').value = e.target.value;
+});
 
 // ฟังก์ชัน Auto-fill ข้อมูลเมื่อพิมพ์หรือเลือกชื่ออาหารจากคลัง
 const foodNameInput = document.getElementById('foodNameInput');
@@ -197,7 +219,7 @@ if (foodForm) {
             qty: Number(document.getElementById('qtyInput').value) || 1
         };
 
-        // อัปเดตคลังอาหารอัตโนมัติถ้ายังไม่มีในระบบ
+        // เพิ่มเข้าคลังอัตโนมัติถ้ายังไม่มี
         const catalogExists = foodCatalog.some(item => item.name.toLowerCase() === newItem.name.toLowerCase());
         if (!catalogExists) {
             foodCatalog.push({
