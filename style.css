@@ -12,7 +12,6 @@ body {
     padding-bottom: 40px;
 }
 
-/* Header */
 header {
     display: flex;
     justify-content: space-between;
@@ -72,7 +71,6 @@ header {
     font-weight: 500;
 }
 
-/* Summary Card */
 .summary-card {
     background: linear-gradient(145deg, #111827, #1e1b4b);
     color: #fff;
@@ -173,7 +171,6 @@ header {
     transition: width 0.3s ease;
 }
 
-/* Meal Card */
 .meal-card {
     background: #fff;
     border-radius: 20px;
@@ -261,7 +258,6 @@ header {
     background: #f3f4f6;
 }
 
-/* Scanner Box Styles */
 .scanner-box {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -309,7 +305,6 @@ header {
     font-size: 16px;
 }
 
-/* Custom Calendar Styles */
 .calendar-nav {
     display: flex;
     justify-content: space-between;
@@ -407,7 +402,6 @@ header {
     border-radius: 16px;
 }
 
-/* Modal */
 .modal {
     display: none;
     position: fixed;
