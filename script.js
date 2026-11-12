@@ -145,7 +145,7 @@ function renderApp() {
     localStorage.setItem('allMealsHistory', JSON.stringify(allMealsHistory));
 }
 
-// Scanner Functions (เปิดกล้อง / เปิดคลังรูปภาพ)
+// Scanner Functions (เปิดกล้อง / เลือกรูปจากแกลเลอรีจริง)
 function triggerCamera() {
     const input = document.getElementById('cameraInput');
     if (input) input.click();
@@ -163,16 +163,9 @@ function handleFileSelected(event, source) {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (source === 'camera') {
-        alert("ได้รับรูปถ่ายอาหารจากกล้องแล้ว!");
-    } else {
-        const scanType = event.target.getAttribute('data-scan-type');
-        if (scanType === 'label') {
-            alert("เลือกรูปฉลากโภชนาการเรียบร้อย!");
-        } else if (scanType === 'barcode') {
-            alert("เลือกรูปบาร์โค้ดเรียบร้อย!");
-        }
-    }
+    // เมื่อผู้ใช้เลือกรูปภาพสำเร็จ (สามารถเขียนโค้ดเชื่อมต่อ AI / OCR / Barcode reader ตรงนี้ได้ในอนาคต)
+    console.log("File selected:", file);
+    
     event.target.value = '';
 }
 
