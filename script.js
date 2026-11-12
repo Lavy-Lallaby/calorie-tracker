@@ -286,11 +286,13 @@ function renderMeals() {
         const totalCal = items.reduce((sum, item) => sum + Number(item.calories), 0);
         const totalProt = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
 
-        let itemsHtml = items.map((item, idx) => `
+       let itemsHtml = items.map((item, idx) => {
+            const qtyDisplay = item.qty ? (isNaN(item.qty) ? item.qty : `x${item.qty}`) : '';
+            return `
             <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
                 <div>
                     <span class="text-white font-medium">${item.name}</span>
-                    <span class="text-xs text-slate-400 ml-1.5">${item.qty || ''}</span>
+                    <span class="text-xs text-slate-400 ml-1.5">${qtyDisplay}</span>
                 </div>
                 <div class="flex items-center space-x-3">
                     <span class="text-slate-300 font-medium">${item.calories} kcal <span class="text-xs text-emerald-400">(${item.protein || 0}g)</span></span>
@@ -300,7 +302,7 @@ function renderMeals() {
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
 
         if (items.length === 0) {
             itemsHtml = `<div class="text-xs text-slate-500 py-1">ยังไม่มีรายการอาหารในมื้อนี้</div>`;
@@ -804,7 +806,7 @@ async function fetchBarcodeProduct(barcode) {
 
 function fillFormWithNutritionData(item) {
     if (item.name) document.getElementById('food-name').value = item.name;
-    if (item.qty) document.getElementById('food-qty').value = item.qty;
+    document.getElementById('food-qty').value = 1; // ตั้งค่าตัวคูณเริ่มต้นเป็น 1 เสมอเวลาสแกน
     document.getElementById('food-calories').value = item.calories ?? 0;
     document.getElementById('food-protein').value = item.protein ?? 0;
     document.getElementById('food-carbs').value = item.carbs ?? 0;
@@ -876,6 +878,7 @@ function openFoodModal(mealType, itemIndex = null) {
         setBaseNutritionFromCurrentInputs(); // <-- ต้องอยู่หลังเติมค่าครบทุกช่องแล้ว
     } else {
         document.getElementById('food-form').reset();
+        document.getElementById('food-qty').value = 1; // <-- เพิ่มบรรทัดนี้
         baseNutrition = null;
     }
 
@@ -964,15 +967,9 @@ function autofillFoodCatalog(name) {
     }
 }
 
-// ==========================================
-// Quantity Multiplier (คูณสารอาหารตามจำนวน)
-// ==========================================
-function extractMultiplier(qtyStr) {
-    if (!qtyStr) return 1;
-    // ดึงตัวเลขแรกที่เจอ เช่น "2 ชิ้น" -> 2, "x3" -> 3, "1.5 จาน" -> 1.5
-    const match = String(qtyStr).match(/(\d+(?:\.\d+)?)/);
-    const num = match ? parseFloat(match[1]) : 1;
-    return num > 0 ? num : 1;
+function extractMultiplier(qtyVal) {
+    const num = parseFloat(qtyVal);
+    return (!isNaN(num) && num > 0) ? num : 1;
 }
 
 function setBaseNutritionFromCurrentInputs() {
