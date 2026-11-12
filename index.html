@@ -57,7 +57,7 @@
         <div id="mealSectionsContainer"></div>
     </div>
 
-    <!-- Modal ปฏิทินแบบ Custom สวยงาม -->
+    <!-- Modal ปฏิทินแบบ Custom -->
     <div id="calendarModal" class="modal">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -65,31 +65,24 @@
                 <button type="button" id="closeCalendarBtn" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #6b7280;">✕</button>
             </div>
 
-            <!-- ส่วนควบคุมเดือน -->
             <div class="calendar-nav">
                 <button type="button" id="prevMonthBtn" class="cal-nav-btn">◀</button>
                 <span id="calendarMonthYear" style="font-weight: 700; font-size: 15px; color: #1f2937;">พฤศจิกายน 2569</span>
                 <button type="button" id="nextMonthBtn" class="cal-nav-btn">▶</button>
             </div>
 
-            <!-- หัวตารางวัน (อา - ส) -->
             <div class="calendar-weekdays">
                 <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
             </div>
 
-            <!-- ตารางวันที่ -->
             <div id="calendarDaysGrid" class="calendar-grid"></div>
 
-            <!-- คำอธิบายจุดสี -->
             <div style="display: flex; justify-content: center; gap: 16px; font-size: 11px; color: #6b7280; margin-top: 12px;">
                 <span style="display: flex; align-items: center; gap: 4px;"><span class="dot green"></span> ตามเป้า (≤1,500)</span>
                 <span style="display: flex; align-items: center; gap: 4px;"><span class="dot red"></span> เกินเป้า (>1,500)</span>
             </div>
 
-            <!-- กล่องสรุปของวันที่คลิกเลือก -->
-            <div id="selectedDayPreview" class="day-preview-box">
-                <!-- แสดงผลด้วย JS -->
-            </div>
+            <div id="selectedDayPreview" class="day-preview-box"></div>
         </div>
     </div>
 
@@ -97,6 +90,26 @@
     <div id="foodModal" class="modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top: 0; font-size: 18px; margin-bottom: 16px;">บันทึกมื้ออาหาร</h3>
+            
+            <!-- แถบปุ่มสแกนด้านบน (นำกลับมาไว้ตามเดิม) -->
+            <div class="scanner-box">
+                <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
+                <div class="scanner-btns">
+                    <button type="button" class="scan-btn">
+                        <span class="scan-icon">📷</span>
+                        <span>ถ่ายรูปอาหาร</span>
+                    </button>
+                    <button type="button" class="scan-btn">
+                        <span class="scan-icon">📋</span>
+                        <span>สแกนฉลาก</span>
+                    </button>
+                    <button type="button" class="scan-btn">
+                        <span class="scan-icon">📦</span>
+                        <span>บาร์โค้ด</span>
+                    </button>
+                </div>
+            </div>
+
             <form id="foodForm">
                 <input type="hidden" id="editMealType">
                 <input type="hidden" id="editItemIndex" value="">
