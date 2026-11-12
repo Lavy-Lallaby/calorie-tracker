@@ -1,9 +1,16 @@
+// ==========================================
+// GitHub DB Config (Lavy-Lallaby/fittracker-db)
+// ==========================================
+const GITHUB_OWNER = "Lavy-Lallaby";
+const GITHUB_REPO  = "fittracker-db";
+const GITHUB_PATH  = "db.json";
+let currentFileSha = null;
+
 // State Management
 let currentDateKey = getFormattedDateKey(new Date());
 let currentScanMode = 'label';
 let html5QrCode = null;
 
-// Mock data initialization if empty
 const defaultHistory = {
     "2026-11-12": {
         steps: 4500,
@@ -33,6 +40,172 @@ let foodCatalog = JSON.parse(localStorage.getItem('fitTracker_catalog')) || [
 
 const mealTypes = ["มื้อเช้า", "มื้อเที่ยง", "มื้อเย็น", "มื้อว่าง/อื่นๆ"];
 
+// ==========================================
+// UTF-8 Safe Base64 Helpers for GitHub API
+// ==========================================
+function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binString = "";
+    bytes.forEach((b) => { binString += String.fromCharCode(b); });
+    return btoa(binString);
+}
+
+function base64ToUtf8(base64) {
+    const binString = atob(base64.replace(/\s/g, ''));
+    const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
+    return new TextDecoder().decode(bytes);
+}
+
+function setSyncStatus(type, text) {
+    const badge = document.getElementById('sync-status-badge');
+    const icon = document.getElementById('sync-icon');
+    if (!badge) return;
+
+    if (type === 'syncing') {
+        badge.innerHTML = `<i class="fa-solid fa-rotate fa-spin text-sky-400"></i> ${text}`;
+        badge.className = "text-[10px] text-sky-400 block mt-0.5";
+        if (icon) icon.classList.add('fa-spin');
+    } else if (type === 'synced') {
+        badge.innerHTML = `<i class="fa-solid fa-cloud-check text-emerald-400"></i> ${text}`;
+        badge.className = "text-[10px] text-emerald-400 block mt-0.5";
+        if (icon) icon.classList.remove('fa-spin');
+    } else if (type === 'error') {
+        badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-400"></i> ${text}`;
+        badge.className = "text-[10px] text-rose-400 block mt-0.5";
+        if (icon) icon.classList.remove('fa-spin');
+    } else {
+        badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> ${text}`;
+        badge.className = "text-[10px] text-slate-400 block mt-0.5";
+        if (icon) icon.classList.remove('fa-spin');
+    }
+}
+
+// ==========================================
+// GitHub REST API Sync (Pull & Push)
+// ==========================================
+async function syncFromGitHub(showAlert = false) {
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        setSyncStatus('local', 'บันทึกในเครื่อง (ยังไม่เชื่อม GitHub)');
+        if (showAlert) {
+            alert("กรุณาใส่ GitHub Token ในหน้าตั้งค่า (⚙️) ก่อนซิงก์ข้อมูลครับ");
+            openSettingsModal();
+        }
+        return;
+    }
+
+    setSyncStatus('syncing', 'กำลังดึงข้อมูล...');
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
+        const res = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
+        });
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status} - ตรวจสอบ Token หรือสิทธิ์ไฟล์ db.json`);
+        }
+
+        const data = await res.json();
+        currentFileSha = data.sha;
+        const decodedText = base64ToUtf8(data.content);
+        const cloudData = JSON.parse(decodedText || '{}');
+
+        // ถ้าใน db.json มีข้อมูลอยู่แล้ว ให้นำมาแสดงผล
+        if (cloudData.history && Object.keys(cloudData.history).length > 0) {
+            allMealsHistory = cloudData.history;
+            localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+            if (cloudData.catalog && cloudData.catalog.length > 0) {
+                foodCatalog = cloudData.catalog;
+                localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+            }
+            renderUIOnly();
+            setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
+            if (showAlert) alert("ดึงข้อมูลล่าสุดจาก GitHub เรียบร้อยแล้ว!");
+        } else {
+            // ถ้า db.json ยังเป็น {} ว่างๆ ให้ส่งข้อมูลในเครื่องขึ้นไปเก็บครั้งแรก
+            await pushToGitHub(false);
+            if (showAlert) alert("อัปโหลดข้อมูลเริ่มต้นขึ้น GitHub เรียบร้อยแล้ว!");
+        }
+    } catch (err) {
+        console.error(err);
+        setSyncStatus('error', 'ซิงก์ไม่สำเร็จ');
+        if (showAlert) alert("ดึงข้อมูลจาก GitHub ไม่สำเร็จ: " + err.message);
+    }
+}
+
+async function pushToGitHub(showAlert = false) {
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        setSyncStatus('local', 'บันทึกในเครื่อง');
+        return;
+    }
+
+    setSyncStatus('syncing', 'กำลังบันทึกขึ้น Cloud...');
+    try {
+        // ดึง sha ล่าสุดก่อนเสมอเพื่อป้องกัน conflict กรณีแก้จากหลายเครื่อง
+        const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
+        const getRes = await fetch(getUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
+        });
+        if (getRes.ok) {
+            const getData = await getRes.json();
+            currentFileSha = getData.sha;
+        }
+
+        const payload = {
+            updatedAt: new Date().toISOString(),
+            history: allMealsHistory,
+            catalog: foodCatalog
+        };
+        const contentBase64 = utf8ToBase64(JSON.stringify(payload, null, 2));
+
+        const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
+        const putRes = await fetch(putUrl, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Update FitTracker DB (${currentDateKey})`,
+                content: contentBase64,
+                sha: currentFileSha
+            })
+        });
+
+        if (!putRes.ok) {
+            const errJson = await putRes.json();
+            throw new Error(errJson.message || `HTTP ${putRes.status}`);
+        }
+
+        const putData = await putRes.json();
+        currentFileSha = putData.content.sha;
+        setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
+        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub เรียบร้อยแล้ว!");
+    } catch (err) {
+        console.error(err);
+        setSyncStatus('error', 'อัปโหลดล้มเหลว');
+        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub ไม่สำเร็จ: " + err.message);
+    }
+}
+
+function saveDataAndSync() {
+    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+    renderUIOnly();
+    pushToGitHub(false);
+}
+
+// ==========================================
+// Core App Initialization & UI Rendering
+// ==========================================
 function getFormattedDateKey(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -47,13 +220,18 @@ function formatDisplayDate(dateKey) {
     return date.toLocaleDateString('th-TH', options);
 }
 
-function initApp() {
+function renderUIOnly() {
     renderDateDisplay();
     renderMeals();
     renderActivity();
     renderSummary();
     renderNutritionCoach();
     updateCatalogDatalist();
+}
+
+async function initApp() {
+    renderUIOnly();
+    await syncFromGitHub(false);
 }
 
 function renderDateDisplay() {
@@ -67,7 +245,7 @@ function changeDay(direction) {
     let d = new Date(parts[0], parts[1] - 1, parts[2]);
     d.setDate(d.getDate() + direction);
     currentDateKey = getFormattedDateKey(d);
-    initApp();
+    renderUIOnly();
 }
 
 function getDayData(dateKey) {
@@ -188,15 +366,13 @@ function renderActivity() {
 function updateSteps(val) {
     const dayData = getDayData(currentDateKey);
     dayData.steps = Math.max(0, Number(val) || 0);
-    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-    initApp();
+    saveDataAndSync();
 }
 
 function addQuickSteps(amount) {
     const dayData = getDayData(currentDateKey);
     dayData.steps = (Number(dayData.steps) || 0) + amount;
-    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-    initApp();
+    saveDataAndSync();
 }
 
 function openWorkoutModal() {
@@ -224,17 +400,15 @@ function handleWorkoutSubmit(e) {
         duration: Number(document.getElementById('workout-duration').value),
         calories: Number(document.getElementById('workout-calories').value)
     });
-    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
     closeWorkoutModal();
-    initApp();
+    saveDataAndSync();
 }
 
 function deleteWorkout(index) {
     if (confirm("ต้องการลบรายการออกกำลังกายนี้ใช่ไหม?")) {
         const dayData = getDayData(currentDateKey);
         dayData.workouts.splice(index, 1);
-        localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-        initApp();
+        saveDataAndSync();
     }
 }
 
@@ -645,8 +819,8 @@ function fillFormWithNutritionData(item) {
 // Settings & Existing Modal Controls
 // ==========================================
 function openSettingsModal() {
-    const savedKey = localStorage.getItem('fitTracker_gemini_key') || '';
-    document.getElementById('gemini-api-key-input').value = savedKey;
+    document.getElementById('github-token-input').value = localStorage.getItem('fitTracker_github_token') || '';
+    document.getElementById('gemini-api-key-input').value = localStorage.getItem('fitTracker_gemini_key') || '';
     document.getElementById('settings-modal').classList.remove('hidden');
 }
 
@@ -654,16 +828,29 @@ function closeSettingsModal() {
     document.getElementById('settings-modal').classList.add('hidden');
 }
 
-function saveApiKey() {
-    const key = document.getElementById('gemini-api-key-input').value.trim();
-    if (key) {
-        localStorage.setItem('fitTracker_gemini_key', key);
-        alert("บันทึก API Key เรียบร้อยแล้ว!");
+async function saveAllSettings() {
+    const ghToken = document.getElementById('github-token-input').value.trim();
+    const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
+
+    if (ghToken) {
+        localStorage.setItem('fitTracker_github_token', ghToken);
+    } else {
+        localStorage.removeItem('fitTracker_github_token');
+    }
+
+    if (geminiKey) {
+        localStorage.setItem('fitTracker_gemini_key', geminiKey);
     } else {
         localStorage.removeItem('fitTracker_gemini_key');
-        alert("ลบ API Key เรียบร้อยแล้ว");
     }
+
     closeSettingsModal();
+    if (ghToken) {
+        await syncFromGitHub(true);
+    } else {
+        setSyncStatus('local', 'บันทึกในเครื่อง');
+        alert("บันทึกการตั้งค่าเรียบร้อยแล้ว!");
+    }
 }
 
 function openFoodModal(mealType, itemIndex = null) {
@@ -723,21 +910,17 @@ function handleFoodSubmit(e) {
 
     if (!foodCatalog.some(f => f.name.toLowerCase() === newItem.name.toLowerCase())) {
         foodCatalog.push(newItem);
-        localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
-        updateCatalogDatalist();
     }
 
-    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
     closeFoodModal();
-    initApp();
+    saveDataAndSync();
 }
 
 function deleteMealItem(mealType, index) {
     if (confirm("ต้องการลบรายการนี้ใช่ไหม?")) {
         const dayData = getDayData(currentDateKey);
         dayData.meals[mealType].splice(index, 1);
-        localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-        initApp();
+        saveDataAndSync();
     }
 }
 
@@ -778,7 +961,7 @@ function openCalendarModal() {
         btn.onclick = () => {
             currentDateKey = key;
             closeCalendarModal();
-            initApp();
+            renderUIOnly();
         };
         container.appendChild(btn);
     }
