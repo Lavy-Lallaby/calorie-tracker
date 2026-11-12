@@ -31,6 +31,7 @@ function updateFoodDatalist() {
 // เรนเดอร์หน้าจอหลักและคำนวณผลรวม
 function renderApp() {
     const container = document.getElementById('mealSectionsContainer');
+    if (!container) return;
     container.innerHTML = '';
 
     let totalCals = 0;
@@ -75,8 +76,8 @@ function renderApp() {
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span style="font-size: 13px; font-weight: 500;">${item.calories * (item.qty || 1)} kcal <span style="color: #059669;">(${item.protein * (item.qty || 1)}g)</span></span>
-                            <button onclick="openEditModal('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 14px;">✏️</button>
-                            <button onclick="deleteMealItem('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 14px;">🗑️</button>
+                            <button onclick="openEditModal('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 14px;" title="แก้ไข">✏️</button>
+                            <button onclick="deleteMealItem('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 14px;" title="ลบ">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -98,7 +99,6 @@ function renderApp() {
     const remaining = TARGET_CALORIES - totalCals;
     document.getElementById('remainingCalories').innerHTML = `${remaining} <span style="font-size: 16px; font-weight: normal;">kcal</span>`;
     document.getElementById('totalProtein').innerHTML = `${totalProtein.toFixed(1)} <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span>`;
-    document.getElementById('totalCarbs\x27') // (ปรับแก้ชื่อตัวแปรสั้นๆ)
     document.getElementById('totalCarbs').innerText = `${totalCarbs.toFixed(1)}g`;
     document.getElementById('totalFat').innerText = `${totalFat.toFixed(1)}g`;
     document.getElementById('totalSodium').innerText = `${totalSodium}mg`;
@@ -138,67 +138,76 @@ function openEditModal(mealKey, index) {
     modal.classList.add('active');
 }
 
-document.getElementById('closeModalBtn').addEventListener('click', () => {
-    modal.classList.remove('active');
-});
+const closeModalBtn = document.getElementById('closeModalBtn');
+if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+}
 
 // ฟังก์ชัน Auto-fill ข้อมูลเมื่อพิมพ์หรือเลือกชื่ออาหารจากคลัง
-document.getElementById('foodNameInput').addEventListener('input', function(e) {
-    const selectedName = e.target.value.trim().toLowerCase();
-    const foundItem = foodCatalog.find(item => item.name.toLowerCase() === selectedName);
+const foodNameInput = document.getElementById('foodNameInput');
+if (foodNameInput) {
+    foodNameInput.addEventListener('input', function(e) {
+        const selectedName = e.target.value.trim().toLowerCase();
+        const foundItem = foodCatalog.find(item => item.name.toLowerCase() === selectedName);
 
-    if (foundItem) {
-        document.getElementById('caloriesInput').value = foundItem.calories;
-        document.getElementById('proteinInput').value = foundItem.protein;
-        document.getElementById('carbsInput').value = foundItem.carbs;
-        document.getElementById('fatInput').value = foundItem.fat;
-        document.getElementById('sodiumInput').value = foundItem.sodium;
-        document.getElementById('cholesterolInput').value = foundItem.cholesterol;
-    }
-});
+        if (foundItem) {
+            document.getElementById('caloriesInput').value = foundItem.calories;
+            document.getElementById('proteinInput').value = foundItem.protein;
+            document.getElementById('carbsInput').value = foundItem.carbs;
+            document.getElementById('fatInput').value = foundItem.fat;
+            document.getElementById('sodiumInput').value = foundItem.sodium;
+            document.getElementById('cholesterolInput').value = foundItem.cholesterol;
+        }
+    });
+}
 
 // บันทึกฟอร์ม (เพิ่มหรือแก้ไขรายการ)
-document.getElementById('foodForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const mealKey = document.getElementById('editMealType').value;
-    const editIndex = document.getElementById('editItemIndex').value;
+const foodForm = document.getElementById('foodForm');
+if (foodForm) {
+    foodForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const mealKey = document.getElementById('editMealType').value;
+        const editIndex = document.getElementById('editItemIndex').value;
 
-    const newItem = {
-        name: document.getElementById('foodNameInput').value.trim(),
-        calories: Number(document.getElementById('caloriesInput').value) || 0,
-        protein: Number(document.getElementById('proteinInput').value) || 0,
-        carbs: Number(document.getElementById('carbsInput').value) || 0,
-        fat: Number(document.getElementById('fatInput').value) || 0,
-        sodium: Number(document.getElementById('sodiumInput').value) || 0,
-        cholesterol: Number(document.getElementById('cholesterolInput').value) || 0,
-        qty: Number(document.getElementById('qtyInput').value) || 1
-    };
+        const newItem = {
+            name: document.getElementById('foodNameInput').value.trim(),
+            calories: Number(document.getElementById('caloriesInput').value) || 0,
+            protein: Number(document.getElementById('proteinInput').value) || 0,
+            carbs: Number(document.getElementById('carbsInput').value) || 0,
+            fat: Number(document.getElementById('fatInput').value) || 0,
+            sodium: Number(document.getElementById('sodiumInput').value) || 0,
+            cholesterol: Number(document.getElementById('cholesterolInput').value) || 0,
+            qty: Number(document.getElementById('qtyInput').value) || 1
+        };
 
-    // อัปเดตคลังอาหารอัตโนมัติถ้ายังไม่มีในระบบ
-    const catalogExists = foodCatalog.some(item => item.name.toLowerCase() === newItem.name.toLowerCase());
-    if (!catalogExists) {
-        foodCatalog.push({
-            name: newItem.name,
-            calories: newItem.calories,
-            protein: newItem.protein,
-            carbs: newItem.carbs,
-            fat: newItem.fat,
-            sodium: newItem.sodium,
-            cholesterol: newItem.cholesterol
-        });
-        localStorage.setItem('foodCatalog', JSON.stringify(foodCatalog));
-        updateFoodDatalist();
-    }
+        // อัปเดตคลังอาหารอัตโนมัติถ้ายังไม่มีในระบบ
+        const catalogExists = foodCatalog.some(item => item.name.toLowerCase() === newItem.name.toLowerCase());
+        if (!catalogExists) {
+            foodCatalog.push({
+                name: newItem.name,
+                calories: newItem.calories,
+                protein: newItem.protein,
+                carbs: newItem.carbs,
+                fat: newItem.fat,
+                sodium: newItem.sodium,
+                cholesterol: newItem.cholesterol
+            });
+            localStorage.setItem('foodCatalog', JSON.stringify(foodCatalog));
+            updateFoodDatalist();
+        }
 
-    if (editIndex === "") {
-        dailyMeals[mealKey].items.push(newItem);
-    } else {
-        dailyMeals[mealKey].items[editIndex] = newItem;
-    }
+        if (editIndex === "") {
+            dailyMeals[mealKey].items.push(newItem);
+        } else {
+            dailyMeals[mealKey].items[editIndex] = newItem;
+        }
 
-    modal.classList.remove('active');
-    renderApp();
-});
+        modal.classList.remove('active');
+        renderApp();
+    });
+}
 
 // ลบรายการอาหารในมื้อ
 function deleteMealItem(mealKey, index) {
@@ -207,14 +216,17 @@ function deleteMealItem(mealKey, index) {
 }
 
 // รีเซ็ตข้อมูลทั้งวัน
-document.getElementById('resetDayBtn').addEventListener('click', () => {
-    if (confirm('ต้องการล้างข้อมูลการกินทั้งหมดของวันนี้ใช่หรือไม่?')) {
-        Object.keys(dailyMeals).forEach(key => {
-            dailyMeals[key].items = [];
-        });
-        renderApp();
-    }
-});
+const resetDayBtn = document.getElementById('resetDayBtn');
+if (resetDayBtn) {
+    resetDayBtn.addEventListener('click', () => {
+        if (confirm('ต้องการล้างข้อมูลการกินทั้งหมดของวันนี้ใช่หรือไม่?')) {
+            Object.keys(dailyMeals).forEach(key => {
+                dailyMeals[key].items = [];
+            });
+            renderApp();
+        }
+    });
+}
 
 // โหลดระบบครั้งแรก
 window.addEventListener('DOMContentLoaded', () => {
