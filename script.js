@@ -4,9 +4,8 @@ const TODAY_STR = '2026-11-12';
 let selectedDate = localStorage.getItem('selectedDate') || TODAY_STR;
 let allMealsHistory = JSON.parse(localStorage.getItem('allMealsHistory')) || {};
 
-// ตัวแปรคุมเดือนที่กำลังแสดงในปฏิทิน
 let calViewYear = 2026;
-let calViewMonth = 10; // 0-indexed (10 = พฤศจิกายน)
+let calViewMonth = 10;
 
 function getMealsForDate(dateStr) {
     if (!allMealsHistory[dateStr]) {
@@ -146,9 +145,7 @@ function renderApp() {
     localStorage.setItem('allMealsHistory', JSON.stringify(allMealsHistory));
 }
 
-// ==========================================
-// Custom Calendar Logic
-// ==========================================
+// Calendar Modal Logic
 const calendarModal = document.getElementById('calendarModal');
 let previewDate = selectedDate;
 
@@ -211,14 +208,12 @@ function renderCalendar() {
     const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
     const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
 
-    // ช่องว่างก่อนวันที่ 1
     for (let i = 0; i < firstDay; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.className = 'cal-day empty';
         grid.appendChild(emptyCell);
     }
 
-    // สร้างปุ่มวันที่ 1 - สิ้นเดือน
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const stats = getDayStats(dateStr);
@@ -270,9 +265,7 @@ function selectDateAndClose(dateStr) {
     calendarModal.classList.remove('active');
 }
 
-// ==========================================
-// จัดการ Modal เพิ่ม/แก้ไขอาหาร
-// ==========================================
+// Food Modal Logic
 const modal = document.getElementById('foodModal');
 
 function openAddModal(mealKey) {
