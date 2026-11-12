@@ -3,22 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FitTracker - บันทึกและควบคุมพลังงาน</title>
+    <title>FitTracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="container">
-        <!-- Header -->
+        <!-- Header (เอาปุ่มขวาบนออกแล้ว) -->
         <header>
             <div class="logo-area">
                 <h1 class="logo-title">FitTracker</h1>
                 <span class="calorie-badge">1,500 kcal</span>
-            </div>
-            <div class="header-icons">
-                <button class="icon-btn" id="resetDayBtn" title="รีเซ็ตวัน">🔄</button>
-                <button class="icon-btn" title="ตั้งค่า">⚙️</button>
             </div>
         </header>
 
@@ -44,8 +40,8 @@
                 <div>คอเลสเตอรอล<strong id="totalCholesterol">0mg</strong></div>
             </div>
 
-            <div class="progress-info">
-                <span id="consumedText">ทานไป 0 kcal</span>
+            <div class="progress-footer">
+                <span id="consumedText" style="color: #9ca3af; font-size: 13px;">ทานไป 0 kcal</span>
                 <span class="status-badge" id="statusBadge">กำลังคุม</span>
             </div>
             <div class="progress-bar-bg">
@@ -55,13 +51,8 @@
 
         <!-- Meal Sections Container -->
         <div id="mealSectionsContainer">
-            <!-- เรนเดอร์ด้วย JavaScript -->
+            <!-- จะถูกเรนเดอร์ด้วย JavaScript -->
         </div>
-
-        <!-- Big Bottom Add Button (ตามกรอบสีแดงในภาพ) -->
-        <button class="big-add-btn" onclick="openAddModal('breakfast')">
-            <span>+</span> เพิ่มรายการอาหาร
-        </button>
     </div>
 
     <!-- Modal ฟอร์มเพิ่ม/แก้ไขรายการอาหาร -->
@@ -73,17 +64,8 @@
                 <input type="hidden" id="editItemIndex" value="">
 
                 <div class="form-group">
-                    <label>มื้ออาหาร</label>
-                    <select id="mealSelectDropdown" class="form-control">
-                        <option value="breakfast">มื้อเช้า</option>
-                        <option value="lunch">มื้อเที่ยง</option>
-                        <option value="dinner">มื้อเย็น</option>
-                        <option value="snack">ของว่าง / อื่นๆ</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
                     <label>ชื่ออาหาร</label>
+                    <!-- ใส่ list="food-list" เพื่อให้พิมพ์ค้นหาจากคลังอัตโนมัติได้ -->
                     <input type="text" id="foodNameInput" list="food-list" class="form-control" required placeholder="พิมพ์หรือเลือกชื่ออาหาร เช่น หมูย่าง...">
                     <datalist id="food-list"></datalist>
                 </div>
