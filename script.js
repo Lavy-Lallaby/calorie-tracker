@@ -1,523 +1,153 @@
-// ตั้งค่า Gemini API Key ของคุณที่นี่
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
+// ตั้งค่าเป้าหมายแคลอรีประจำวัน
+const TARGET_CALORIES = 1500;
 
-const DAILY_TARGET_CAL = 1500;
-let currentDate = new Date().toISOString().split('T')[0];
-let allData = JSON.parse(localStorage.getItem('fit_tracker_data') || '{}');
-
-// ฟังก์ชันช่วยแปลงข้อมูลโครงสร้างเก่า (logs) ให้เป็นโครงสร้างปฏิทินปัจจุบัน
-function migrateOldData(rawData) {
-    let converted = {};
-    
-    // ถ้ามีโครงสร้างแบบ logs (อาร์เรย์รายการอาหาร)
-    if (rawData.logs && Array.isArray(rawData.logs)) {
-        rawData.logs.forEach(item => {
-            const date = item.date || currentDate;
-            if (!converted[date]) {
-                converted[date] = { morning: [], lunch: [], dinner: [], snack: [] };
-            }
-            
-            // แปลงชื่อมื้อจากภาษาไทยเดิมให้เข้ากับระบบคีย์ระบบใหม่
-            let mKey = 'morning';
-            if (item.meal === 'เที่ยง') mKey = 'lunch';
-            else if (item.meal === 'เย็น') mKey = 'dinner';
-            else if (item.meal === 'ว่าง' || item.meal === 'อื่นๆ') mKey = 'snack';
-            
-            converted[date][mKey].push({
-                name: item.name || 'ไม่ระบุชื่อ',
-                cal: item.cal || 0,
-                protein: item.protein || 0,
-                carbs: item.carbs || 0,
-                fat: item.fat || 0,
-                sodium: item.sodium || 0,
-                cholesterol: item.cholesterol || 0,
-                qty: item.qty || 1
-            });
-        });
-    } else {
-        // ถ้าเป็นโครงสร้างใหม่อยู่แล้ว
-        converted = rawData;
-    }
-    
-    if (converted.presets) delete converted.presets;
-    if (converted.logs) delete converted.logs;
-    return converted;
-}
-
-// โหลดและแปลงข้อมูลทันที
-allData = migrateOldData(allData);
-
-const mealConfig = {
-    morning: { title: 'มื้อเช้า', color: 'orange', border: 'border-orange-100', text: 'text-orange-600', badge: 'bg-orange-50' },
-    lunch: { title: 'มื้อเที่ยง', color: 'red', border: 'border-rose-100', text: 'text-rose-600', badge: 'bg-rose-50' },
-    dinner: { title: 'มื้อเย็น', color: 'sky', border: 'border-sky-100', text: 'text-sky-600', badge: 'bg-sky-50' },
-    snack: { title: 'ของว่าง / อื่นๆ', color: 'purple', border: 'border-purple-100', text: 'text-purple-600', badge: 'bg-purple-50' }
+// โครงสร้างข้อมูลมื้ออาหารและคลังอาหาร
+let dailyMeals = JSON.parse(localStorage.getItem('dailyMeals')) || {
+    breakfast: { title: "มื้อเช้า", items: [] },
+    lunch: { title: "มื้อเที่ยง", items: [] },
+    dinner: { title: "มื้อเย็น", items: [] },
+    snack: { title: "ของว่าง / อื่นๆ", items: [] }
 };
 
-function initApp() {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
-    document.getElementById('current-date-display').innerText = new Date(currentDate).toLocaleDateString('th-TH', options);
-    renderMeals();
-    updateDashboard();
+let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [
+    { name: "หมูย่าง", calories: 100, protein: 7, carbs: 2, fat: 6, sodium: 200, cholesterol: 30 },
+    { name: "ข้าวเหนียว", calories: 155, protein: 2.5, carbs: 32.5, fat: 0, sodium: 5, cholesterol: 0 },
+    { name: "ชามะนาว น้ำผึ้ง", calories: 25, protein: 0, carbs: 6.5, fat: 0, sodium: 0, cholesterol: 0 },
+    { name: "ข้าวต้มหมูสับ", calories: 250, protein: 13.5, carbs: 32.5, fat: 7.5, sodium: 550, cholesterol: 40 }
+];
+
+// อัปเดตรายการใน datalist (ให้ระบบพิมพ์ค้นหาทำงาน)
+function updateFoodDatalist() {
+    const datalist = document.getElementById('food-list');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    foodCatalog.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.name;
+        datalist.appendChild(option);
+    });
 }
 
-function getTodayData() {
-    if (!allData[currentDate]) {
-        allData[currentDate] = { morning: [], lunch: [], dinner: [], snack: [] };
-    }
-    return allData[currentDate];
-}
-
-function saveData() {
-    localStorage.setItem('fit_tracker_data', JSON.stringify(allData));
-    updateDashboard();
-}
-
-function renderMeals() {
-    const container = document.getElementById('meals-container');
+// เรนเดอร์หน้าจอหลักและคำนวณผลรวม
+function renderApp() {
+    const container = document.getElementById('mealSectionsContainer');
     container.innerHTML = '';
-    const data = getTodayData();
 
-    Object.keys(mealConfig).forEach(mealKey => {
-        const config = mealConfig[mealKey];
-        const items = data[mealKey] || [];
-        const totalCal = items.reduce((sum, item) => sum + (item.cal * item.qty), 0);
-        const totalProtein = items.reduce((sum, item) => sum + (item.protein * item.qty), 0);
+    let totalCals = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    let totalSodium = 0;
+    let totalCholesterol = 0;
 
-        let itemsHtml = items.length === 0 
-            ? `<p class="text-xs text-slate-400 italic py-1">ยังไม่มีรายการอาหาร</p>`
-            : items.map((item, idx) => `
-                <div class="flex justify-between items-center py-2 border-b border-slate-100 last:border-none text-xs">
-                    <div>
-                        <span class="font-bold text-slate-700">${item.name}</span>
-                        <span class="text-slate-400 ml-1">x${item.qty}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-semibold text-slate-600">${Math.round(item.cal * item.qty)} kcal <span class="text-emerald-600">(${Math.round(item.protein * item.qty)}g)</span></span>
-                        <button onclick="editItem('${mealKey}', ${idx})" class="text-slate-400 hover:text-indigo-600">✏️</button>
-                        <button onclick="deleteItem('${mealKey}', ${idx})" class="text-slate-400 hover:text-rose-600">🗑️</button>
-                    </div>
-                </div>
-            `).join('');
+    Object.keys(dailyMeals).forEach(mealKey => {
+        const meal = dailyMeals[mealKey];
+        let mealCals = 0;
+        let mealProtein = 0;
 
-        container.innerHTML += `
-            <div class="bg-white border ${config.border} rounded-2xl p-4 shadow-sm">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-xs font-extrabold px-2.5 py-1 rounded-xl ${config.badge} ${config.text}">${config.title}</span>
-                    <span class="text-xs font-bold text-slate-500">${Math.round(totalCal)} kcal | โปรตีน ${Math.round(totalProtein)}g</span>
-                </div>
-                <div class="space-y-1">${itemsHtml}</div>
-                <button onclick="openAddFoodModal('${mealKey}')" class="mt-3 w-full py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl text-xs transition">
-                    + เพิ่ม ${config.title}
-                </button>
-            </div>
-        `;
-    });
-}
+        meal.items.forEach(item => {
+            const qty = item.qty || 1;
+            mealCals += (item.calories * qty);
+            mealProtein += (item.protein * qty);
 
-function updateDashboard() {
-    const data = getTodayData();
-    let totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalSodium = 0, totalCholesterol = 0;
-
-    Object.keys(mealConfig).forEach(mealKey => {
-        const items = data[mealKey] || [];
-        items.forEach(item => {
-            const q = item.qty || 1;
-            totalCal += (item.cal || 0) * q;
-            totalProtein += (item.protein || 0) * q;
-            totalCarbs += (item.carbs || 0) * q;
-            totalFat += (item.fat || 0) * q;
-            totalSodium += (item.sodium || 0) * q;
-            totalCholesterol += (item.cholesterol || 0) * q;
+            totalCals += (item.calories * qty);
+            totalProtein += (item.protein * qty);
+            totalCarbs += (item.carbs * qty);
+            totalFat += (item.fat * qty);
+            totalSodium += (item.sodium * qty);
+            totalCholesterol += (item.cholesterol * qty);
         });
-    });
 
-    const remaining = DAILY_TARGET_CAL - totalCal;
-    document.getElementById('remaining-cal').innerText = remaining;
-    document.getElementById('total-protein').innerText = Math.round(totalProtein);
-    document.getElementById('total-carbs').innerText = `${Math.round(totalCarbs)}g`;
-    document.getElementById('total-fat').innerText = `${Math.round(totalFat)}g`;
-    document.getElementById('total-sodium').innerText = `${Math.round(totalSodium)}mg`;
-    document.getElementById('total-cholesterol').innerText = `${Math.round(totalCholesterol)}mg`;
-    document.getElementById('consumed-cal-text').innerText = `ทานไป ${Math.round(totalCal)} kcal`;
-
-    let percent = Math.min((totalCal / DAILY_TARGET_CAL) * 100, 100);
-    document.getElementById('calorie-progress-bar').style.width = `${percent}%`;
-
-    const badge = document.getElementById('status-badge');
-    if (totalCal >= 1200 && totalCal <= 1500) {
-        badge.innerText = "ผ่านเกณฑ์ดีมาก 👍";
-        badge.className = "px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px]";
-    } else if (totalCal > 1500) {
-        badge.innerText = "เกินเป้าหมาย ⚠️";
-        badge.className = "px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[10px]";
-    } else {
-        badge.innerText = "ต่ำกว่าเกณฑ์ / กำลังคุม";
-        badge.className = "px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px]";
-    }
-}
-
-function openAddFoodModal(defaultMeal = 'morning') {
-    document.getElementById('modal-title').innerText = "บันทึกมื้ออาหาร";
-    document.getElementById('meal-type').value = defaultMeal;
-    document.getElementById('food-name').value = '';
-    document.getElementById('base-cal').value = '';
-    document.getElementById('base-protein').value = '';
-    document.getElementById('base-carbs').value = '';
-    document.getElementById('base-fat').value = '';
-    document.getElementById('base-sodium').value = '';
-    document.getElementById('base-cholesterol').value = '';
-    document.getElementById('food-qty').value = 1;
-    document.getElementById('edit-index').value = '';
-    document.getElementById('edit-meal-type').value = '';
-    calculatePreview();
-    document.getElementById('food-modal').classList.remove('hidden');
-    document.getElementById('food-modal').classList.add('flex');
-}
-
-function closeAddFoodModal() {
-    document.getElementById('food-modal').classList.add('hidden');
-    document.getElementById('food-modal').classList.remove('flex');
-}
-
-function calculatePreview() {
-    const q = parseFloat(document.getElementById('food-qty').value) || 1;
-    document.getElementById('preview-cal').innerText = Math.round((parseFloat(document.getElementById('base-cal').value) || 0) * q);
-    document.getElementById('preview-protein').innerText = Math.round(((parseFloat(document.getElementById('base-protein').value) || 0) * q) * 10) / 10;
-    document.getElementById('preview-carbs').innerText = Math.round(((parseFloat(document.getElementById('base-carbs').value) || 0) * q) * 10) / 10;
-    document.getElementById('preview-fat').innerText = Math.round(((parseFloat(document.getElementById('base-fat').value) || 0) * q) * 10) / 10;
-    document.getElementById('preview-sodium').innerText = Math.round((parseFloat(document.getElementById('base-sodium').value) || 0) * q);
-    document.getElementById('preview-cholesterol').innerText = Math.round((parseFloat(document.getElementById('base-cholesterol').value) || 0) * q);
-}
-
-function saveFoodItem(e) {
-    e.preventDefault();
-    const mealType = document.getElementById('meal-type').value;
-    const name = document.getElementById('food-name').value;
-    const cal = parseFloat(document.getElementById('base-cal').value) || 0;
-    const protein = parseFloat(document.getElementById('base-protein').value) || 0;
-    const carbs = parseFloat(document.getElementById('base-carbs').value) || 0;
-    const fat = parseFloat(document.getElementById('base-fat').value) || 0;
-    const sodium = parseFloat(document.getElementById('base-sodium').value) || 0;
-    const cholesterol = parseFloat(document.getElementById('base-cholesterol').value) || 0;
-    const qty = parseFloat(document.getElementById('food-qty').value) || 1;
-
-    const editIndex = document.getElementById('edit-index').value;
-    const editMealType = document.getElementById('edit-meal-type').value;
-    const data = getTodayData();
-
-    if (editIndex !== "" && editMealType !== "") {
-        data[editMealType].splice(editIndex, 1);
-    }
-
-    if (!data[mealType]) data[mealType] = [];
-    data[mealType].push({ name, cal, protein, carbs, fat, sodium, cholesterol, qty });
-
-    saveData();
-    renderMeals();
-    closeAddFoodModal();
-}
-
-function editItem(mealKey, idx) {
-    const item = allData[currentDate][mealKey][idx];
-    document.getElementById('modal-title').innerText = "แก้ไขรายการอาหาร";
-    document.getElementById('meal-type').value = mealKey;
-    document.getElementById('food-name').value = item.name;
-    document.getElementById('base-cal').value = item.cal;
-    document.getElementById('base-protein').value = item.protein;
-    document.getElementById('base-carbs').value = item.carbs || 0;
-    document.getElementById('base-fat').value = item.fat || 0;
-    document.getElementById('base-sodium').value = item.sodium || 0;
-    document.getElementById('base-cholesterol').value = item.cholesterol || 0;
-    document.getElementById('food-qty').value = item.qty;
-    document.getElementById('edit-index').value = idx;
-    document.getElementById('edit-meal-type').value = mealKey;
-    calculatePreview();
-    document.getElementById('food-modal').classList.remove('hidden');
-    document.getElementById('food-modal').classList.add('flex');
-}
-
-function deleteItem(mealKey, idx) {
-    if (confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) {
-        allData[currentDate][mealKey].splice(idx, 1);
-        saveData();
-        renderMeals();
-    }
-}
-
-// History & Calendar Modal
-function openHistoryModal() {
-    const container = document.getElementById('calendar-container');
-    container.innerHTML = '';
-    const dates = Object.keys(allData).filter(k => k.includes('-')).sort().reverse();
-    
-    if (dates.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">ยังไม่มีประวัติย้อนหลัง</p>`;
-    } else {
-        dates.forEach(date => {
-            const dayData = allData[date];
-            let totalCal = 0, totalProtein = 0;
-            Object.keys(mealConfig).forEach(m => {
-                if (dayData[m] && Array.isArray(dayData[m])) {
-                    dayData[m].forEach(i => {
-                        totalCal += (i.cal || 0) * (i.qty || 1);
-                        totalProtein += (i.protein || 0) * (i.qty || 1);
-                    });
-                }
-            });
-            container.innerHTML += `
-                <div class="bg-slate-50 p-3 rounded-2xl flex justify-between items-center border border-slate-100 text-xs">
-                    <div>
-                        <span class="font-bold text-slate-800 block">${date}</span>
-                        <span class="text-slate-500">${Math.round(totalCal)} kcal | โปรตีน ${Math.round(totalProtein)}g</span>
-                    </div>
-                    <button onclick="selectDate('${date}')" class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">เลือกดู</button>
-                </div>
-            `;
-        });
-    }
-    document.getElementById('history-modal').classList.remove('hidden');
-    document.getElementById('history-modal').classList.add('flex');
-}
-
-function closeHistoryModal() {
-    document.getElementById('history-modal').classList.add('hidden');
-    document.getElementById('history-modal').classList.remove('flex');
-}
-
-function selectDate(date) {
-    currentDate = date;
-    closeHistoryModal();
-    initApp();
-}
-
-function openSettingsModal() {
-    document.getElementById('settings-modal').classList.remove('hidden');
-    document.getElementById('settings-modal').classList.add('flex');
-}
-function closeSettingsModal() {
-    document.getElementById('settings-modal').classList.add('hidden');
-    document.getElementById('settings-modal').classList.remove('flex');
-}
-
-function exportDataJSON() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
-    const dlAnchor = document.createElement('a');
-    dlAnchor.setAttribute("href", dataStr);
-    dlAnchor.setAttribute("download", `fit_tracker_backup_${currentDate}.json`);
-    document.body.appendChild(dlAnchor);
-    dlAnchor.click();
-    dlAnchor.remove();
-}
-
-function importDataJSON(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const raw = JSON.parse(e.target.result);
-            allData = migrateOldData(raw);
-            localStorage.setItem('fit_tracker_data', JSON.stringify(allData));
-            initApp();
-            alert('✨ กู้คืนข้อมูลสำเร็จ!');
-            closeSettingsModal();
-        } catch (err) {
-            alert('ไฟล์ JSON ไม่ถูกต้อง');
-        }
-    };
-    reader.readAsText(file);
-}
-
-// ==========================================
-// AI & Scanner Functions
-// ==========================================
-const aiPromptInstruction = "Analyze this food image. Estimate food name in Thai, calories (kcal), protein (g), carbs (g), fat (g), sodium (mg), and cholesterol (mg). Return strictly ONLY a JSON object with keys: food_name (string), calories (number), protein (number), carbs (number), fat (number), sodium (number), cholesterol (number).";
-
-async function analyzeFoodImage(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const btnText = document.getElementById('ai-btn-text');
-    if (btnText) btnText.innerText = 'กำลังวิเคราะห์...';
-
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const base64Image = e.target.result.split(',')[1];
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: aiPromptInstruction }, { inline_data: { mime_type: file.type, data: base64Image } }] }],
-                    generationConfig: { response_mime_type: "application/json" }
-                })
-            });
-            const data = await response.json();
-            const result = JSON.parse(data.candidates[0].content.parts[0].text);
-
-            document.getElementById('food-name').value = result.food_name || '';
-            document.getElementById('base-cal').value = result.calories || 0;
-            document.getElementById('base-protein').value = result.protein || 0;
-            document.getElementById('base-carbs').value = result.carbs || 0;
-            document.getElementById('base-fat').value = result.fat || 0;
-            document.getElementById('base-sodium').value = result.sodium || 0;
-            document.getElementById('base-cholesterol').value = result.cholesterol || 0;
-            document.getElementById('food-qty').value = 1;
-            calculatePreview();
-
-            if (btnText) btnText.innerText = 'ถ่ายรูปอาหาร';
-            alert(`✨ วิเคราะห์สำเร็จ: ${result.food_name} (${result.calories} kcal)`);
-        } catch (error) {
-            console.error(error);
-            alert('ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่อีกครั้ง');
-            if (btnText) btnText.innerText = 'ถ่ายรูปอาหาร';
-        }
-    };
-    reader.readAsDataURL(file);
-}
-
-async function analyzeNutritionLabel(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    alert('⏳ กำลังอ่านตารางโภชนาการจากฉลาก...');
-
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const base64Image = e.target.result.split(',')[1];
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: aiPromptInstruction }, { inline_data: { mime_type: file.type, data: base64Image } }] }],
-                    generationConfig: { response_mime_type: "application/json" }
-                })
-            });
-            const data = await response.json();
-            const result = JSON.parse(data.candidates[0].content.parts[0].text);
-
-            document.getElementById('food-name').value = result.food_name || 'อาหารจากฉลาก';
-            document.getElementById('base-cal').value = result.calories || 0;
-            document.getElementById('base-protein').value = result.protein || 0;
-            document.getElementById('base-carbs').value = result.carbs || 0;
-            document.getElementById('base-fat').value = result.fat || 0;
-            document.getElementById('base-sodium').value = result.sodium || 0;
-            document.getElementById('base-cholesterol').value = result.cholesterol || 0;
-            document.getElementById('food-qty').value = 1;
-            calculatePreview();
-            alert('✨ อ่านฉลากโภชนาการสำเร็จ!');
-        } catch (error) {
-            console.error(error);
-            alert('ไม่สามารถอ่านข้อมูลจากภาพฉลากได้ กรุณาลองใหม่อีกครั้ง');
-        }
-    };
-    reader.readAsDataURL(file);
-}
-
-let html5QrCode = null;
-
-function startBarcodeScanner() {
-    const container = document.getElementById('barcode-scanner-container');
-    container.classList.remove('hidden');
-
-    html5QrCode = new Html5Qrcode("interactive");
-    html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
-        async (decodedText) => {
-            stopBarcodeScanner();
-            await fetchProductByBarcode(decodedText);
-        },
-        (errorMessage) => {}
-    ).catch(err => {
-        alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้อง");
-        container.classList.add('hidden');
-    });
-}
-
-function stopBarcodeScanner() {
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            document.getElementById('barcode-scanner-container').classList.add('hidden');
-        }).catch(err => console.error(err));
-    }
-}
-
-async function fetchProductByBarcode(barcode) {
-    alert(`🔍 กำลังค้นหาข้อมูลสินค้าบาร์โค้ด: ${barcode}...`);
-    try {
-        const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-        const data = await response.json();
-
-        if (data.status === 1) {
-            const product = data.product;
-            const name = product.product_name || 'สินค้าไม่ระบุชื่อ';
-            const nutriments = product.nutriments || {};
-            
-            const cal = nutriments['energy-kcal_100g'] || nutriments['energy-kcal'] || 0;
-            const protein = nutriments['proteins_100g'] || nutriments['proteins'] || 0;
-            const carbs = nutriments['carbohydrates_100g'] || nutriments['carbohydrates'] || 0;
-            const fat = nutriments['fat_100g'] || nutriments['fat'] || 0;
-            const sodium = (nutriments['sodium_100g'] || nutriments['sodium'] || 0) * 2.5 * 1000;
-            const cholesterol = nutriments['cholesterol_100g'] || nutriments['cholesterol'] || 0;
-
-            document.getElementById('food-name').value = name;
-            document.getElementById('base-cal').value = Math.round(cal);
-            document.getElementById('base-protein').value = Math.round(protein * 10) / 10;
-            document.getElementById('base-carbs').value = Math.round(carbs * 10) / 10;
-            document.getElementById('base-fat').value = Math.round(fat * 10) / 10;
-            document.getElementById('base-sodium').value = Math.round(sodium);
-            document.getElementById('base-cholesterol').value = Math.round(cholesterol);
-            document.getElementById('food-qty').value = 1;
-            calculatePreview();
-
-            alert(`✨ พบสินค้า: ${name}`);
+        // สร้าง HTML แต่ละมื้อ
+        const mealCard = document.createElement('div');
+        mealCard.style.cssText = "background: #fff; border: 1px solid #f3f4f6; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+        
+        let itemsHtml = '';
+        if (meal.items.length === 0) {
+            itemsHtml = `<div style="color: #9ca3af; font-size: 14px; padding: 8px 0;">ยังไม่มีรายการอาหาร</div>`;
         } else {
-            alert('ไม่พบข้อมูลสินค้าชิ้นนี้ในระบบฐานข้อมูล สามารถพิมพ์ชื่อและสารอาหารเองได้เลยครับ');
+            meal.items.forEach((item, index) => {
+                itemsHtml += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9fafb;">
+                        <div>
+                            <span style="font-weight: 500; font-size: 14px;">${item.name}</span>
+                            <span style="color: #6b7280; font-size: 12px; margin-left: 4px;">x${item.qty || 1}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 13px; font-weight: 500;">${item.calories * (item.qty || 1)} kcal <span style="color: #059669;">(${item.protein * (item.qty || 1)}g)</span></span>
+                            <button onclick="openEditModal('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 14px;">✏️</button>
+                            <button onclick="deleteMealItem('${mealKey}', ${index})" style="background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 14px;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
         }
-    } catch (err) {
-        console.error(err);
-        alert('เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูลบาร์โค้ด');
-    }
+
+        mealCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-weight: 600; font-size: 15px; color: #374151;">${meal.title}</span>
+                <span style="font-size: 13px; color: #6b7280;">${mealCals} kcal | โปรตีน ${mealProtein}g</span>
+            </div>
+            <div style="margin-bottom: 12px;">${itemsHtml}</div>
+            <button onclick="openAddModal('${mealKey}')" style="width: 100%; padding: 8px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #4f46e5; font-weight: 500; font-size: 13px; cursor: pointer;">+ เพิ่ม${meal.title}</button>
+        `;
+        container.appendChild(mealCard);
+    });
+
+    // อัปเดตส่วนสรุปด้านบน
+    const remaining = TARGET_CALORIES - totalCals;
+    document.getElementById('remainingCalories').innerHTML = `${remaining} <span style="font-size: 16px; font-weight: normal;">kcal</span>`;
+    document.getElementById('totalProtein').innerHTML = `${totalProtein.toFixed(1)} <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span>`;
+    document.getElementById('totalCarbs\x27') // (ปรับแก้ชื่อตัวแปรสั้นๆ)
+    document.getElementById('totalCarbs').innerText = `${totalCarbs.toFixed(1)}g`;
+    document.getElementById('totalFat').innerText = `${totalFat.toFixed(1)}g`;
+    document.getElementById('totalSodium').innerText = `${totalSodium}mg`;
+    document.getElementById('totalCholesterol').innerText = `${totalCholesterol}mg`;
+
+    // บันทึกลง LocalStorage ของวัน
+    localStorage.setItem('dailyMeals', JSON.stringify(dailyMeals));
 }
 
-// 1. โหลดคลังเมนูเดิมจาก LocalStorage (ถ้าไม่มีให้เป็นอาร์เรย์ว่าง)
-let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [];
+// จัดการ Modal
+const modal = document.getElementById('foodModal');
 
-// ฟังก์ชันเมื่อกดบันทึกรายการอาหาร
-function saveFoodEntry(name, calories, protein, carbs, fat, sodium, cholesterol) {
-    const cleanName = name.trim();
-    
-    // เช็กว่ามีเมนูนี้ในคลังหรือยัง (เปรียบเทียบชื่อ)
-    const existingIndex = foodCatalog.findIndex(item => item.name.toLowerCase() === cleanName.toLowerCase());
-
-    if (existingIndex === -1) {
-        // ถ้ายังไม่มี -> แอดเพิ่มเข้าไปในคลังเมนู
-        foodCatalog.push({
-            name: cleanName,
-            calories: Number(calories),
-            protein: Number(protein),
-            carbs: Number(carbs),
-            fat: Number(fat),
-            sodium: Number(sodium),
-            cholesterol: Number(cholesterol)
-        });
-        // อัปเดตคลังลง LocalStorage
-        localStorage.setItem('foodCatalog', JSON.stringify(foodCatalog));
-        console.log(`เพิ่ม "${cleanName}" เข้าคลังเมนูเรียบร้อย`);
-    } else {
-        // ถ้ามีอยู่แล้ว -> ไม่ต้องเพิ่มซ้ำ
-        console.log(`เมนู "${cleanName}" มีในคลังแล้ว`);
-    }
+function openAddModal(mealKey) {
+    document.getElementById('modalTitle').innerText = `เพิ่มอาหาร (${dailyMeals[mealKey].title})`;
+    document.getElementById('editMealType').value = mealKey;
+    document.getElementById('editItemIndex').value = "";
+    document.getElementById('foodForm').reset();
+    document.getElementById('qtyInput').value = 1;
+    modal.classList.add('active');
 }
 
-// 2. ฟังก์ชันค้นหาและดึงข้อมูลอัตโนมัติเมื่อผู้ใช้พิมพ์ชื่ออาหาร
-function autoFillFoodData(inputName) {
-    const cleanName = inputName.trim().toLowerCase();
-    const foundItem = foodCatalog.find(item => item.name.toLowerCase() === cleanName);
+function openEditModal(mealKey, index) {
+    const item = dailyMeals[mealKey].items[index];
+    document.getElementById('modalTitle').innerText = `แก้ไขรายการอาหาร`;
+    document.getElementById('editMealType').value = mealKey;
+    document.getElementById('editItemIndex').value = index;
+
+    document.getElementById('foodNameInput').value = item.name;
+    document.getElementById('caloriesInput').value = item.calories;
+    document.getElementById('proteinInput').value = item.protein;
+    document.getElementById('carbsInput').value = item.carbs;
+    document.getElementById('fatInput').value = item.fat;
+    document.getElementById('sodiumInput').value = item.sodium;
+    document.getElementById('cholesterolInput').value = item.cholesterol;
+    document.getElementById('qtyInput').value = item.qty || 1;
+
+    modal.classList.add('active');
+}
+
+document.getElementById('closeModalBtn').addEventListener('click', () => {
+    modal.classList.remove('active');
+});
+
+// ฟังก์ชัน Auto-fill ข้อมูลเมื่อพิมพ์หรือเลือกชื่ออาหารจากคลัง
+document.getElementById('foodNameInput').addEventListener('input', function(e) {
+    const selectedName = e.target.value.trim().toLowerCase();
+    const foundItem = foodCatalog.find(item => item.name.toLowerCase() === selectedName);
 
     if (foundItem) {
-        // ดึงค่ามาเติมลงในช่อง input ของฟอร์มให้อัตโนมัติ
         document.getElementById('caloriesInput').value = foundItem.calories;
         document.getElementById('proteinInput').value = foundItem.protein;
         document.getElementById('carbsInput').value = foundItem.carbs;
@@ -525,6 +155,69 @@ function autoFillFoodData(inputName) {
         document.getElementById('sodiumInput').value = foundItem.sodium;
         document.getElementById('cholesterolInput').value = foundItem.cholesterol;
     }
+});
+
+// บันทึกฟอร์ม (เพิ่มหรือแก้ไขรายการ)
+document.getElementById('foodForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const mealKey = document.getElementById('editMealType').value;
+    const editIndex = document.getElementById('editItemIndex').value;
+
+    const newItem = {
+        name: document.getElementById('foodNameInput').value.trim(),
+        calories: Number(document.getElementById('caloriesInput').value) || 0,
+        protein: Number(document.getElementById('proteinInput').value) || 0,
+        carbs: Number(document.getElementById('carbsInput').value) || 0,
+        fat: Number(document.getElementById('fatInput').value) || 0,
+        sodium: Number(document.getElementById('sodiumInput').value) || 0,
+        cholesterol: Number(document.getElementById('cholesterolInput').value) || 0,
+        qty: Number(document.getElementById('qtyInput').value) || 1
+    };
+
+    // อัปเดตคลังอาหารอัตโนมัติถ้ายังไม่มีในระบบ
+    const catalogExists = foodCatalog.some(item => item.name.toLowerCase() === newItem.name.toLowerCase());
+    if (!catalogExists) {
+        foodCatalog.push({
+            name: newItem.name,
+            calories: newItem.calories,
+            protein: newItem.protein,
+            carbs: newItem.carbs,
+            fat: newItem.fat,
+            sodium: newItem.sodium,
+            cholesterol: newItem.cholesterol
+        });
+        localStorage.setItem('foodCatalog', JSON.stringify(foodCatalog));
+        updateFoodDatalist();
+    }
+
+    if (editIndex === "") {
+        dailyMeals[mealKey].items.push(newItem);
+    } else {
+        dailyMeals[mealKey].items[editIndex] = newItem;
+    }
+
+    modal.classList.remove('active');
+    renderApp();
+});
+
+// ลบรายการอาหารในมื้อ
+function deleteMealItem(mealKey, index) {
+    dailyMeals[mealKey].items.splice(index, 1);
+    renderApp();
 }
 
-window.onload = initApp;
+// รีเซ็ตข้อมูลทั้งวัน
+document.getElementById('resetDayBtn').addEventListener('click', () => {
+    if (confirm('ต้องการล้างข้อมูลการกินทั้งหมดของวันนี้ใช่หรือไม่?')) {
+        Object.keys(dailyMeals).forEach(key => {
+            dailyMeals[key].items = [];
+        });
+        renderApp();
+    }
+});
+
+// โหลดระบบครั้งแรก
+window.addEventListener('DOMContentLoaded', () => {
+    updateFoodDatalist();
+    renderApp();
+});
