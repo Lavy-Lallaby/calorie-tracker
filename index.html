@@ -17,18 +17,23 @@
     <header class="w-full max-w-md px-4 py-3 flex justify-between items-center bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-800/80">
         <div class="flex items-center space-x-2">
             <img src="animal.png" alt="Logo" class="w-8 h-8 rounded-full object-cover border border-amber-500/30">
-            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
-                FitTracker <i class="fa-solid fa-dumbbell text-amber-500 text-xs"></i>
-            </h1>
+            <div>
+                <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-1.5 leading-none">
+                    FitTracker <i class="fa-solid fa-dumbbell text-amber-500 text-xs"></i>
+                </h1>
+                <span id="sync-status-badge" class="text-[10px] text-slate-400 block mt-0.5">
+                    <i class="fa-solid fa-hard-drive"></i> บันทึกในเครื่อง
+                </span>
+            </div>
         </div>
         <div class="flex items-center space-x-1.5">
+            <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลเดี๋ยวนี้" class="bg-slate-800 active:bg-slate-700 text-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition border border-slate-700">
+                <i id="sync-icon" class="fa-solid fa-cloud-arrow-down text-xs text-sky-400"></i>
+            </button>
             <button type="button" onclick="openCalendarModal()" class="bg-slate-800 active:bg-slate-700 text-slate-200 text-xs px-2.5 py-2 rounded-full font-medium transition flex items-center gap-1 border border-slate-700">
                 <i class="fa-solid fa-calendar-days text-amber-400"></i> <span id="current-date-badge">วันนี้</span>
             </button>
-            <div class="bg-indigo-950/80 text-indigo-300 border border-indigo-800/50 text-[11px] px-2.5 py-1.5 rounded-full font-semibold">
-                1,500 kcal
-            </div>
-            <button type="button" onclick="openSettingsModal()" aria-label="ตั้งค่า" class="bg-slate-800 active:bg-slate-700 text-slate-200 w-9 h-9 rounded-full flex items-center justify-center transition border border-slate-700 touch-manipulation">
+            <button type="button" onclick="openSettingsModal()" aria-label="ตั้งค่า" class="bg-slate-800 active:bg-slate-700 text-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition border border-slate-700 touch-manipulation">
                 <i class="fa-solid fa-gear text-xs"></i>
             </button>
         </div>
@@ -54,7 +59,7 @@
         <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/60 p-5 rounded-3xl border border-slate-800 shadow-xl space-y-4">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">พลังงานคงเหลือ</span>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">พลังงานคงเหลือ (เป้า 1,500)</span>
                     <div class="text-3xl font-extrabold text-white mt-0.5" id="calories-remaining">520 <span class="text-sm font-normal text-slate-400">kcal</span></div>
                 </div>
                 <div class="text-right">
@@ -63,7 +68,7 @@
                 </div>
             </div>
 
-            <!-- Macros Grid (แถวที่ 1: สารอาหารหลัก + น้ำตาล) -->
+            <!-- Macros Grid (แถวที่ 1) -->
             <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/60 text-center">
                 <div class="bg-slate-950/40 p-2 rounded-xl border border-slate-800/40">
                     <span class="text-[10px] text-slate-400 block">คาร์บ</span>
@@ -79,7 +84,7 @@
                 </div>
             </div>
 
-            <!-- Macros Grid (แถวที่ 2: ประเภทไขมัน + โซเดียม + คอเลสเตอรอล) -->
+            <!-- Macros Grid (แถวที่ 2) -->
             <div class="grid grid-cols-4 gap-1.5 text-center">
                 <div class="bg-slate-950/40 p-1.5 rounded-xl border border-slate-800/40">
                     <span class="text-[9px] text-slate-400 block">ไขมันอิ่มตัว</span>
@@ -234,7 +239,6 @@
                     </div>
                 </div>
 
-                <!-- โปรตีน / คาร์บ / น้ำตาล -->
                 <div class="grid grid-cols-3 gap-2">
                     <div>
                         <label class="block text-[11px] font-medium text-emerald-400 mb-1">โปรตีน (g)</label>
@@ -253,7 +257,6 @@
                     </div>
                 </div>
 
-                <!-- ไขมันทั้งหมด / ไขมันอิ่มตัว / ไขมันทรานส์ -->
                 <div class="grid grid-cols-3 gap-2">
                     <div>
                         <label class="block text-[11px] font-medium text-slate-300 mb-1">ไขมันรวม (g)</label>
@@ -272,7 +275,6 @@
                     </div>
                 </div>
 
-                <!-- โซเดียม / คอเลสเตอรอล -->
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
                         <label class="block text-[11px] font-medium text-amber-400 mb-1">โซเดียม (mg)</label>
@@ -354,31 +356,53 @@
         </div>
     </div>
 
-    <!-- API Settings Modal -->
+    <!-- Settings Modal (GitHub Sync + Gemini AI) -->
     <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-800 p-5 space-y-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-800 p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-key text-indigo-400"></i> ตั้งค่า Gemini AI (เสริม)
+                    <i class="fa-solid fa-gear text-indigo-400"></i> ตั้งค่าซิงก์ข้อมูล & AI
                 </h3>
                 <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="space-y-3">
-                <p class="text-xs text-slate-400 leading-relaxed">
-                    ปุ่ม <b>สแกนฉลาก</b> และ <b>บาร์โค้ด</b> ใช้งานได้ทันทีโดยไม่ต้องใช้ Key ส่วนช่องนี้สำหรับปุ่มถ่ายรูปอาหาร (AI) เท่านั้น
-                </p>
-                <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Gemini API Key</label>
+            <div class="space-y-4">
+                <!-- GitHub Sync Section -->
+                <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2.5">
+                    <div class="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
+                        <i class="fa-brands fa-github"></i> ซิงก์ข้ามเครื่อง (fittracker-db/db.json)
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                        ใส่ GitHub Fine-grained Token เพื่อให้มือถือและ PC ดึง/บันทึกข้อมูลร่วมกันอัตโนมัติ
+                    </p>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">GitHub Token (github_pat_...)</label>
+                        <input type="password" id="github-token-input" placeholder="github_pat_..." 
+                            class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button type="button" onclick="syncFromGitHub(true)" class="bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs py-2 rounded-xl font-medium transition border border-slate-700">
+                            <i class="fa-solid fa-cloud-arrow-down mr-1"></i> ดึงข้อมูลมา
+                        </button>
+                        <button type="button" onclick="pushToGitHub(true)" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs py-2 rounded-xl font-medium transition border border-slate-700">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i> ส่งข้อมูลขึ้น
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Gemini AI Section -->
+                <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                    <div class="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Gemini AI (สำหรับปุ่มถ่ายรูปอาหาร)
+                    </div>
                     <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." 
-                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <div class="pt-2 flex space-x-2">
-                    <button type="button" onclick="saveApiKey()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">
-                        บันทึกการตั้งค่า
-                    </button>
-                </div>
+
+                <button type="button" onclick="saveAllSettings()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+                    บันทึกการตั้งค่า
+                </button>
             </div>
         </div>
     </div>
@@ -400,6 +424,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=7"></script>
+    <script src="script.js?v=8"></script>
 </body>
 </html>
