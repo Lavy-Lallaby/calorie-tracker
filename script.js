@@ -48,6 +48,7 @@ function initApp() {
     renderDateDisplay();
     renderMeals();
     renderSummary();
+    renderNutritionCoach();
     updateCatalogDatalist();
 }
 
@@ -545,6 +546,126 @@ function autofillFoodCatalog(name) {
         document.getElementById('food-sodium').value = found.sodium;
         document.getElementById('food-cholesterol').value = found.cholesterol;
     }
+}
+
+// ==========================================
+// Smart Nutrition Coach (ใต้มื้อว่าง)
+// ==========================================
+function renderNutritionCoach() {
+    const container = document.getElementById('coach-container');
+    if (!container) return;
+
+    const dayData = getDayData(currentDateKey);
+    let totalCal = 0, totalProt = 0, totalSugar = 0, totalSatFat = 0, totalTransFat = 0, totalSodium = 0, totalChol = 0;
+
+    Object.values(dayData.meals).forEach(mealList => {
+        mealList.forEach(item => {
+            totalCal += Number(item.calories || 0);
+            totalProt += Number(item.protein || 0);
+            totalSugar += Number(item.sugar || 0);
+            totalSatFat += Number(item.satFat || 0);
+            totalTransFat += Number(item.transFat || 0);
+            totalSodium += Number(item.sodium || 0);
+            totalChol += Number(item.cholesterol || 0);
+        });
+    });
+
+    const targetCal = 1500;
+    const minProt = 96;
+    const remCal = targetCal - totalCal;
+    const remProt = Math.max(0, minProt - totalProt);
+
+    // 1. วิเคราะห์สิ่งที่ควรเลี่ยง / ระวังวันนี้
+    let warnings = [];
+    if (totalSodium > 2000) {
+        warnings.push(`โซเดียมสูงแล้ว (${Math.round(totalSodium)}/2,000 mg) <b>ควรงด</b> ซดน้ำซุป อาหารแปรรูป บะหมี่กึ่งสำเร็จรูป และของหมักดอง`);
+    }
+    if (totalSugar > 24) {
+        warnings.push(`น้ำตาลเกินเกณฑ์ (${totalSugar.toFixed(1)}/24 g) <b>ควรเลี่ยง</b> ชานม น้ำอัดลม ขนมหวาน และผลไม้รสหวานจัด`);
+    }
+    if (totalSatFat > 15 || totalTransFat > 0) {
+        warnings.push(`ไขมันอิ่มตัว/ทรานส์เริ่มสูง <b>ควรเลี่ยง</b> ของทอด เบเกอรี่ ครีมเทียม กะทิ และเนื้อสัตว์ติดมัน`);
+    }
+    if (totalChol > 250) {
+        warnings.push(`คอเลสเตอรอลใกล้เกิน 300 mg <b>ควรเลี่ยง</b> ไข่แดง เครื่องในสัตว์ และอาหารทะเลบางชนิด (เลือกกินเฉพาะไข่ขาวแทน)`);
+    }
+    if (remCal < 150 && remCal >= 0) {
+        warnings.push(`แคลอรีเหลือน้อย (${remCal} kcal) <b>ควรงด</b> ของทานเล่นที่มีแป้งและไขมันสูง`);
+    } else if (remCal < 0) {
+        warnings.push(`ทานเกินโควตาไปแล้ว ${Math.abs(remCal)} kcal <b>ควรงดมื้อดึก</b> และดื่มน้ำเปล่าแทน`);
+    }
+
+    if (warnings.length === 0) {
+        warnings.push(`ค่าโซเดียม น้ำตาล และไขมันยังอยู่ในเกณฑ์ดี <b>เลี่ยง</b> ของทอดและน้ำหวานเพื่อรักษาสมดุลต่อ`);
+    }
+
+    // 2. แนะนำเมนูเพิ่มโปรตีนให้ถึงเป้า (เลือกเมนูที่แคลอรีพอดีกับงบที่เหลือ)
+    const proteinMenus = [
+        { name: "ไข่ขาวต้ม 3 ฟอง", cal: 50, prot: 11, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
+        { name: "เวย์โปรตีนไอโซเลต 1 สกู๊ป", cal: 120, prot: 25, note: "ดูดซึมไว เติมโปรตีนได้เยอะในแคลน้อย" },
+        { name: "อกไก่นุ่มเซเว่น 1 ชิ้น", cal: 130, prot: 23, note: "หาซื้อง่าย อิ่มท้องนาน" },
+        { name: "ทูน่าในน้ำแร่ 1 กระป๋อง", cal: 110, prot: 24, note: "ไขมันต่ำมาก ยำหรือกินกับสลัดได้" },
+        { name: "กรีกโยเกิร์ต 0% 1 ถ้วย", cal: 90, prot: 15, note: "ช่วยเรื่องขับถ่ายและลดอยากของหวาน" },
+        { name: "นมถั่วเหลืองโปรตีนสูง (ไม่หวาน) 1 ขวด", cal: 180, prot: 28, note: "ดื่มง่าย โปรตีนแน่น" },
+        { name: "ปลาทับทิม/ปลานิลนึ่ง 1 ตัวกลาง", cal: 220, prot: 35, note: "ย่อยง่าย เหมาะเป็นมื้อเย็น" },
+        { name: "ไข่ต้มทั้งฟอง 2 ฟอง", cal: 150, prot: 12, note: "ประหยัด อิ่มนาน" }
+    ];
+
+    let protHtml = "";
+    if (remProt <= 0) {
+        protHtml = `<div class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-circle-check mr-1"></i> ยินดีด้วย! วันนี้คุณทานโปรตีนถึงเป้าหมาย (${totalProt.toFixed(1)}g) เรียบร้อยแล้ว</div>`;
+    } else {
+        // กรองเมนูที่แคลอรีไม่เกินงบที่เหลือ (หรือถ้าเหลือน้อยมากให้แนะนำเมนูแคลต่ำสุด)
+        let suitable = proteinMenus.filter(m => m.cal <= Math.max(remCal, 130)).slice(0, 3);
+        protHtml = `
+            <p class="text-xs text-slate-300 mb-2">
+                ยังขาดโปรตีนอีก <span class="text-emerald-400 font-bold">${remProt.toFixed(1)}g</span> (งบพลังงานเหลือ <span class="text-white font-semibold">${Math.max(0, remCal)} kcal</span>) แนะนำเมนูนี้:
+            </p>
+            <div class="space-y-1.5">
+                ${suitable.map(m => `
+                    <div class="flex justify-between items-center bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-800/80 text-xs">
+                        <div>
+                            <span class="text-slate-100 font-medium">${m.name}</span>
+                            <span class="text-[10px] text-slate-400 block">${m.note}</span>
+                        </div>
+                        <div class="text-right shrink-0 ml-2">
+                            <span class="text-emerald-400 font-bold block">+${m.prot}g โปรตีน</span>
+                            <span class="text-[10px] text-slate-400">${m.cal} kcal</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <section class="bg-gradient-to-br from-slate-900 to-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3.5">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                <h4 class="font-bold text-white text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i> คำแนะนำ & เมนูเสริมวันนี้
+                </h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800/50">อัปเดตอัตโนมัติ</span>
+            </div>
+
+            <!-- ส่วนแนะนำโปรตีน -->
+            <div class="space-y-1">
+                <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-drumstick-bite"></i> เติมโปรตีนให้ถึงเป้า (96-128g)
+                </div>
+                ${protHtml}
+            </div>
+
+            <!-- ส่วนเตือนสิ่งที่ไม่ควรกิน -->
+            <div class="space-y-1.5 pt-2 border-t border-slate-800/60">
+                <div class="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-ban"></i> สิ่งที่ควรเลี่ยงในช่วงที่เหลือของวัน
+                </div>
+                <ul class="space-y-1 text-xs text-slate-300 list-disc list-inside">
+                    ${warnings.map(w => `<li>${w}</li>`).join('')}
+                </ul>
+            </div>
+        </section>
+    `;
 }
 
 function openCalendarModal() {
