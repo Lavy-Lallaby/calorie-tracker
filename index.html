@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FitTracker</title>
+    <!-- เพิ่ม Favicon รูป animal.png -->
+    <link rel="icon" type="image/png" href="animal.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -91,7 +93,8 @@
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top: 0; font-size: 18px; margin-bottom: 16px;">บันทึกมื้ออาหาร</h3>
             
-           <div class="scanner-box">
+            <!-- แถบปุ่มสแกน -->
+            <div class="scanner-box">
                 <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
                 <div class="scanner-btns">
                     <button type="button" class="scan-btn" onclick="triggerCamera()">
@@ -107,9 +110,8 @@
                         <span>บาร์โค้ด</span>
                     </button>
                 </div>
-                <!-- Input สำหรับเปิดกล้องถ่ายสด -->
+                <!-- Input ซ่อนไว้รองรับการถ่ายรูปหรือเปิดแกลเลอรี -->
                 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleFileSelected(event, 'camera')">
-                <!-- Input สำหรับเลือกรูปจากอัลบั้มในเครื่อง -->
                 <input type="file" id="galleryInput" accept="image/*" style="display: none;" onchange="handleFileSelected(event, 'gallery')">
             </div>
 
