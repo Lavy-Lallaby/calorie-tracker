@@ -1,6 +1,6 @@
 // State Management
 let currentDateKey = getFormattedDateKey(new Date());
-let currentScanMode = 'label'; // 'label' (Tesseract OCR) or 'food' (Gemini AI)
+let currentScanMode = 'label';
 let html5QrCode = null;
 
 // Mock data initialization if empty
@@ -8,13 +8,13 @@ const defaultHistory = {
     "2026-11-12": {
         meals: {
             "มื้อเช้า": [
-                { name: "หมูย่าง", qty: "x3", calories: 300, protein: 21, carbs: 0, fat: 15, sodium: 400, cholesterol: 80 },
-                { name: "ข้าวเหนียว", qty: "x1", calories: 155, protein: 2.5, carbs: 34, fat: 1, sodium: 10, cholesterol: 0 },
-                { name: "ชามะนาว น้ำผึ้ง", qty: "x1", calories: 25, protein: 0, carbs: 6, fat: 0, sodium: 5, cholesterol: 0 }
+                { name: "หมูย่าง", qty: "x3", calories: 300, protein: 21, carbs: 0, sugar: 0, fat: 15, satFat: 5, transFat: 0, sodium: 400, cholesterol: 80 },
+                { name: "ข้าวเหนียว", qty: "x1", calories: 155, protein: 2.5, carbs: 34, sugar: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 10, cholesterol: 0 },
+                { name: "ชามะนาว น้ำผึ้ง", qty: "x1", calories: 25, protein: 0, carbs: 6, sugar: 6, fat: 0, satFat: 0, transFat: 0, sodium: 5, cholesterol: 0 }
             ],
             "มื้อเที่ยง": [
-                { name: "หมูย่าง", qty: "x1", calories: 100, protein: 7, carbs: 0, fat: 5, sodium: 130, cholesterol: 25 },
-                { name: "เกาเหลาหมู", qty: "x1", calories: 400, protein: 30, carbs: 14, fat: 23, sodium: 1760, cholesterol: 115 }
+                { name: "หมูย่าง", qty: "x1", calories: 100, protein: 7, carbs: 0, sugar: 0, fat: 5, satFat: 1.5, transFat: 0, sodium: 130, cholesterol: 25 },
+                { name: "เกาเหลาหมู", qty: "x1", calories: 400, protein: 30, carbs: 14, sugar: 4, fat: 23, satFat: 8, transFat: 0, sodium: 1760, cholesterol: 115 }
             ],
             "มื้อเย็น": []
         }
@@ -23,9 +23,9 @@ const defaultHistory = {
 
 let allMealsHistory = JSON.parse(localStorage.getItem('fitTracker_history')) || defaultHistory;
 let foodCatalog = JSON.parse(localStorage.getItem('fitTracker_catalog')) || [
-    { name: "อกไก่ต้ม (100g)", calories: 120, protein: 25, carbs: 0, fat: 1.5, sodium: 60, cholesterol: 50 },
-    { name: "ข้าวสวย (1 ทัพพี)", calories: 80, protein: 2, carbs: 18, fat: 0.2, sodium: 0, cholesterol: 0 },
-    { name: "ไข่ต้ม (1 ฟอง)", calories: 75, protein: 6, carbs: 0.5, fat: 5, sodium: 70, cholesterol: 186 }
+    { name: "อกไก่ต้ม (100g)", calories: 120, protein: 25, carbs: 0, sugar: 0, fat: 1.5, satFat: 0.4, transFat: 0, sodium: 60, cholesterol: 50 },
+    { name: "ข้าวสวย (1 ทัพพี)", calories: 80, protein: 2, carbs: 18, sugar: 0, fat: 0.2, satFat: 0, transFat: 0, sodium: 0, cholesterol: 0 },
+    { name: "ไข่ต้ม (1 ฟอง)", calories: 75, protein: 6, carbs: 0.5, sugar: 0.5, fat: 5, satFat: 1.6, transFat: 0, sodium: 70, cholesterol: 186 }
 ];
 
 const mealTypes = ["มื้อเช้า", "มื้อเที่ยง", "มื้อเย็น", "มื้อว่าง/อื่นๆ"];
@@ -127,14 +127,19 @@ function renderMeals() {
 
 function renderSummary() {
     const dayData = getDayData(currentDateKey);
-    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSodium = 0, totalChol = 0;
+    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalSugar = 0;
+    let totalFat = 0, totalSatFat = 0, totalTransFat = 0;
+    let totalSodium = 0, totalChol = 0;
 
     Object.values(dayData.meals).forEach(mealList => {
         mealList.forEach(item => {
             totalCal += Number(item.calories || 0);
             totalProt += Number(item.protein || 0);
             totalCarbs += Number(item.carbs || 0);
+            totalSugar += Number(item.sugar || 0);
             totalFat += Number(item.fat || 0);
+            totalSatFat += Number(item.satFat || 0);
+            totalTransFat += Number(item.transFat || 0);
             totalSodium += Number(item.sodium || 0);
             totalChol += Number(item.cholesterol || 0);
         });
@@ -147,7 +152,10 @@ function renderSummary() {
     document.getElementById('calories-consumed').innerText = `${totalCal} kcal`;
     document.getElementById('protein-summary').innerHTML = `${totalProt.toFixed(1)} / <span class="text-xs font-normal text-slate-400">96-128 g</span>`;
     document.getElementById('carbs-total').innerText = `${totalCarbs.toFixed(1)}g`;
+    document.getElementById('sugar-total').innerText = `${totalSugar.toFixed(1)}g`;
     document.getElementById('fats-total').innerText = `${totalFat.toFixed(1)}g`;
+    document.getElementById('satfat-total').innerText = `${totalSatFat.toFixed(1)}g`;
+    document.getElementById('transfat-total').innerText = `${totalTransFat.toFixed(1)}g`;
     document.getElementById('sodium-total').innerText = `${Math.round(totalSodium)}mg`;
     document.getElementById('cholesterol-total').innerText = `${Math.round(totalChol)}mg`;
 
@@ -194,11 +202,11 @@ async function handleImageSelected(event) {
 }
 
 // ==========================================
-// 1. Offline Label OCR (Tesseract.js - No AI Key)
+// 1. Offline Label OCR (Tesseract.js)
 // ==========================================
 async function scanLabelOfflineOCR(file) {
     const loader = document.getElementById('ai-loading-indicator');
-    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านตัวหนังสือบนฉลาก...';
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านฉลาก...';
     loader.classList.remove('hidden');
 
     try {
@@ -206,9 +214,8 @@ async function scanLabelOfflineOCR(file) {
         const ret = await worker.recognize(file);
         await worker.terminate();
 
-        const rawText = ret.data.text;
-        console.log("OCR Text:", rawText);
-        const text = rawText.replace(/\s+/g, ' ');
+        const text = ret.data.text.replace(/\s+/g, ' ');
+        console.log("OCR Text:", text);
 
         const extractValue = (regex) => {
             const match = text.match(regex);
@@ -217,8 +224,11 @@ async function scanLabelOfflineOCR(file) {
 
         const calories = extractValue(/(?:พลังงานทั้งหมด|พลังงาน|Energy|Calories)[^\d]*(\d+(?:\.\d+)?)/i);
         const protein  = extractValue(/(?:โปรตีน|Protein)[^\d]*(\d+(?:\.\d+)?)/i);
-        const carbs    = extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|น้ำตาล|Carbohydrate|Sugar)[^\d]*(\d+(?:\.\d+)?)/i);
-        const fat      = extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const carbs    = extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|Carbohydrate)[^\d]*(\d+(?:\.\d+)?)/i);
+        const sugar    = extractValue(/(?:น้ำตาล|Sugar)[^\d]*(\d+(?:\.\d+)?)/i);
+        const fat      = extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Total Fat|Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const satFat   = extractValue(/(?:ไขมันอิ่มตัว|Saturated Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const transFat = extractValue(/(?:ไขมันทรานส์|Trans Fat)[^\d]*(\d+(?:\.\d+)?)/i);
         const sodium   = extractValue(/(?:โซเดียม|Sodium)[^\d]*(\d+(?:\.\d+)?)/i);
         const chol     = extractValue(/(?:โคเลสเตอรอล|คอเลสเตอรอล|Cholesterol)[^\d]*(\d+(?:\.\d+)?)/i);
 
@@ -227,13 +237,16 @@ async function scanLabelOfflineOCR(file) {
             qty: "1 หน่วยบริโภค",
             calories,
             protein,
-            carbs,
+            carbs: carbs || sugar, // กรณีเป็นฉลาก 4 ช่องที่มีแต่น้ำตาล
+            sugar,
             fat,
+            satFat,
+            transFat,
             sodium,
             cholesterol: chol
         });
 
-        if (calories === 0 && protein === 0 && carbs === 0 && fat === 0 && sodium === 0) {
+        if (calories === 0 && protein === 0 && carbs === 0 && sugar === 0 && fat === 0 && sodium === 0) {
             alert("ไม่พบตัวเลขสารอาหารที่ชัดเจนบนภาพ ลองถ่ายให้ตัวหนังสือในตารางตรงและชัดขึ้นนะครับ");
         }
     } catch (err) {
@@ -249,7 +262,7 @@ async function scanLabelOfflineOCR(file) {
 // ==========================================
 async function scanFoodWithGemini(file) {
     const loader = document.getElementById('ai-loading-indicator');
-    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังวิเคราะห์อาหาร...';
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังวิเคราะห์...';
     loader.classList.remove('hidden');
 
     try {
@@ -258,7 +271,7 @@ async function scanFoodWithGemini(file) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
         const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย ปริมาณ และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
-           {"name": "ชื่อเมนูภาษาไทย", "qty": "ปริมาณ เช่น 1 จาน", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "fat": ตัวเลข, "sodium": ตัวเลข, "cholesterol": ตัวเลข}`;
+           {"name": "ชื่อเมนูภาษาไทย", "qty": "ปริมาณ เช่น 1 จาน", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "cholesterol": ตัวเลข}`;
 
         const response = await fetch(url, {
             method: 'POST',
@@ -374,7 +387,10 @@ async function fetchBarcodeProduct(barcode) {
                 calories: Math.round(n[`energy-kcal${suffix}`] || 0),
                 protein: Number((n[`proteins${suffix}`] || 0).toFixed(1)),
                 carbs: Number((n[`carbohydrates${suffix}`] || 0).toFixed(1)),
+                sugar: Number((n[`sugars${suffix}`] || 0).toFixed(1)),
                 fat: Number((n[`fat${suffix}`] || 0).toFixed(1)),
+                satFat: Number((n[`saturated-fat${suffix}`] || 0).toFixed(1)),
+                transFat: Number((n[`trans-fat${suffix}`] || 0).toFixed(1)),
                 sodium: Math.round((n[`sodium${suffix}`] || 0) * 1000),
                 cholesterol: Math.round((n[`cholesterol${suffix}`] || 0) * 1000)
             });
@@ -394,7 +410,10 @@ function fillFormWithNutritionData(item) {
     document.getElementById('food-calories').value = item.calories ?? 0;
     document.getElementById('food-protein').value = item.protein ?? 0;
     document.getElementById('food-carbs').value = item.carbs ?? 0;
+    document.getElementById('food-sugar').value = item.sugar ?? 0;
     document.getElementById('food-fat').value = item.fat ?? 0;
+    document.getElementById('food-satfat').value = item.satFat ?? 0;
+    document.getElementById('food-transfat').value = item.transFat ?? 0;
     document.getElementById('food-sodium').value = item.sodium ?? 0;
     document.getElementById('food-cholesterol').value = item.cholesterol ?? 0;
 }
@@ -436,7 +455,10 @@ function openFoodModal(mealType, itemIndex = null) {
         document.getElementById('food-calories').value = item.calories || '';
         document.getElementById('food-protein').value = item.protein || '';
         document.getElementById('food-carbs').value = item.carbs || '';
+        document.getElementById('food-sugar').value = item.sugar || '';
         document.getElementById('food-fat').value = item.fat || '';
+        document.getElementById('food-satfat').value = item.satFat || '';
+        document.getElementById('food-transfat').value = item.transFat || '';
         document.getElementById('food-sodium').value = item.sodium || '';
         document.getElementById('food-cholesterol').value = item.cholesterol || '';
     } else {
@@ -461,7 +483,10 @@ function handleFoodSubmit(e) {
         calories: Number(document.getElementById('food-calories').value),
         protein: Number(document.getElementById('food-protein').value || 0),
         carbs: Number(document.getElementById('food-carbs').value || 0),
+        sugar: Number(document.getElementById('food-sugar').value || 0),
         fat: Number(document.getElementById('food-fat').value || 0),
+        satFat: Number(document.getElementById('food-satfat').value || 0),
+        transFat: Number(document.getElementById('food-transfat').value || 0),
         sodium: Number(document.getElementById('food-sodium').value || 0),
         cholesterol: Number(document.getElementById('food-cholesterol').value || 0)
     };
@@ -504,7 +529,10 @@ function autofillFoodCatalog(name) {
         document.getElementById('food-calories').value = found.calories;
         document.getElementById('food-protein').value = found.protein;
         document.getElementById('food-carbs').value = found.carbs;
+        document.getElementById('food-sugar').value = found.sugar ?? 0;
         document.getElementById('food-fat').value = found.fat;
+        document.getElementById('food-satfat').value = found.satFat ?? 0;
+        document.getElementById('food-transfat').value = found.transFat ?? 0;
         document.getElementById('food-sodium').value = found.sodium;
         document.getElementById('food-cholesterol').value = found.cholesterol;
     }
