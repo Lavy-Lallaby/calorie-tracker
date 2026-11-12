@@ -93,22 +93,24 @@
             
             <!-- แถบปุ่มสแกนด้านบน (นำกลับมาไว้ตามเดิม) -->
             <div class="scanner-box">
-                <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
-                <div class="scanner-btns">
-                    <button type="button" class="scan-btn">
-                        <span class="scan-icon">📷</span>
-                        <span>ถ่ายรูปอาหาร</span>
-                    </button>
-                    <button type="button" class="scan-btn">
-                        <span class="scan-icon">📋</span>
-                        <span>สแกนฉลาก</span>
-                    </button>
-                    <button type="button" class="scan-btn">
-                        <span class="scan-icon">📦</span>
-                        <span>บาร์โค้ด</span>
-                    </button>
-                </div>
-            </div>
+    <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
+    <div class="scanner-btns">
+        <button type="button" class="scan-btn" onclick="triggerScan('camera')">
+            <span class="scan-icon">📷</span>
+            <span>ถ่ายรูปอาหาร</span>
+        </button>
+        <button type="button" class="scan-btn" onclick="triggerScan('label')">
+            <span class="scan-icon">📋</span>
+            <span>สแกนฉลาก</span>
+        </button>
+        <button type="button" class="scan-btn" onclick="triggerScan('barcode')">
+            <span class="scan-icon">📦</span>
+            <span>บาร์โค้ด</span>
+        </button>
+    </div>
+    <!-- Input ซ่อนไว้สำหรับเปิดกล้องหรือเลือกรูปภาพ -->
+    <input type="file" id="hiddenFileInput" accept="image/*" capture="environment" style="display: none;" onchange="handleFileSelected(event)">
+</div>
 
             <form id="foodForm">
                 <input type="hidden" id="editMealType">
