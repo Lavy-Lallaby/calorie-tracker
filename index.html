@@ -4,69 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FitTracker - บันทึกและควบคุมพลังงาน</title>
-    <!-- นำเข้า Google Fonts (Inter) และ CSS ตามดีไซน์เดิมของคุณ -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css"> <!-- หากมีไฟล์ CSS แยกสามารถใส่ลิงก์ไว้ได้ครับ -->
-    <style>
-        /* สไตล์เบื้องต้นสำหรับ Modal และ Datalist เพื่อความเรียบร้อย */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: #fff;
-            padding: 24px;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-    </style>
 </head>
 <body>
 
-    <div class="container" style="max-width: 480px; margin: 0 auto; padding: 16px; font-family: 'Inter', sans-serif;">
+    <div class="container">
         <!-- Header -->
-        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <h1 style="font-size: 20px; font-weight: 700; margin: 0;">FitTracker</h1>
-                <span style="background: #eef2ff; color: #4f46e5; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">1,500 kcal</span>
+        <header>
+            <div class="logo-area">
+                <h1 class="logo-title">FitTracker</h1>
+                <span class="calorie-badge">1,500 kcal</span>
             </div>
-            <div>
-                <button id="resetDayBtn" style="background: none; border: none; cursor: pointer; font-size: 18px;">🔄</button>
+            <div class="header-icons">
+                <button class="icon-btn" id="resetDayBtn" title="รีเซ็ตวัน">🔄</button>
+                <button class="icon-btn" title="ตั้งค่า">⚙️</button>
             </div>
         </header>
 
+        <div class="date-display">วันพฤหัสบดีที่ 12 พฤศจิกายน 2569</div>
+
         <!-- Summary Card -->
-        <div style="background: #111827; color: #fff; padding: 20px; border-radius: 20px; margin-bottom: 24px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+        <div class="summary-card">
+            <div class="summary-top">
                 <div>
-                    <div style="font-size: 14px; color: #9ca3af;">พลังงานคงเหลือ</div>
-                    <div id="remainingCalories" style="font-size: 32px; font-weight: 700;">1,500 <span style="font-size: 16px; font-weight: normal;">kcal</span></div>
+                    <div class="summary-label">พลังงานคงเหลือ</div>
+                    <div class="summary-value" id="remainingCalories">1,500 <span>kcal</span></div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 14px; color: #9ca3af;">โปรตีนวันนี้</div>
-                    <div id="totalProtein" style="font-size: 28px; font-weight: 700; color: #34d399;">0 <span style="font-size: 14px; font-weight: normal; color: #9ca3af;">/ 96–128 g</span></div>
+                <div>
+                    <div class="summary-label" style="text-align: right;">โปรตีนวันนี้</div>
+                    <div class="protein-value" id="totalProtein">0.0 <span>/ 96–128 g</span></div>
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 12px; color: #9ca3af; text-align: center; border-top: 1px solid #374151; padding-top: 12px;">
-                <div>คาร์บ<br><strong id="totalCarbs" style="color: #fff; font-size: 14px;">0g</strong></div>
-                <div>ไขมัน<br><strong id="totalFat" style="color: #fff; font-size: 14px;">0g</strong></div>
-                <div>โซเดียม<br><strong id="totalSodium" style="color: #fff; font-size: 14px;">0mg</strong></div>
-                <div>คอเลสเตอรอล<br><strong id="totalCholesterol" style="color: #fff; font-size: 14px;">0mg</strong></div>
+
+            <div class="nutrients-grid">
+                <div>คาร์บ<strong id="totalCarbs">0.0g</strong></div>
+                <div>ไขมัน<strong id="totalFat">0.0g</strong></div>
+                <div>โซเดียม<strong id="totalSodium">0mg</strong></div>
+                <div>คอเลสเตอรอล<strong id="totalCholesterol">0mg</strong></div>
+            </div>
+
+            <div class="progress-info">
+                <span id="consumedText">ทานไป 0 kcal</span>
+                <span class="status-badge" id="statusBadge">กำลังคุม</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
             </div>
         </div>
 
         <!-- Meal Sections Container -->
         <div id="mealSectionsContainer">
-            <!-- จะถูกเรนเดอร์ด้วย JavaScript -->
+            <!-- เรนเดอร์ด้วย JavaScript -->
         </div>
+
+        <!-- Big Bottom Add Button (ตามกรอบสีแดงในภาพ) -->
+        <button class="big-add-btn" onclick="openAddModal('breakfast')">
+            <span>+</span> เพิ่มรายการอาหาร
+        </button>
     </div>
 
     <!-- Modal ฟอร์มเพิ่ม/แก้ไขรายการอาหาร -->
@@ -77,59 +71,68 @@
                 <input type="hidden" id="editMealType">
                 <input type="hidden" id="editItemIndex" value="">
 
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px;">ชื่ออาหาร</label>
-                    <input type="text" id="foodNameInput" list="food-list" required placeholder="พิมพ์หรือเลือกชื่ออาหาร..." style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                <div class="form-group">
+                    <label>มื้ออาหาร</label>
+                    <select id="mealSelectDropdown" class="form-control">
+                        <option value="breakfast">มื้อเช้า</option>
+                        <option value="lunch">มื้อเที่ยง</option>
+                        <option value="dinner">มื้อเย็น</option>
+                        <option value="snack">ของว่าง / อื่นๆ</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>ชื่ออาหาร</label>
+                    <input type="text" id="foodNameInput" list="food-list" class="form-control" required placeholder="พิมพ์หรือเลือกชื่ออาหาร เช่น หมูย่าง...">
                     <datalist id="food-list"></datalist>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">แคลอรี (kcal)</label>
-                        <input type="number" id="caloriesInput" required min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>แคลอรี (kcal)</label>
+                        <input type="number" id="caloriesInput" class="form-control" required min="0">
                     </div>
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">โปรตีน (g)</label>
-                        <input type="number" id="proteinInput" step="0.1" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">คาร์โบไฮเดรต (g)</label>
-                        <input type="number" id="carbsInput" step="0.1" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">ไขมัน (g)</label>
-                        <input type="number" id="fatInput" step="0.1" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                    <div class="form-group">
+                        <label>โปรตีน (g)</label>
+                        <input type="number" id="proteinInput" class="form-control" step="0.1" min="0">
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">โซเดียม (mg)</label>
-                        <input type="number" id="sodiumInput" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>คาร์โบไฮเดรต (g)</label>
+                        <input type="number" id="carbsInput" class="form-control" step="0.1" min="0">
                     </div>
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">คอเลสเตอรอล (mg)</label>
-                        <input type="number" id="cholesterolInput" min="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                    <div class="form-group">
+                        <label>ไขมัน (g)</label>
+                        <input type="number" id="fatInput" class="form-control" step="0.1" min="0">
                     </div>
                 </div>
 
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">จำนวนหน่วย (Qty)</label>
-                    <input type="number" id="qtyInput" value="1" min="1" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>โซเดียม (mg)</label>
+                        <input type="number" id="sodiumInput" class="form-control" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>คอเลสเตอรอล (mg)</label>
+                        <input type="number" id="cholesterolInput" class="form-control" min="0">
+                    </div>
                 </div>
 
-                <div style="display: flex; gap: 8px;">
-                    <button type="button" id="closeModalBtn" style="flex: 1; padding: 10px; background: #f3f4f6; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">ยกเลิก</button>
-                    <button type="submit" style="flex: 1; padding: 10px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">บันทึกรายการ</button>
+                <div class="form-group">
+                    <label>จำนวนหน่วย (Qty)</label>
+                    <input type="number" id="qtyInput" class="form-control" value="1" min="1" required>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="closeModalBtn">ยกเลิก</button>
+                    <button type="submit" class="btn-submit">บันทึกรายการ</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- นำเข้าไฟล์ JavaScript หลัก -->
     <script src="script.js"></script>
 </body>
 </html>
