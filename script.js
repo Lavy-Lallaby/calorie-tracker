@@ -1,22 +1,13 @@
 const TARGET_CALORIES = 1500;
+const TODAY_STR = '2026-11-12';
 
-// ตั้งวันที่ปัจจุบัน (ค่าเริ่มต้น: 2026-11-12 ตามหน้าจอของคุณ)
-let selectedDate = localStorage.getItem('selectedDate') || '2026-11-12';
-
-// โหลดประวัติรายวันทั้งหมดจาก LocalStorage
+let selectedDate = localStorage.getItem('selectedDate') || TODAY_STR;
 let allMealsHistory = JSON.parse(localStorage.getItem('allMealsHistory')) || {};
 
-// กู้คืนข้อมูลเก่าจาก key 'dailyMeals' ถ้ามีอยู่
-const legacyDailyMeals = JSON.parse(localStorage.getItem('dailyMeals'));
-if (legacyDailyMeals && !allMealsHistory[selectedDate]) {
-    const hasItems = Object.values(legacyDailyMeals).some(m => m.items && m.items.length > 0);
-    if (hasItems) {
-        allMealsHistory[selectedDate] = legacyDailyMeals;
-        localStorage.setItem('allMealsHistory', JSON.stringify(allMealsHistory));
-    }
-}
+// ตัวแปรคุมเดือนที่กำลังแสดงในปฏิทิน
+let calViewYear = 2026;
+let calViewMonth = 10; // 0-indexed (10 = พฤศจิกายน)
 
-// ฟังก์ชันดึงข้อมูลมื้ออาหารของวันที่เลือก
 function getMealsForDate(dateStr) {
     if (!allMealsHistory[dateStr]) {
         allMealsHistory[dateStr] = {
@@ -29,7 +20,6 @@ function getMealsForDate(dateStr) {
     return allMealsHistory[dateStr];
 }
 
-// แปลงวันที่ YYYY-MM-DD เป็นภาษาไทย (เช่น วันพฤหัสบดีที่ 12 พฤศจิกายน 2569)
 function formatThaiDate(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d);
@@ -41,7 +31,6 @@ function formatThaiDate(dateStr) {
     return `วัน${days[dateObj.getDay()]}ที่ ${d} ${months[m - 1]} ${y + 543}`;
 }
 
-// คลังเมนูอาหารอัตโนมัติ (จำค่าข้ามวัน)
 let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [
     { name: "หมูย่าง", calories: 100, protein: 7, carbs: 2, fat: 6, sodium: 200, cholesterol: 30 },
     { name: "ข้าวเหนียว", calories: 155, protein: 2.5, carbs: 32.5, fat: 0, sodium: 5, cholesterol: 0 },
@@ -49,7 +38,6 @@ let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [
     { name: "ข้าวต้มหมูสับ", calories: 250, protein: 13.5, carbs: 32.5, fat: 7.5, sodium: 550, cholesterol: 40 }
 ];
 
-// อัปเดตรายชื่อใน Datalist พิมพ์ค้นหา
 function updateFoodDatalist() {
     const datalist = document.getElementById('food-list');
     if (!datalist) return;
@@ -61,7 +49,6 @@ function updateFoodDatalist() {
     });
 }
 
-// เรนเดอร์หน้าจอหลัก
 function renderApp() {
     document.getElementById('currentDateText').innerText = formatThaiDate(selectedDate);
     const dailyMeals = getMealsForDate(selectedDate);
@@ -130,7 +117,6 @@ function renderApp() {
         container.appendChild(mealCard);
     });
 
-    // อัปเดตส่วน Summary ด้านบน
     const remaining = Math.round(TARGET_CALORIES - totalCals);
     document.getElementById('remainingCalories').innerHTML = `${remaining} <span>kcal</span>`;
     document.getElementById('totalProtein').innerHTML = `${Number(totalProtein.toFixed(1))} <span>/ 96–128 g</span>`;
@@ -161,14 +147,17 @@ function renderApp() {
 }
 
 // ==========================================
-// จัดการ Modal ปฏิทิน & สรุปย้อนหลัง
+// Custom Calendar Logic
 // ==========================================
 const calendarModal = document.getElementById('calendarModal');
-const datePickerInput = document.getElementById('datePickerInput');
+let previewDate = selectedDate;
 
 document.getElementById('openCalendarBtn').addEventListener('click', () => {
-    datePickerInput.value = selectedDate;
-    renderHistorySummary();
+    const [y, m] = selectedDate.split('-').map(Number);
+    calViewYear = y;
+    calViewMonth = m - 1;
+    previewDate = selectedDate;
+    renderCalendar();
     calendarModal.classList.add('active');
 });
 
@@ -176,53 +165,109 @@ document.getElementById('closeCalendarBtn').addEventListener('click', () => {
     calendarModal.classList.remove('active');
 });
 
-datePickerInput.addEventListener('change', (e) => {
-    if (e.target.value) {
-        selectedDate = e.target.value;
-        renderApp();
-        calendarModal.classList.remove('active');
+document.getElementById('prevMonthBtn').addEventListener('click', () => {
+    calViewMonth--;
+    if (calViewMonth < 0) {
+        calViewMonth = 11;
+        calViewYear--;
     }
+    renderCalendar();
 });
 
-function renderHistorySummary() {
-    const listEl = document.getElementById('historySummaryList');
-    listEl.innerHTML = '';
+document.getElementById('nextMonthBtn').addEventListener('click', () => {
+    calViewMonth++;
+    if (calViewMonth > 11) {
+        calViewMonth = 0;
+        calViewYear++;
+    }
+    renderCalendar();
+});
 
-    const dates = Object.keys(allMealsHistory).sort().reverse();
-    if (dates.length === 0) {
-        listEl.innerHTML = `<div style="color: #9ca3af; font-size: 13px; text-align: center; padding: 12px;">ยังไม่มีประวัติการบันทึก</div>`;
-        return;
+function getDayStats(dateStr) {
+    const meals = allMealsHistory[dateStr];
+    if (!meals) return { cals: 0, protein: 0, hasData: false };
+    let cals = 0, protein = 0, count = 0;
+    Object.values(meals).forEach(m => {
+        m.items.forEach(item => {
+            const q = item.qty || 1;
+            cals += item.calories * q;
+            protein += item.protein * q;
+            count++;
+        });
+    });
+    return { cals: Math.round(cals), protein: Number(protein.toFixed(1)), hasData: count > 0 };
+}
+
+function renderCalendar() {
+    const months = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    document.getElementById('calendarMonthYear').innerText = `${months[calViewMonth]} ${calViewYear + 543}`;
+
+    const grid = document.getElementById('calendarDaysGrid');
+    grid.innerHTML = '';
+
+    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+    // ช่องว่างก่อนวันที่ 1
+    for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'cal-day empty';
+        grid.appendChild(emptyCell);
     }
 
-    dates.forEach(dateStr => {
-        const meals = allMealsHistory[dateStr];
-        let dayCals = 0;
-        let dayPro = 0;
+    // สร้างปุ่มวันที่ 1 - สิ้นเดือน
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const stats = getDayStats(dateStr);
 
-        Object.values(meals).forEach(m => {
-            m.items.forEach(item => {
-                const q = item.qty || 1;
-                dayCals += item.calories * q;
-                dayPro += item.protein * q;
-            });
-        });
+        const cell = document.createElement('div');
+        cell.className = 'cal-day';
+        if (dateStr === TODAY_STR) cell.classList.add('today');
+        if (dateStr === previewDate) cell.classList.add('selected');
 
-        const itemDiv = document.createElement('div');
-        itemDiv.className = `history-item ${dateStr === selectedDate ? 'active' : ''}`;
-        itemDiv.innerHTML = `
-            <div>
-                <div style="font-size: 13px; font-weight: 600; color: #1f2937;">${formatThaiDate(dateStr)}</div>
-                <div style="font-size: 12px; color: #6b7280;">โปรตีน ${Number(dayPro.toFixed(1))}g</div>
-            </div>
-            <div style="font-size: 14px; font-weight: 700; color: #4f46e5;">${Math.round(dayCals)} kcal</div>
-        `;
-        itemDiv.onclick = () => {
-            selectedDate = dateStr;
-            renderApp();
-            calendarModal.classList.remove('active');
+        let dotHtml = '';
+        if (stats.hasData) {
+            const dotColor = stats.cals <= TARGET_CALORIES ? 'green' : 'red';
+            dotHtml = `<span class="dot ${dotColor}"></span>`;
+        }
+
+        cell.innerHTML = `<span>${day}</span>${dotHtml}`;
+        cell.onclick = () => {
+            previewDate = dateStr;
+            renderCalendar();
         };
-        listEl.appendChild(itemDiv);
-    });
+        grid.appendChild(cell);
+    }
+
+    renderDayPreview(previewDate);
+}
+
+function renderDayPreview(dateStr) {
+    const previewBox = document.getElementById('selectedDayPreview');
+    const stats = getDayStats(dateStr);
+
+    previewBox.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div>
+                <div style="font-size: 13px; font-weight: 700; color: #1f2937;">${formatThaiDate(dateStr)}</div>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                    ${stats.hasData ? `ทานไป <strong>${stats.cals} kcal</strong> • โปรตีน <strong style="color: #059669;">${stats.protein}g</strong>` : 'ยังไม่มีบันทึกข้อมูลในวันนี้'}
+                </div>
+            </div>
+        </div>
+        <button type="button" onclick="selectDateAndClose('${dateStr}')" style="width: 100%; padding: 10px; background: #4f46e5; color: #fff; border: none; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer;">
+            เปิดดู / บันทึกข้อมูลวันนี้
+        </button>
+    `;
+}
+
+function selectDateAndClose(dateStr) {
+    selectedDate = dateStr;
+    renderApp();
+    calendarModal.classList.remove('active');
 }
 
 // ==========================================
@@ -263,7 +308,6 @@ document.getElementById('closeModalBtn').addEventListener('click', () => {
     modal.classList.remove('active');
 });
 
-// Auto-fill ข้อมูลเมื่อพิมพ์หรือเลือกชื่ออาหารจากคลัง
 document.getElementById('foodNameInput').addEventListener('input', function(e) {
     const selectedName = e.target.value.trim().toLowerCase();
     const foundItem = foodCatalog.find(item => item.name.toLowerCase() === selectedName);
@@ -278,7 +322,6 @@ document.getElementById('foodNameInput').addEventListener('input', function(e) {
     }
 });
 
-// บันทึกฟอร์ม
 document.getElementById('foodForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const dailyMeals = getMealsForDate(selectedDate);
@@ -296,7 +339,6 @@ document.getElementById('foodForm').addEventListener('submit', function(e) {
         qty: Number(document.getElementById('qtyInput').value) || 1
     };
 
-    // เพิ่มเข้าคลังอัตโนมัติถ้ายังไม่มี
     const catalogExists = foodCatalog.some(item => item.name.toLowerCase() === newItem.name.toLowerCase());
     if (!catalogExists) {
         foodCatalog.push({
@@ -322,14 +364,12 @@ document.getElementById('foodForm').addEventListener('submit', function(e) {
     renderApp();
 });
 
-// ลบรายการ
 function deleteMealItem(mealKey, index) {
     const dailyMeals = getMealsForDate(selectedDate);
     dailyMeals[mealKey].items.splice(index, 1);
     renderApp();
 }
 
-// โหลดระบบครั้งแรก
 window.addEventListener('DOMContentLoaded', () => {
     updateFoodDatalist();
     renderApp();
