@@ -91,26 +91,27 @@
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top: 0; font-size: 18px; margin-bottom: 16px;">บันทึกมื้ออาหาร</h3>
             
-            <!-- แถบปุ่มสแกนด้านบน (นำกลับมาไว้ตามเดิม) -->
             <div class="scanner-box">
-    <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
-    <div class="scanner-btns">
-        <button type="button" class="scan-btn" onclick="triggerScan('camera')">
-            <span class="scan-icon">📷</span>
-            <span>ถ่ายรูปอาหาร</span>
-        </button>
-        <button type="button" class="scan-btn" onclick="triggerScan('label')">
-            <span class="scan-icon">📋</span>
-            <span>สแกนฉลาก</span>
-        </button>
-        <button type="button" class="scan-btn" onclick="triggerScan('barcode')">
-            <span class="scan-icon">📦</span>
-            <span>บาร์โค้ด</span>
-        </button>
-    </div>
-    <!-- Input ซ่อนไว้สำหรับเปิดกล้องหรือเลือกรูปภาพ -->
-    <input type="file" id="hiddenFileInput" accept="image/*" capture="environment" style="display: none;" onchange="handleFileSelected(event)">
-</div>
+                <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
+                <div class="scanner-btns">
+                    <button type="button" class="scan-btn" onclick="triggerCamera()">
+                        <span class="scan-icon">📷</span>
+                        <span>ถ่ายรูปอาหาร</span>
+                    </button>
+                    <button type="button" class="scan-btn" onclick="triggerGallery('label')">
+                        <span class="scan-icon">📋</span>
+                        <span>สแกนฉลาก</span>
+                    </button>
+                    <button type="button" class="scan-btn" onclick="triggerGallery('barcode')">
+                        <span class="scan-icon">📦</span>
+                        <span>บาร์โค้ด</span>
+                    </button>
+                </div>
+                <!-- Input สำหรับเปิดกล้องถ่ายสด -->
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleFileSelected(event, 'camera')">
+                <!-- Input สำหรับเลือกรูปจากอัลบั้มในเครื่อง -->
+                <input type="file" id="galleryInput" accept="image/*" style="display: none;" onchange="handleFileSelected(event, 'gallery')">
+            </div>
 
             <form id="foodForm">
                 <input type="hidden" id="editMealType">
