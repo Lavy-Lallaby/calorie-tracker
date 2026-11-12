@@ -233,7 +233,7 @@ function resizeImageToBase64(file, maxWidth) {
 
 async function analyzeImageWithGemini(base64Data, mode) {
     const apiKey = localStorage.getItem('fitTracker_gemini_key');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
     const promptText = mode === 'label'
         ? `อ่านข้อมูลจากภาพฉลากโภชนาการหรือฉลาก GDA (หวาน มัน เค็ม) นี้ สรุปค่าโภชนาการต่อ 1 หน่วยบริโภค (หรือต่อ 1 ซอง/ขวด/กล่อง ตามที่ระบุเด่นชัดที่สุด) ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
