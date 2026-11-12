@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FitTracker</title>
-    <!-- เพิ่ม Favicon รูป animal.png -->
     <link rel="icon" type="image/png" href="animal.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -12,7 +11,6 @@
 <body>
 
     <div class="container">
-        <!-- Header -->
         <header>
             <div class="logo-area">
                 <span style="font-size: 22px;">🦦</span>
@@ -26,7 +24,6 @@
 
         <div class="date-display" id="currentDateText">วันพฤหัสบดีที่ 12 พฤศจิกายน 2569</div>
 
-        <!-- Summary Card -->
         <div class="summary-card">
             <div class="summary-top">
                 <div>
@@ -55,11 +52,10 @@
             </div>
         </div>
 
-        <!-- Meal Sections Container -->
         <div id="mealSectionsContainer"></div>
     </div>
 
-    <!-- Modal ปฏิทินแบบ Custom -->
+    <!-- Modal ปฏิทิน -->
     <div id="calendarModal" class="modal">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -88,12 +84,11 @@
         </div>
     </div>
 
-    <!-- Modal ฟอร์มเพิ่ม/แก้ไขรายการอาหาร -->
+    <!-- Modal เพิ่ม/แก้ไขอาหาร -->
     <div id="foodModal" class="modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top: 0; font-size: 18px; margin-bottom: 16px;">บันทึกมื้ออาหาร</h3>
             
-            <!-- แถบปุ่มสแกน -->
             <div class="scanner-box">
                 <div class="scanner-title">🤖 ผู้ช่วยสแกนสารอาหารครบถ้วน</div>
                 <div class="scanner-btns">
@@ -110,7 +105,7 @@
                         <span>บาร์โค้ด</span>
                     </button>
                 </div>
-                <!-- Input ซ่อนไว้รองรับการถ่ายรูปหรือเปิดแกลเลอรี -->
+                <!-- Input ซ่อนไว้สำหรับเปิดกล้องหรือเลือกรูปภาพจริง -->
                 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleFileSelected(event, 'camera')">
                 <input type="file" id="galleryInput" accept="image/*" style="display: none;" onchange="handleFileSelected(event, 'gallery')">
             </div>
