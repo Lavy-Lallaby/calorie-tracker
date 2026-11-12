@@ -1,6 +1,6 @@
 // State Management
 let currentDateKey = getFormattedDateKey(new Date());
-let currentScanMode = 'food'; // 'food' or 'label'
+let currentScanMode = 'label'; // 'label' (Tesseract OCR) or 'food' (Gemini AI)
 let html5QrCode = null;
 
 // Mock data initialization if empty
@@ -165,14 +165,16 @@ function renderSummary() {
 }
 
 // ==========================================
-// AI Image & Nutrition Label Scanner
+// Image Capture Router (Tesseract OCR vs AI)
 // ==========================================
 function triggerImageCapture(mode) {
-    const apiKey = localStorage.getItem('fitTracker_gemini_key');
-    if (!apiKey) {
-        alert("กรุณาใส่ Gemini API Key ในปุ่มตั้งค่า (รูปฟันเฟืองมุมขวาบน) ก่อนใช้งานฟีเจอร์ AI ครับ");
-        openSettingsModal();
-        return;
+    if (mode === 'food') {
+        const apiKey = localStorage.getItem('fitTracker_gemini_key');
+        if (!apiKey) {
+            alert("ปุ่มถ่ายรูปอาหารต้องใส่ Gemini API Key ในปุ่มตั้งค่า (⚙️) ก่อนครับ\n(แต่ปุ่ม 'สแกนฉลาก' และ 'บาร์โค้ด' กดใช้ได้เลยไม่ต้องใส่ Key)");
+            openSettingsModal();
+            return;
+        }
     }
     currentScanMode = mode;
     const input = document.getElementById('ai-image-input');
@@ -184,25 +186,109 @@ async function handleImageSelected(event) {
     const file = event.target.files[0];
     if (!file) return;
 
+    if (currentScanMode === 'label') {
+        await scanLabelOfflineOCR(file);
+    } else {
+        await scanFoodWithGemini(file);
+    }
+}
+
+// ==========================================
+// 1. Offline Label OCR (Tesseract.js - No AI Key)
+// ==========================================
+async function scanLabelOfflineOCR(file) {
     const loader = document.getElementById('ai-loading-indicator');
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านตัวหนังสือบนฉลาก...';
     loader.classList.remove('hidden');
 
     try {
-        const base64Image = await resizeImageToBase64(file, 800);
-        const result = await analyzeImageWithGemini(base64Image, currentScanMode);
-        
-        if (result) {
-            fillFormWithNutritionData(result);
+        const worker = await Tesseract.createWorker(['tha', 'eng']);
+        const ret = await worker.recognize(file);
+        await worker.terminate();
+
+        const rawText = ret.data.text;
+        console.log("OCR Text:", rawText);
+        const text = rawText.replace(/\s+/g, ' ');
+
+        const extractValue = (regex) => {
+            const match = text.match(regex);
+            return match ? parseFloat(match[1]) : 0;
+        };
+
+        const calories = extractValue(/(?:พลังงานทั้งหมด|พลังงาน|Energy|Calories)[^\d]*(\d+(?:\.\d+)?)/i);
+        const protein  = extractValue(/(?:โปรตีน|Protein)[^\d]*(\d+(?:\.\d+)?)/i);
+        const carbs    = extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|น้ำตาล|Carbohydrate|Sugar)[^\d]*(\d+(?:\.\d+)?)/i);
+        const fat      = extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const sodium   = extractValue(/(?:โซเดียม|Sodium)[^\d]*(\d+(?:\.\d+)?)/i);
+        const chol     = extractValue(/(?:โคเลสเตอรอล|คอเลสเตอรอล|Cholesterol)[^\d]*(\d+(?:\.\d+)?)/i);
+
+        fillFormWithNutritionData({
+            name: "สินค้าจากฉลาก",
+            qty: "1 หน่วยบริโภค",
+            calories,
+            protein,
+            carbs,
+            fat,
+            sodium,
+            cholesterol: chol
+        });
+
+        if (calories === 0 && protein === 0 && carbs === 0 && fat === 0 && sodium === 0) {
+            alert("ไม่พบตัวเลขสารอาหารที่ชัดเจนบนภาพ ลองถ่ายให้ตัวหนังสือในตารางตรงและชัดขึ้นนะครับ");
         }
-    } catch (error) {
-        console.error(error);
-        alert("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ: " + error.message);
+    } catch (err) {
+        console.error(err);
+        alert("เกิดข้อผิดพลาดในการอ่านตัวหนังสือ: " + err.message);
     } finally {
         loader.classList.add('hidden');
     }
 }
 
-// ย่อขนาดภาพก่อนส่งเพื่อให้ทำงานเร็วขึ้นและประหยัดเน็ต
+// ==========================================
+// 2. Gemini AI Food Photo Scanner
+// ==========================================
+async function scanFoodWithGemini(file) {
+    const loader = document.getElementById('ai-loading-indicator');
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังวิเคราะห์อาหาร...';
+    loader.classList.remove('hidden');
+
+    try {
+        const base64Data = await resizeImageToBase64(file, 800);
+        const apiKey = localStorage.getItem('fitTracker_gemini_key');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+
+        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย ปริมาณ และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
+           {"name": "ชื่อเมนูภาษาไทย", "qty": "ปริมาณ เช่น 1 จาน", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "fat": ตัวเลข, "sodium": ตัวเลข, "cholesterol": ตัวเลข}`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        { text: promptText },
+                        { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                    ]
+                }],
+                generationConfig: { response_mime_type: "application/json" }
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error?.message || "เชื่อมต่อ Gemini API ไม่สำเร็จ");
+        }
+
+        const data = await response.json();
+        const result = JSON.parse(data.candidates[0].content.parts[0].text);
+        if (result) fillFormWithNutritionData(result);
+    } catch (error) {
+        alert("เกิดข้อผิดพลาดจาก AI: " + error.message);
+    } finally {
+        loader.classList.add('hidden');
+    }
+}
+
 function resizeImageToBase64(file, maxWidth) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -220,8 +306,7 @@ function resizeImageToBase64(file, maxWidth) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                resolve(dataUrl.split(',')[1]);
+                resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
             };
             img.onerror = reject;
             img.src = e.target.result;
@@ -231,67 +316,8 @@ function resizeImageToBase64(file, maxWidth) {
     });
 }
 
-async function analyzeImageWithGemini(base64Data, mode) {
-    const apiKey = localStorage.getItem('fitTracker_gemini_key');
-
-    // 1. ค้นหาชื่อโมเดลที่ API Key นี้ใช้งานได้จริงอัตโนมัติ
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (!listRes.ok) {
-        const err = await listRes.json();
-        throw new Error(err.error?.message || "API Key ไม่ถูกต้อง");
-    }
-    const listData = await listRes.json();
-    
-    // กรองเฉพาะโมเดลตระกูล gemini ที่รองรับการสร้างเนื้อหา (generateContent)
-    const validModels = (listData.models || []).filter(m => 
-        m.name.includes('gemini') && 
-        !m.name.includes('embedding') &&
-        (m.supportedGenerationMethods || []).includes('generateContent')
-    );
-
-    if (validModels.length === 0) {
-        throw new Error("ไม่พบโมเดล Gemini ที่ใช้งานได้สำหรับ API Key นี้");
-    }
-
-    // เลือกรุ่น flash เป็นอันดับแรก ถ้าไม่มีให้ใช้รุ่นแรกที่เจอ
-    const chosenModel = validModels.find(m => m.name.includes('flash')) || validModels[0];
-    const url = `https://generativelanguage.googleapis.com/v1beta/${chosenModel.name}:generateContent?key=${apiKey}`;
-
-    // 2. ส่งภาพไปวิเคราะห์ด้วยโมเดลที่ระบบเลือกให้
-    const promptText = mode === 'label'
-        ? `อ่านข้อมูลจากภาพฉลากโภชนาการหรือฉลาก GDA (หวาน มัน เค็ม) นี้ สรุปค่าโภชนาการต่อ 1 หน่วยบริโภค (หรือต่อ 1 ซอง/ขวด/กล่อง ตามที่ระบุเด่นชัดที่สุด) ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
-           {"name": "ชื่อสินค้าหรืออาหาร (ถ้าไม่เห็นให้ใส่ว่า สินค้าจากฉลาก)", "qty": "ปริมาณต่อหน่วย เช่น 1 กล่อง, 1 ขวด", "calories": ตัวเลขพลังงาน kcal, "protein": ตัวเลขโปรตีน g, "carbs": ตัวเลขคาร์โบไฮเดรตหรือน้ำตาล g, "fat": ตัวเลขไขมัน g, "sodium": ตัวเลขโซเดียม mg, "cholesterol": ตัวเลขคอเลสเตอรอล mg} (ถ้าช่องไหนไม่มีข้อมูลให้ใส่ 0)`
-        : `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย ปริมาณ และสารอาหารโดยประมาณ ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
-           {"name": "ชื่อเมนูอาหารภาษาไทย", "qty": "ปริมาณ เช่น 1 จาน, 1 ชาม", "calories": ตัวเลขพลังงาน kcal, "protein": ตัวเลขโปรตีน g, "carbs": ตัวเลขคาร์โบไฮเดรต g, "fat": ตัวเลขไขมัน g, "sodium": ตัวเลขโซเดียม mg, "cholesterol": ตัวเลขคอเลสเตอรอล mg}`;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{
-                parts: [
-                    { text: promptText },
-                    { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-                ]
-            }],
-            generationConfig: {
-                response_mime_type: "application/json"
-            }
-        })
-    });
-
-    if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error?.message || "เชื่อมต่อ Gemini API ไม่สำเร็จ");
-    }
-
-    const data = await response.json();
-    const rawText = data.candidates[0].content.parts[0].text;
-    return JSON.parse(rawText);
-}
-
 // ==========================================
-// Barcode Scanner & Open Food Facts API
+// 3. Barcode Scanner & Open Food Facts API
 // ==========================================
 function openBarcodeScanner() {
     document.getElementById('barcode-modal').classList.remove('hidden');
@@ -302,14 +328,13 @@ function openBarcodeScanner() {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 150 } },
         async (decodedText) => {
-            // เมื่อสแกนเจอเลขบาร์โค้ด
             document.getElementById('barcode-status').innerText = `พบบาร์โค้ด: ${decodedText} กำลังค้นหาข้อมูล...`;
             await stopBarcodeCamera();
             document.getElementById('barcode-modal').classList.add('hidden');
             fetchBarcodeProduct(decodedText);
         },
-        (errorMessage) => { /* ข้าม error ระหว่างเล็งกล้อง */ }
-    ).catch(err => {
+        () => {}
+    ).catch(() => {
         document.getElementById('barcode-status').innerText = "ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง";
     });
 }
@@ -324,14 +349,13 @@ async function stopBarcodeCamera() {
         try {
             await html5QrCode.stop();
             html5QrCode.clear();
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) {}
     }
 }
 
 async function fetchBarcodeProduct(barcode) {
     const loader = document.getElementById('ai-loading-indicator');
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังค้นหาข้อมูลบาร์โค้ด...';
     loader.classList.remove('hidden');
 
     try {
@@ -341,8 +365,6 @@ async function fetchBarcodeProduct(barcode) {
         if (data.status === 1 && data.product) {
             const p = data.product;
             const n = p.nutriments || {};
-            
-            // ดึงค่าต่อ 1 หน่วยบริโภค (serving) ถ้าไม่มีให้ดึงต่อ 100g
             const hasServing = n['energy-kcal_serving'] !== undefined;
             const suffix = hasServing ? '_serving' : '_100g';
 
@@ -353,7 +375,7 @@ async function fetchBarcodeProduct(barcode) {
                 protein: Number((n[`proteins${suffix}`] || 0).toFixed(1)),
                 carbs: Number((n[`carbohydrates${suffix}`] || 0).toFixed(1)),
                 fat: Number((n[`fat${suffix}`] || 0).toFixed(1)),
-                sodium: Math.round((n[`sodium${suffix}`] || 0) * 1000), // แปลงจาก g เป็น mg
+                sodium: Math.round((n[`sodium${suffix}`] || 0) * 1000),
                 cholesterol: Math.round((n[`cholesterol${suffix}`] || 0) * 1000)
             });
         } else {
@@ -378,7 +400,7 @@ function fillFormWithNutritionData(item) {
 }
 
 // ==========================================
-// Settings Modal Controls
+// Settings & Existing Modal Controls
 // ==========================================
 function openSettingsModal() {
     const savedKey = localStorage.getItem('fitTracker_gemini_key') || '';
@@ -402,9 +424,6 @@ function saveApiKey() {
     closeSettingsModal();
 }
 
-// ==========================================
-// Existing Modal & Data Controls
-// ==========================================
 function openFoodModal(mealType, itemIndex = null) {
     document.getElementById('edit-meal-type').value = mealType;
     document.getElementById('edit-item-index').value = itemIndex !== null ? itemIndex : '';
@@ -517,41 +536,6 @@ function openCalendarModal() {
 
 function closeCalendarModal() {
     document.getElementById('calendar-modal').classList.add('hidden');
-}
-
-async function scanLabelOfflineOCR(file) {
-    const loader = document.getElementById('ai-loading-indicator');
-    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านตัวหนังสือบนฉลาก...';
-    loader.classList.remove('hidden');
-
-    try {
-        const worker = await Tesseract.createWorker(['tha', 'eng']);
-        const ret = await worker.recognize(file);
-        await worker.terminate();
-
-        const text = ret.data.text.replace(/\s+/g, ' ');
-        
-        // จับคู่ตัวเลขที่ตามหลังคำสำคัญบนฉลากไทย
-        const extractValue = (regex) => {
-            const match = text.match(regex);
-            return match ? parseFloat(match[1]) : 0;
-        };
-
-        fillFormWithNutritionData({
-            name: "สินค้าจากฉลาก",
-            qty: "1 หน่วยบริโภค",
-            calories: extractValue(/(?:พลังงานทั้งหมด|พลังงาน|Energy|Calories)[^\d]*(\d+(?:\.\d+)?)/i),
-            protein: extractValue(/(?:โปรตีน|Protein)[^\d]*(\d+(?:\.\d+)?)/i),
-            carbs: extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|น้ำตาล|Carbohydrate|Sugar)[^\d]*(\d+(?:\.\d+)?)/i),
-            fat: extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Fat)[^\d]*(\d+(?:\.\d+)?)/i),
-            sodium: extractValue(/(?:โซเดียม|Sodium)[^\d]*(\d+(?:\.\d+)?)/i),
-            cholesterol: extractValue(/(?:โคเลสเตอรอล|คอเลสเตอรอล|Cholesterol)[^\d]*(\d+(?:\.\d+)?)/i)
-        });
-    } catch (err) {
-        alert("อ่านตัวหนังสือบนฉลากไม่สำเร็จ กรุณาถ่ายให้ชัดเจนขึ้น: " + err.message);
-    } finally {
-        loader.classList.add('hidden');
-    }
 }
 
 // Initialize on load
