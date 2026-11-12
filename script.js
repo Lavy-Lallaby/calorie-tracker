@@ -222,6 +222,7 @@ function formatDisplayDate(dateKey) {
 }
 
 function renderUIOnly() {
+    renderWeeklyChart();
     renderDateDisplay();
     renderMeals();
     renderActivity();
@@ -1007,6 +1008,110 @@ function applyQuantityMultiplier() {
     document.getElementById('food-transfat').value = round1(baseNutrition.transFat * mult);
     document.getElementById('food-sodium').value = Math.round(baseNutrition.sodium * mult);
     document.getElementById('food-cholesterol').value = Math.round(baseNutrition.cholesterol * mult);
+}
+
+// ==========================================
+// Weekly Calorie Chart (7 วัน + เส้น 1,500 & 1,200 kcal)
+// ==========================================
+function renderWeeklyChart() {
+    const container = document.getElementById('weekly-chart-container');
+    if (!container) return;
+
+    const targetCal = 1500;
+    const minCal = 1200;
+    const parts = currentDateKey.split('-');
+    const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
+    let daysData = [];
+    let maxVal = 2000;
+
+    for (let i = 6; i >= 0; i--) {
+        let d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i);
+        let key = getFormattedDateKey(d);
+        let dayObj = allMealsHistory[key];
+
+        let totalCal = 0;
+        let totalBurn = 0;
+        if (dayObj) {
+            if (dayObj.meals) {
+                Object.values(dayObj.meals).forEach(list => {
+                    list.forEach(item => { totalCal += Number(item.calories || 0); });
+                });
+            }
+            const stepsCal = Math.round((Number(dayObj.steps) || 0) * 0.04);
+            const workoutCal = (dayObj.workouts || []).reduce((s, w) => s + Number(w.calories || 0), 0);
+            totalBurn = stepsCal + workoutCal;
+        }
+
+        const effectiveLimit = targetCal + totalBurn;
+        if (totalCal > maxVal) maxVal = totalCal;
+
+        daysData.push({
+            key,
+            label: dayNames[d.getDay()],
+            dayNum: d.getDate(),
+            cal: totalCal,
+            limit: effectiveLimit,
+            isSelected: key === currentDateKey
+        });
+    }
+
+    // คำนวณตำแหน่งความสูงของเส้น 1,500 และ 1,200 kcal
+    const targetLineBottomPct = Math.min(100, Math.round((targetCal / maxVal) * 100));
+    const minLineBottomPct = Math.min(100, Math.round((minCal / maxVal) * 100));
+
+    const barsHtml = daysData.map(d => {
+        const barHeightPct = Math.min(100, Math.round((d.cal / maxVal) * 100));
+        const isOver = d.cal > d.limit;
+
+        let barColor = 'bg-slate-700';
+        if (d.cal > 0) {
+            barColor = isOver ? 'bg-rose-500' : 'bg-emerald-400';
+        }
+        const activeRing = d.isSelected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900' : 'opacity-85 hover:opacity-100';
+
+        return `
+            <button type="button" onclick="selectChartDay('${d.key}')" class="flex-1 flex flex-col items-center group focus:outline-none">
+                <span class="text-[9px] font-semibold mb-1 ${isOver ? 'text-rose-400' : (d.cal > 0 ? 'text-slate-300' : 'text-slate-600')}">
+                    ${d.cal > 0 ? d.cal : '-'}
+                </span>
+                <div class="w-full max-w-[24px] h-24 bg-slate-950/80 rounded-t-lg flex items-end justify-center overflow-hidden relative z-10 ${activeRing} transition">
+                    <div class="w-full ${barColor} rounded-t-md transition-all duration-500" style="height: ${barHeightPct}%;"></div>
+                </div>
+                <div class="mt-1.5 text-center leading-tight">
+                    <span class="text-[10px] block font-bold ${d.isSelected ? 'text-indigo-400' : 'text-slate-400'}">${d.label}</span>
+                    <span class="text-[9px] block ${d.isSelected ? 'text-white font-semibold' : 'text-slate-500'}">${d.dayNum}</span>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="relative pt-3">
+            <!-- เส้นประเป้าหมายสูงสุด 1,500 kcal (สีเหลือง) -->
+            <div class="absolute left-0 right-0 border-t border-dashed border-amber-400/80 z-20 pointer-events-none flex justify-end"
+                 style="bottom: calc(30px + (96px * ${targetLineBottomPct / 100}));">
+                <span class="text-[9px] bg-slate-900/95 text-amber-400 px-1 rounded -mt-2.5 font-semibold border border-amber-500/30">
+                    1,500
+                </span>
+            </div>
+
+            <!-- เส้นประเกณฑ์ขั้นต่ำ 1,200 kcal (สีฟ้า Cyan) -->
+            <div class="absolute left-0 right-0 border-t border-dashed border-cyan-400/70 z-20 pointer-events-none flex justify-end"
+                 style="bottom: calc(30px + (96px * ${minLineBottomPct / 100}));">
+                <span class="text-[9px] bg-slate-900/95 text-cyan-400 px-1 rounded -mt-2.5 font-semibold border border-cyan-500/30">
+                    1,200
+                </span>
+            </div>
+
+            <!-- แท่งกราฟ 7 วัน -->
+            <div class="flex items-end justify-between gap-1.5">
+                ${barsHtml}
+            </div>
+        </div>
+    `;
 }
 
 function openCalendarModal() {
