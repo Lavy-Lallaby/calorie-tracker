@@ -42,6 +42,24 @@
     <!-- Main Content Container -->
     <main class="w-full max-w-md px-4 pt-4 space-y-6">
 
+        <!-- Weekly Calorie Chart (อยู่ใต้ Header) -->
+        <section class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm space-y-2.5">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-column text-indigo-400"></i> สรุปแคลอรี 7 วันล่าสุด
+                </h3>
+                <div class="flex items-center gap-2 text-[10px]">
+                    <span class="flex items-center gap-1 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> ไม่เกิน</span>
+                    <span class="flex items-center gap-1 text-rose-400"><span class="w-2 h-2 rounded-full bg-rose-500"></span> เกินเป้า</span>
+                </div>
+            </div>
+
+            <!-- พื้นที่วาดกราฟแท่ง 7 วัน -->
+            <div id="weekly-chart-container" class="pt-2">
+                <!-- Rendered by JavaScript -->
+            </div>
+        </section>
+        
         <!-- Date Indicator & Navigation -->
         <div class="flex justify-between items-center bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-slate-800 shadow-sm">
             <button onclick="changeDay(-1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
