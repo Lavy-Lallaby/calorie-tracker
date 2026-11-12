@@ -1,393 +1,274 @@
-const TARGET_CALORIES = 1500;
-const TODAY_STR = '2026-11-12';
-
-let selectedDate = localStorage.getItem('selectedDate') || TODAY_STR;
-let allMealsHistory = JSON.parse(localStorage.getItem('allMealsHistory')) || {};
-
-let calViewYear = 2026;
-let calViewMonth = 10;
-
-function getMealsForDate(dateStr) {
-    if (!allMealsHistory[dateStr]) {
-        allMealsHistory[dateStr] = {
-            breakfast: { title: "มื้อเช้า", items: [] },
-            lunch: { title: "มื้อเที่ยง", items: [] },
-            dinner: { title: "มื้อเย็น", items: [] },
-            snack: { title: "ของว่าง / อื่นๆ", items: [] }
-        };
-    }
-    return allMealsHistory[dateStr];
-}
-
-function formatThaiDate(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d);
-    const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-    const months = [
-        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-    ];
-    return `วัน${days[dateObj.getDay()]}ที่ ${d} ${months[m - 1]} ${y + 543}`;
-}
-
-let foodCatalog = JSON.parse(localStorage.getItem('foodCatalog')) || [
-    { name: "หมูย่าง", calories: 100, protein: 7, carbs: 2, fat: 6, sodium: 200, cholesterol: 30 },
-    { name: "ข้าวเหนียว", calories: 155, protein: 2.5, carbs: 32.5, fat: 0, sodium: 5, cholesterol: 0 },
-    { name: "ชามะนาว น้ำผึ้ง", calories: 25, protein: 0, carbs: 6.5, fat: 0, sodium: 0, cholesterol: 0 },
-    { name: "ข้าวต้มหมูสับ", calories: 250, protein: 13.5, carbs: 32.5, fat: 7.5, sodium: 550, cholesterol: 40 }
-];
-
-function updateFoodDatalist() {
-    const datalist = document.getElementById('food-list');
-    if (!datalist) return;
-    datalist.innerHTML = '';
-    foodCatalog.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.name;
-        datalist.appendChild(option);
-    });
-}
-
-function renderApp() {
-    document.getElementById('currentDateText').innerText = formatThaiDate(selectedDate);
-    const dailyMeals = getMealsForDate(selectedDate);
-
-    const container = document.getElementById('mealSectionsContainer');
-    if (!container) return;
-    container.innerHTML = '';
-
-    let totalCals = 0;
-    let totalProtein = 0;
-    let totalCarbs = 0;
-    let totalFat = 0;
-    let totalSodium = 0;
-    let totalCholesterol = 0;
-
-    Object.keys(dailyMeals).forEach(mealKey => {
-        const meal = dailyMeals[mealKey];
-        let mealCals = 0;
-        let mealProtein = 0;
-
-        meal.items.forEach(item => {
-            const qty = item.qty || 1;
-            mealCals += (item.calories * qty);
-            mealProtein += (item.protein * qty);
-
-            totalCals += (item.calories * qty);
-            totalProtein += (item.protein * qty);
-            totalCarbs += (item.carbs * qty);
-            totalFat += (item.fat * qty);
-            totalSodium += (item.sodium * qty);
-            totalCholesterol += (item.cholesterol * qty);
-        });
-
-        const mealCard = document.createElement('div');
-        mealCard.className = `meal-card ${mealKey}`;
+// State Management
+        let currentDateKey = getFormattedDateKey(new Date());
         
-        let itemsHtml = '';
-        if (meal.items.length === 0) {
-            itemsHtml = `<div style="color: #9ca3af; font-size: 13px; font-style: italic; padding: 4px 0;">ยังไม่มีรายการอาหาร</div>`;
-        } else {
-            meal.items.forEach((item, index) => {
-                itemsHtml += `
-                    <div class="meal-item-row">
+        // Mock data initialization if empty
+        const defaultHistory = {
+            "2026-11-12": {
+                meals: {
+                    "มื้อเช้า": [
+                        { name: "หมูย่าง", qty: "x3", calories: 300, protein: 21, carbs: 0, fat: 15, sodium: 400, cholesterol: 80 },
+                        { name: "ข้าวเหนียว", qty: "x1", calories: 155, protein: 2.5, carbs: 34, fat: 1, sodium: 10, cholesterol: 0 },
+                        { name: "ชามะนาว น้ำผึ้ง", qty: "x1", calories: 25, protein: 0, carbs: 6, fat: 0, sodium: 5, cholesterol: 0 }
+                    ],
+                    "มื้อเที่ยง": [
+                        { name: "หมูย่าง", qty: "x1", calories: 100, protein: 7, carbs: 0, fat: 5, sodium: 130, cholesterol: 25 },
+                        { name: "เกาเหลาหมู", qty: "x1", calories: 400, protein: 30, carbs: 14, fat: 23, sodium: 1760, cholesterol: 115 }
+                    ],
+                    "มื้อเย็น": []
+                }
+            }
+        };
+
+        let allMealsHistory = JSON.parse(localStorage.getItem('fitTracker_history')) || defaultHistory;
+        let foodCatalog = JSON.parse(localStorage.getItem('fitTracker_catalog')) || [
+            { name: "อกไก่ต้ม (100g)", calories: 120, protein: 25, carbs: 0, fat: 1.5, sodium: 60, cholesterol: 50 },
+            { name: "ข้าวสวย (1 ทัพพี)", calories: 80, protein: 2, carbs: 18, fat: 0.2, sodium: 0, cholesterol: 0 },
+            { name: "ไข่ต้ม (1 ฟอง)", calories: 75, protein: 6, carbs: 0.5, fat: 5, sodium: 70, cholesterol: 186 }
+        ];
+
+        const mealTypes = ["มื้อเช้า", "มื้อเที่ยง", "มื้อเย็น", "มื้อว่าง/อื่นๆ"];
+
+        function getFormattedDateKey(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDisplayDate(dateKey) {
+            const parts = dateKey.split('-');
+            const date = new Date(parts[0], parts[1] - 1, parts[2]);
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('th-TH', options);
+        }
+
+        function initApp() {
+            renderDateDisplay();
+            renderMeals();
+            renderSummary();
+            updateCatalogDatalist();
+        }
+
+        function renderDateDisplay() {
+            document.getElementById('display-date').innerText = formatDisplayDate(currentDateKey);
+            const todayKey = getFormattedDateKey(new Date());
+            document.getElementById('current-date-badge').innerText = (currentDateKey === todayKey) ? "วันนี้" : currentDateKey;
+        }
+
+        function changeDay(direction) {
+            const parts = currentDateKey.split('-');
+            let d = new Date(parts[0], parts[1] - 1, parts[2]);
+            d.setDate(d.getDate() + direction);
+            currentDateKey = getFormattedDateKey(d);
+            initApp();
+        }
+
+        function getDayData(dateKey) {
+            if (!allMealsHistory[dateKey]) {
+                allMealsHistory[dateKey] = { meals: { "มื้อเช้า": [], "มื้อเที่ยง": [], "มื้อเย็น": [], "มื้อว่าง/อื่นๆ": [] } };
+            }
+            return allMealsHistory[dateKey];
+        }
+
+        function renderMeals() {
+            const container = document.getElementById('meals-container');
+            container.innerHTML = '';
+            const dayData = getDayData(currentDateKey);
+
+            mealTypes.forEach(mealType => {
+                const items = dayData.meals[mealType] || [];
+                const totalCal = items.reduce((sum, item) => sum + Number(item.calories), 0);
+                const totalProt = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
+
+                let itemsHtml = items.map((item, idx) => `
+                    <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
                         <div>
-                            <span style="font-weight: 600;">${item.name}</span>
-                            <span style="color: #9ca3af; font-size: 12px; margin-left: 4px;">x${item.qty || 1}</span>
+                            <span class="text-white font-medium">${item.name}</span>
+                            <span class="text-xs text-slate-400 ml-1.5">${item.qty || ''}</span>
                         </div>
-                        <div class="item-actions">
-                            <span style="font-size: 13px; font-weight: 500;">${Math.round(item.calories * (item.qty || 1))} kcal <span style="color: #059669; font-weight: 600;">(${Number((item.protein * (item.qty || 1)).toFixed(1))}g)</span></span>
-                            <button class="action-btn" onclick="openEditModal('${mealKey}', ${index})" title="แก้ไข">✏️</button>
-                            <button class="action-btn" onclick="deleteMealItem('${mealKey}', ${index})" title="ลบ" style="color: #9ca3af;">🗑️</button>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-slate-300 font-medium">${item.calories} kcal <span class="text-xs text-emerald-400">(${item.protein || 0}g)</span></span>
+                            <div class="flex space-x-1.5">
+                                <button onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 transition p-1"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 transition p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                            </div>
                         </div>
                     </div>
+                `).join('');
+
+                if (items.length === 0) {
+                    itemsHtml = `<div class="text-xs text-slate-500 py-1">ยังไม่มีรายการอาหารในมื้อนี้</div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                            <h4 class="font-semibold text-white text-sm">${mealType}</h4>
+                        </div>
+                        <div class="text-xs text-slate-400 font-medium">
+                            ${totalCal} kcal | โปรตีน ${totalProt.toFixed(1)}g
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        ${itemsHtml}
+                    </div>
+                    <button onclick="openFoodModal('${mealType}')" class="w-full mt-2 bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 text-slate-300 text-xs font-medium py-2 rounded-xl transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-plus text-indigo-400"></i> เพิ่ม ${mealType}
+                    </button>
                 `;
+                container.appendChild(card);
             });
         }
 
-        mealCard.innerHTML = `
-            <div class="meal-header">
-                <span class="meal-title ${mealKey}">${meal.title}</span>
-                <span class="meal-subtotal">${Math.round(mealCals)} kcal | โปรตีน ${Number(mealProtein.toFixed(1))}g</span>
-            </div>
-            <div class="meal-items-list">${itemsHtml}</div>
-            <button class="add-meal-btn" onclick="openAddModal('${mealKey}')">+ เพิ่ม ${meal.title}</button>
-        `;
-        container.appendChild(mealCard);
-    });
+        function renderSummary() {
+            const dayData = getDayData(currentDateKey);
+            let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSodium = 0, totalChol = 0;
 
-    const remaining = Math.round(TARGET_CALORIES - totalCals);
-    document.getElementById('remainingCalories').innerHTML = `${remaining} <span>kcal</span>`;
-    document.getElementById('totalProtein').innerHTML = `${Number(totalProtein.toFixed(1))} <span>/ 96–128 g</span>`;
-    document.getElementById('totalCarbs').innerText = `${Math.round(totalCarbs)}g`;
-    document.getElementById('totalFat').innerText = `${Math.round(totalFat)}g`;
-    document.getElementById('totalSodium').innerText = `${Math.round(totalSodium)}mg`;
-    document.getElementById('totalCholesterol').innerText = `${Math.round(totalCholesterol)}mg`;
+            Object.values(dayData.meals).forEach(mealList => {
+                mealList.forEach(item => {
+                    totalCal += Number(item.calories || 0);
+                    totalProt += Number(item.protein || 0);
+                    totalCarbs += Number(item.carbs || 0);
+                    totalFat += Number(item.fat || 0);
+                    totalSodium += Number(item.sodium || 0);
+                    totalChol += Number(item.cholesterol || 0);
+                });
+            });
 
-    document.getElementById('consumedText').innerText = `ทานไป ${Math.round(totalCals)} kcal`;
+            const targetCal = 1500;
+            const remaining = targetCal - totalCal;
 
-    const progressBar = document.getElementById('progressBar');
-    const percent = Math.min((totalCals / TARGET_CALORIES) * 100, 100);
-    progressBar.style.width = `${percent}%`;
+            document.getElementById('calories-remaining').innerHTML = `${remaining} <span class="text-sm font-normal text-slate-400">kcal</span>`;
+            document.getElementById('calories-consumed').innerText = `${totalCal} kcal`;
+            document.getElementById('protein-summary').innerHTML = `${totalProt.toFixed(1)} / <span class="text-xs font-normal text-slate-400">96-128 g</span>`;
+            document.getElementById('carbs-total').innerText = `${totalCarabs || totalCarbs}g`;
+            document.getElementById('fats-total').innerText = `${totalFat}g`;
+            document.getElementById('sodium-total').innerText = `${totalSodium}mg`;
+            document.getElementById('cholesterol-total').innerText = `${totalChol}mg`;
 
-    const statusBadge = document.getElementById('statusBadge');
-    if (totalCals <= TARGET_CALORIES) {
-        statusBadge.innerText = "ต่ำกว่าเกณฑ์ / กำลังคุม";
-        statusBadge.style.color = "#fbbf24";
-        statusBadge.style.background = "rgba(251, 191, 36, 0.15)";
-    } else {
-        statusBadge.innerText = "เกินเป้าหมาย";
-        statusBadge.style.color = "#f87171";
-        statusBadge.style.background = "rgba(248, 113, 113, 0.15)";
-    }
-
-    localStorage.setItem('selectedDate', selectedDate);
-    localStorage.setItem('allMealsHistory', JSON.stringify(allMealsHistory));
-}
-
-// Scanner Functions (เปิดกล้อง / เลือกรูปจากแกลเลอรีจริง)
-function triggerCamera() {
-    const input = document.getElementById('cameraInput');
-    if (input) input.click();
-}
-
-function triggerGallery(type) {
-    const input = document.getElementById('galleryInput');
-    if (input) {
-        input.setAttribute('data-scan-type', type);
-        input.click();
-    }
-}
-
-function handleFileSelected(event, source) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // เมื่อผู้ใช้เลือกรูปภาพสำเร็จ (สามารถเขียนโค้ดเชื่อมต่อ AI / OCR / Barcode reader ตรงนี้ได้ในอนาคต)
-    console.log("File selected:", file);
-    
-    event.target.value = '';
-}
-
-// Calendar Modal Logic
-const calendarModal = document.getElementById('calendarModal');
-let previewDate = selectedDate;
-
-document.getElementById('openCalendarBtn').addEventListener('click', () => {
-    const [y, m] = selectedDate.split('-').map(Number);
-    calViewYear = y;
-    calViewMonth = m - 1;
-    previewDate = selectedDate;
-    renderCalendar();
-    calendarModal.classList.add('active');
-});
-
-document.getElementById('closeCalendarBtn').addEventListener('click', () => {
-    calendarModal.classList.remove('active');
-});
-
-document.getElementById('prevMonthBtn').addEventListener('click', () => {
-    calViewMonth--;
-    if (calViewMonth < 0) {
-        calViewMonth = 11;
-        calViewYear--;
-    }
-    renderCalendar();
-});
-
-document.getElementById('nextMonthBtn').addEventListener('click', () => {
-    calViewMonth++;
-    if (calViewMonth > 11) {
-        calViewMonth = 0;
-        calViewYear++;
-    }
-    renderCalendar();
-});
-
-function getDayStats(dateStr) {
-    const meals = allMealsHistory[dateStr];
-    if (!meals) return { cals: 0, protein: 0, hasData: false };
-    let cals = 0, protein = 0, count = 0;
-    Object.values(meals).forEach(m => {
-        m.items.forEach(item => {
-            const q = item.qty || 1;
-            cals += item.calories * q;
-            protein += item.protein * q;
-            count++;
-        });
-    });
-    return { cals: Math.round(cals), protein: Number(protein.toFixed(1)), hasData: count > 0 };
-}
-
-function renderCalendar() {
-    const months = [
-        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-    ];
-    document.getElementById('calendarMonthYear').innerText = `${months[calViewMonth]} ${calViewYear + 543}`;
-
-    const grid = document.getElementById('calendarDaysGrid');
-    grid.innerHTML = '';
-
-    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
-    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
-
-    for (let i = 0; i < firstDay; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'cal-day empty';
-        grid.appendChild(emptyCell);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const stats = getDayStats(dateStr);
-
-        const cell = document.createElement('div');
-        cell.className = 'cal-day';
-        if (dateStr === TODAY_STR) cell.classList.add('today');
-        if (dateStr === previewDate) cell.classList.add('selected');
-
-        let dotHtml = '';
-        if (stats.hasData) {
-            const dotColor = stats.cals <= TARGET_CALORIES ? 'green' : 'red';
-            dotHtml = `<span class="dot ${dotColor}"></span>`;
+            const percent = Math.min(Math.round((totalCal / targetCal) * 100), 100);
+            document.getElementById('calorie-progress-bar').style.width = `${percent}%`;
         }
 
-        cell.innerHTML = `<span>${day}</span>${dotHtml}`;
-        cell.onclick = () => {
-            previewDate = dateStr;
-            renderCalendar();
-        };
-        grid.appendChild(cell);
-    }
+        // Modal Controls
+        function openFoodModal(mealType, itemIndex = null) {
+            document.getElementById('edit-meal-type').value = mealType;
+            document.getElementById('edit-item-index').value = itemIndex !== null ? itemIndex : '';
+            document.getElementById('modal-title').innerText = itemIndex !== null ? `แก้ไขรายการ (${mealType})` : `เพิ่มรายการ (${mealType})`;
 
-    renderDayPreview(previewDate);
-}
+            if (itemIndex !== null) {
+                const item = allMealsHistory[currentDateKey].meals[mealType][itemIndex];
+                document.getElementById('food-name').value = item.name || '';
+                document.getElementById('food-qty').value = item.qty || '';
+                document.getElementById('food-calories').value = item.calories || '';
+                document.getElementById('food-protein').value = item.protein || '';
+                document.getElementById('food-carbs').value = item.carbs || '';
+                document.getElementById('food-fat').value = item.fat || '';
+                document.getElementById('food-sodium').value = item.sodium || '';
+                document.getElementById('food-cholesterol').value = item.cholesterol || '';
+            } else {
+                document.getElementById('food-form').reset();
+            }
 
-function renderDayPreview(dateStr) {
-    const previewBox = document.getElementById('selectedDayPreview');
-    const stats = getDayStats(dateStr);
+            document.getElementById('food-modal').classList.remove('hidden');
+        }
 
-    previewBox.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div>
-                <div style="font-size: 13px; font-weight: 700; color: #1f2937;">${formatThaiDate(dateStr)}</div>
-                <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
-                    ${stats.hasData ? `ทานไป <strong>${stats.cals} kcal</strong> • โปรตีน <strong style="color: #059669;">${stats.protein}g</strong>` : 'ยังไม่มีบันทึกข้อมูลในวันนี้'}
-                </div>
-            </div>
-        </div>
-        <button type="button" onclick="selectDateAndClose('${dateStr}')" style="width: 100%; padding: 10px; background: #4f46e5; color: #fff; border: none; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer;">
-            เปิดดู / บันทึกข้อมูลวันนี้
-        </button>
-    `;
-}
+        function closeFoodModal() {
+            document.getElementById('food-modal').classList.add('hidden');
+        }
 
-function selectDateAndClose(dateStr) {
-    selectedDate = dateStr;
-    renderApp();
-    calendarModal.classList.remove('active');
-}
+        function handleFoodSubmit(e) {
+            e.preventDefault();
+            const mealType = document.getElementById('edit-meal-type').value;
+            const itemIndex = document.getElementById('edit-item-index').value;
 
-// Food Modal Logic
-const modal = document.getElementById('foodModal');
+            const newItem = {
+                name: document.getElementById('food-name').value,
+                qty: document.getElementById('food-qty').value,
+                calories: Number(document.getElementById('food-calories').value),
+                protein: Number(document.getElementById('food-protein').value || 0),
+                carbs: Number(document.getElementById('food-carbs').value || 0),
+                fat: Number(document.getElementById('food-fat').value || 0),
+                sodium: Number(document.getElementById('food-sodium').value || 0),
+                cholesterol: Number(document.getElementById('food-cholesterol').value || 0)
+            };
 
-function openAddModal(mealKey) {
-    const dailyMeals = getMealsForDate(selectedDate);
-    document.getElementById('modalTitle').innerText = `เพิ่มอาหาร (${dailyMeals[mealKey].title})`;
-    document.getElementById('editMealType').value = mealKey;
-    document.getElementById('editItemIndex').value = "";
-    document.getElementById('foodForm').reset();
-    document.getElementById('qtyInput').value = 1;
-    modal.classList.add('active');
-}
+            const dayData = getDayData(currentDateKey);
+            if (itemIndex !== '') {
+                dayData.meals[mealType][itemIndex] = newItem;
+            } else {
+                dayData.meals[mealType].push(newItem);
+            }
 
-function openEditModal(mealKey, index) {
-    const dailyMeals = getMealsForDate(selectedDate);
-    const item = dailyMeals[mealKey].items[index];
-    document.getElementById('modalTitle').innerText = `แก้ไขรายการอาหาร`;
-    document.getElementById('editMealType').value = mealKey;
-    document.getElementById('editItemIndex').value = index;
+            // Save to catalog if new
+            if (!foodCatalog.some(f => f.name.toLowerCase() === newItem.name.toLowerCase())) {
+                foodCatalog.push(newItem);
+                localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+                updateCatalogDatalist();
+            }
 
-    document.getElementById('foodNameInput').value = item.name;
-    document.getElementById('caloriesInput').value = item.calories;
-    document.getElementById('proteinInput').value = item.protein;
-    document.getElementById('carbsInput').value = item.carbs;
-    document.getElementById('fatInput').value = item.fat;
-    document.getElementById('sodiumInput').value = item.sodium;
-    document.getElementById('cholesterolInput').value = item.cholesterol;
-    document.getElementById('qtyInput').value = item.qty || 1;
+            localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+            closeFoodModal();
+            initApp();
+        }
 
-    modal.classList.add('active');
-}
+        function deleteMealItem(mealType, index) {
+            if (confirm("ต้องการลบรายการนี้ใช่ไหม?")) {
+                const dayData = getDayData(currentDateKey);
+                dayData.meals[mealType].splice(index, 1);
+                localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+                initApp();
+            }
+        }
 
-document.getElementById('closeModalBtn').addEventListener('click', () => {
-    modal.classList.remove('active');
-});
+        function updateCatalogDatalist() {
+            const datalist = document.getElementById('food-catalog-list');
+            datalist.innerHTML = foodCatalog.map(f => `<option value="${f.name}">(${f.calories} kcal, โปรตีน ${f.protein}g)</option>`).join('');
+        }
 
-document.getElementById('foodNameInput').addEventListener('input', function(e) {
-    const selectedName = e.target.value.trim().toLowerCase();
-    const foundItem = foodCatalog.find(item => item.name.toLowerCase() === selectedName);
+        function autofillFoodCatalog(name) {
+            const found = foodCatalog.find(f => f.name.toLowerCase() === name.toLowerCase());
+            if (found) {
+                document.getElementById('food-calories').value = found.calories;
+                document.getElementById('food-protein').value = found.protein;
+                document.getElementById('food-carbs').value = found.carbs;
+                document.getElementById('food-fat').value = found.fat;
+                document.getElementById('food-sodium').value = found.sodium;
+                document.getElementById('food-cholesterol').value = found.cholesterol;
+            }
+        }
 
-    if (foundItem) {
-        document.getElementById('caloriesInput').value = foundItem.calories;
-        document.getElementById('proteinInput').value = foundItem.protein;
-        document.getElementById('carbsInput').value = foundItem.carbs;
-        document.getElementById('fatInput').value = foundItem.fat;
-        document.getElementById('sodiumInput').value = foundItem.sodium;
-        document.getElementById('cholesterolInput').value = foundItem.cholesterol;
-    }
-});
+        function openCalendarModal() {
+            const container = document.getElementById('calendar-grid-container');
+            container.innerHTML = '';
+            
+            // Generate recent 7 days list for quick picker
+            const today = new Date();
+            for (let i = -3; i <= 3; i++) {
+                let d = new Date(today);
+                d.setDate(today.getDate() + i);
+                let key = getFormattedDateKey(d);
+                let isCurrent = key === currentDateKey;
 
-document.getElementById('foodForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const dailyMeals = getMealsForDate(selectedDate);
-    const mealKey = document.getElementById('editMealType').value;
-    const editIndex = document.getElementById('editItemIndex').value;
+                let btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-2.5 rounded-xl text-sm flex justify-between items-center transition ${isCurrent ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-950/60 hover:bg-slate-800 text-slate-300'}`;
+                btn.innerHTML = `<span>${formatDisplayDate(key)}</span> ${isCurrent ? '<i class="fa-solid fa-check text-xs"></i>' : ''}`;
+                btn.onclick = () => {
+                    currentDateKey = key;
+                    closeCalendarModal();
+                    initApp();
+                };
+                container.appendChild(btn);
+            }
+            document.getElementById('calendar-modal').classList.remove('hidden');
+        }
 
-    const newItem = {
-        name: document.getElementById('foodNameInput').value.trim(),
-        calories: Number(document.getElementById('caloriesInput').value) || 0,
-        protein: Number(document.getElementById('proteinInput').value) || 0,
-        carbs: Number(document.getElementById('carbsInput').value) || 0,
-        fat: Number(document.getElementById('fatInput').value) || 0,
-        sodium: Number(document.getElementById('sodiumInput').value) || 0,
-        cholesterol: Number(document.getElementById('cholesterolInput').value) || 0,
-        qty: Number(document.getElementById('qtyInput').value) || 1
-    };
+        function closeCalendarModal() {
+            document.getElementById('calendar-modal').classList.add('hidden');
+        }
 
-    const catalogExists = foodCatalog.some(item => item.name.toLowerCase() === newItem.name.toLowerCase());
-    if (!catalogExists) {
-        foodCatalog.push({
-            name: newItem.name,
-            calories: newItem.calories,
-            protein: newItem.protein,
-            carbs: newItem.carbs,
-            fat: newItem.fat,
-            sodium: newItem.sodium,
-            cholesterol: newItem.cholesterol
-        });
-        localStorage.setItem('foodCatalog', JSON.stringify(foodCatalog));
-        updateFoodDatalist();
-    }
-
-    if (editIndex === "") {
-        dailyMeals[mealKey].items.push(newItem);
-    } else {
-        dailyMeals[mealKey].items[editIndex] = newItem;
-    }
-
-    modal.classList.remove('active');
-    renderApp();
-});
-
-function deleteMealItem(mealKey, index) {
-    const dailyMeals = getMealsForDate(selectedDate);
-    dailyMeals[mealKey].items.splice(index, 1);
-    renderApp();
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-    updateFoodDatalist();
-    renderApp();
-});
+        // Initialize on load
+        window.onload = initApp;
