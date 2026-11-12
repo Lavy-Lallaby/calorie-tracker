@@ -5,6 +5,7 @@ const GITHUB_OWNER = "Lavy-Lallaby";
 const GITHUB_REPO  = "fittracker-db";
 const GITHUB_PATH  = "db.json";
 let currentFileSha = null;
+let baseNutrition = null;
 
 // State Management
 let currentDateKey = getFormattedDateKey(new Date());
@@ -813,6 +814,7 @@ function fillFormWithNutritionData(item) {
     document.getElementById('food-transfat').value = item.transFat ?? 0;
     document.getElementById('food-sodium').value = item.sodium ?? 0;
     document.getElementById('food-cholesterol').value = item.cholesterol ?? 0;
+    setBaseNutritionFromCurrentInputs();
 }
 
 // ==========================================
@@ -871,8 +873,10 @@ function openFoodModal(mealType, itemIndex = null) {
         document.getElementById('food-transfat').value = item.transFat || '';
         document.getElementById('food-sodium').value = item.sodium || '';
         document.getElementById('food-cholesterol').value = item.cholesterol || '';
+        setBaseNutritionFromCurrentInputs(); // <-- ต้องอยู่หลังเติมค่าครบทุกช่องแล้ว
     } else {
         document.getElementById('food-form').reset();
+        baseNutrition = null;
     }
 
     document.getElementById('food-modal').classList.remove('hidden');
@@ -908,8 +912,22 @@ function handleFoodSubmit(e) {
         dayData.meals[mealType].push(newItem);
     }
 
-    if (!foodCatalog.some(f => f.name.toLowerCase() === newItem.name.toLowerCase())) {
-        foodCatalog.push(newItem);
+    // บันทึกเข้าคลังเมนูแนะนำโดยหารให้เป็นค่าต่อ 1 หน่วยเสมอ
+    const mult = extractMultiplier(newItem.qty);
+    const unitItem = {
+        name: newItem.name,
+        calories: Math.round(newItem.calories / mult),
+        protein: Math.round((newItem.protein / mult) * 10) / 10,
+        carbs: Math.round((newItem.carbs / mult) * 10) / 10,
+        sugar: Math.round((newItem.sugar / mult) * 10) / 10,
+        fat: Math.round((newItem.fat / mult) * 10) / 10,
+        satFat: Math.round((newItem.satFat / mult) * 10) / 10,
+        transFat: Math.round((newItem.transFat / mult) * 10) / 10,
+        sodium: Math.round(newItem.sodium / mult),
+        cholesterol: Math.round(newItem.cholesterol / mult)
+    };
+    if (!foodCatalog.some(f => f.name.toLowerCase() === unitItem.name.toLowerCase())) {
+        foodCatalog.push(unitItem);
     }
 
     closeFoodModal();
@@ -932,6 +950,7 @@ function updateCatalogDatalist() {
 function autofillFoodCatalog(name) {
     const found = foodCatalog.find(f => f.name.toLowerCase() === name.toLowerCase());
     if (found) {
+        document.getElementById('food-qty').value = found.qty ?? 1;
         document.getElementById('food-calories').value = found.calories;
         document.getElementById('food-protein').value = found.protein;
         document.getElementById('food-carbs').value = found.carbs;
@@ -941,7 +960,56 @@ function autofillFoodCatalog(name) {
         document.getElementById('food-transfat').value = found.transFat ?? 0;
         document.getElementById('food-sodium').value = found.sodium;
         document.getElementById('food-cholesterol').value = found.cholesterol;
+        setBaseNutritionFromCurrentInputs();
     }
+}
+
+// ==========================================
+// Quantity Multiplier (คูณสารอาหารตามจำนวน)
+// ==========================================
+function extractMultiplier(qtyStr) {
+    if (!qtyStr) return 1;
+    // ดึงตัวเลขแรกที่เจอ เช่น "2 ชิ้น" -> 2, "x3" -> 3, "1.5 จาน" -> 1.5
+    const match = String(qtyStr).match(/(\d+(?:\.\d+)?)/);
+    const num = match ? parseFloat(match[1]) : 1;
+    return num > 0 ? num : 1;
+}
+
+function setBaseNutritionFromCurrentInputs() {
+    const mult = extractMultiplier(document.getElementById('food-qty').value);
+    baseNutrition = {
+        calories: (Number(document.getElementById('food-calories').value) || 0) / mult,
+        protein: (Number(document.getElementById('food-protein').value) || 0) / mult,
+        carbs: (Number(document.getElementById('food-carbs').value) || 0) / mult,
+        sugar: (Number(document.getElementById('food-sugar').value) || 0) / mult,
+        fat: (Number(document.getElementById('food-fat').value) || 0) / mult,
+        satFat: (Number(document.getElementById('food-satfat').value) || 0) / mult,
+        transFat: (Number(document.getElementById('food-transfat').value) || 0) / mult,
+        sodium: (Number(document.getElementById('food-sodium').value) || 0) / mult,
+        cholesterol: (Number(document.getElementById('food-cholesterol').value) || 0) / mult
+    };
+}
+
+function updateBaseNutritionFromInputs() {
+    setBaseNutritionFromCurrentInputs();
+}
+
+function applyQuantityMultiplier() {
+    if (!baseNutrition) {
+        setBaseNutritionFromCurrentInputs();
+    }
+    const mult = extractMultiplier(document.getElementById('food-qty').value);
+    const round1 = (val) => Math.round(val * 10) / 10;
+
+    document.getElementById('food-calories').value = Math.round(baseNutrition.calories * mult);
+    document.getElementById('food-protein').value = round1(baseNutrition.protein * mult);
+    document.getElementById('food-carbs').value = round1(baseNutrition.carbs * mult);
+    document.getElementById('food-sugar').value = round1(baseNutrition.sugar * mult);
+    document.getElementById('food-fat').value = round1(baseNutrition.fat * mult);
+    document.getElementById('food-satfat').value = round1(baseNutrition.satFat * mult);
+    document.getElementById('food-transfat').value = round1(baseNutrition.transFat * mult);
+    document.getElementById('food-sodium').value = Math.round(baseNutrition.sodium * mult);
+    document.getElementById('food-cholesterol').value = Math.round(baseNutrition.cholesterol * mult);
 }
 
 function openCalendarModal() {
