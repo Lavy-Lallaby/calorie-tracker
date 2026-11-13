@@ -43,11 +43,42 @@ let calendarViewYear = new Date().getFullYear();
 let calendarViewMonth = new Date().getMonth();
 let calendarSelectedKey = currentDateKey;
 
+const goalPresets = {
+    fat_loss: {
+        label: "ลดไขมัน + รักษากล้ามเนื้อ",
+        desc: "แคลอรีติดลบพอดี (1,500 kcal) เน้นโปรตีนสูงเพื่อรักษามวลกล้ามเนื้อขณะลดไขมัน",
+        calories: 1500, minCalories: 1200, proteinMin: 96, proteinMax: 128, carbsMax: 150, fatMax: 50
+    },
+    high_protein: {
+        label: "เน้นโปรตีนสูง ลดคาร์บ",
+        desc: "โปรตีนสูงพิเศษ (40%) ลดแป้งและน้ำตาล ช่วยให้อิ่มนานและเร่งเผาผลาญ",
+        calories: 1500, minCalories: 1200, proteinMin: 130, proteinMax: 160, carbsMax: 95, fatMax: 58
+    },
+    keto_fat: {
+        label: "เน้นไขมันดี ลดแป้ง (Low-Carb / Keto)",
+        desc: "จำกัดคาร์บต่ำมาก (ไม่เกิน 35g) เน้นไขมันดีเป็นพลังงานหลักและโปรตีนปานกลาง",
+        calories: 1550, minCalories: 1250, proteinMin: 95, proteinMax: 115, carbsMax: 35, fatMax: 112
+    },
+    maintain: {
+        label: "รักษาน้ำหนัก & สมดุล",
+        desc: "พลังงานสมดุล (1,900 kcal) สัดส่วนโปรตีน คาร์บ และไขมันพอดีสำหรับใช้ชีวิตประจำวัน",
+        calories: 1900, minCalories: 1500, proteinMin: 95, proteinMax: 120, carbsMax: 225, fatMax: 63
+    },
+    lean_bulk: {
+        label: "เพิ่มน้ำหนัก & สร้างกล้ามเนื้อ",
+        desc: "เพิ่มพลังงานส่วนเกินแบบคลีน (2,300 kcal) เน้นโปรตีนและคาร์บเพื่อแรงยกเวทและสร้างกล้ามเนื้อ",
+        calories: 2300, minCalories: 1900, proteinMin: 130, proteinMax: 160, carbsMax: 285, fatMax: 64
+    }
+};
+
 const defaultGoals = {
+    preset: "fat_loss",
     calories: 1500,
     minCalories: 1200,
     proteinMin: 96,
     proteinMax: 128,
+    carbsMax: 150,
+    fatMax: 50,
     steps: 10000,
     water: 2000,
     targetWeight: null
