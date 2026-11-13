@@ -490,27 +490,53 @@
             </div>
 
             <div class="space-y-4">
-                <!-- 1. Flexible Goals Section -->
-                <div class="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
+                <!-- 1. Flexible Goals & Program Presets Section -->
+                <div class="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
                     <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-bullseye"></i> เป้าหมายสุขภาพส่วนตัว (ซิงก์ข้ามเครื่อง)
+                        <i class="fa-solid fa-bullseye"></i> เลือกโปรแกรม & เป้าหมายส่วนตัว
                     </div>
-                    <div class="grid grid-cols-2 gap-2.5">
+
+                    <!-- Dropdown เลือกโปรแกรมสำเร็จรูป -->
+                    <div>
+                        <label class="block text-[11px] text-amber-300 font-medium mb-1">เลือกโปรแกรมสำเร็จรูป (ปรับค่าอัตโนมัติ)</label>
+                        <select id="goal-preset-select" onchange="applyGoalPreset(this.value)"
+                            class="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-2 text-xs text-white font-medium focus:outline-none focus:border-amber-400">
+                            <option value="fat_loss">🔥 ลดไขมัน + รักษากล้ามเนื้อ (1,500 kcal | โปรตีนสูง)</option>
+                            <option value="high_protein">💪 เน้นโปรตีนสูง ลดคาร์บ (1,500 kcal | P 40% / C 25%)</option>
+                            <option value="keto_fat">🥑 เน้นไขมันดี ลดแป้ง/คีโต (1,550 kcal | F 65% / C 9%)</option>
+                            <option value="maintain">⚖️ รักษาน้ำหนัก & สมดุล (1,900 kcal | C 48% / F 30%)</option>
+                            <option value="lean_bulk">🏋️ เพิ่มน้ำหนัก & สร้างกล้ามเนื้อ (2,300 kcal | C 50%)</option>
+                            <option value="custom">✏️ กำหนดตัวเลขเองทั้งหมด (Custom)</option>
+                        </select>
+                        <p id="preset-desc-label" class="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                            เน้นโปรตีนเพื่อรักษามวลกล้ามเนื้อขณะลดไขมัน
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-800/80">
                         <div>
                             <label class="block text-[11px] text-slate-300 mb-1">แคลอรีเป้าหมาย (kcal)</label>
-                            <input type="number" id="goal-cal-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <input type="number" id="goal-cal-input" oninput="markPresetCustom()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
                         </div>
                         <div>
-                            <label class="block text-[11px] text-slate-300 mb-1">แคลอรีขั้นต่ำ (เส้นกราฟ/ชดเชย)</label>
-                            <input type="number" id="goal-min-cal-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <label class="block text-[11px] text-slate-300 mb-1">แคลอรีขั้นต่ำ (เส้นกราฟ)</label>
+                            <input type="number" id="goal-min-cal-input" oninput="markPresetCustom()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
                         </div>
                         <div>
-                            <label class="block text-[11px] text-slate-300 mb-1">โปรตีนขั้นต่ำ (g)</label>
-                            <input type="number" id="goal-prot-min-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <label class="block text-[11px] text-emerald-400 mb-1">โปรตีนขั้นต่ำ (g)</label>
+                            <input type="number" id="goal-prot-min-input" oninput="markPresetCustom()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
                         </div>
                         <div>
-                            <label class="block text-[11px] text-slate-300 mb-1">โปรตีนสูงสุด (g)</label>
-                            <input type="number" id="goal-prot-max-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <label class="block text-[11px] text-emerald-400 mb-1">โปรตีนสูงสุด (g)</label>
+                            <input type="number" id="goal-prot-max-input" oninput="markPresetCustom()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-sky-300 mb-1">โควตาคาร์บ/วัน (g)</label>
+                            <input type="number" id="goal-carbs-input" oninput="markPresetCustom()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-amber-300 mb-1">โควตาไขมัน/วัน (g)</label>
+                            <input type="number" id="goal-fat-input" oninput="markPresetCustom()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-300 mb-1">เป้าหมายก้าวเดิน/วัน</label>
@@ -655,6 +681,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=20"></script>
+    <script src="script.js?v=21"></script>
 </body>
 </html>
