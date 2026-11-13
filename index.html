@@ -42,7 +42,7 @@
     <!-- Main Content Container -->
     <main class="w-full max-w-md px-4 pt-4 space-y-6">
 
-        <!-- Weekly Calorie Chart (อยู่ใต้ Header) -->
+        <!-- Weekly Calorie Chart (7 วัน + เส้น 1,500 & 1,200) -->
         <section class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm space-y-2.5">
             <div class="flex justify-between items-center">
                 <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
@@ -53,20 +53,16 @@
                     <span class="flex items-center gap-1 text-rose-400"><span class="w-2 h-2 rounded-full bg-rose-500"></span> เกินเป้า</span>
                 </div>
             </div>
-
-            <!-- พื้นที่วาดกราฟแท่ง 7 วัน -->
-            <div id="weekly-chart-container" class="pt-2">
-                <!-- Rendered by JavaScript -->
-            </div>
+            <div id="weekly-chart-container" class="pt-2"></div>
         </section>
-        
+
         <!-- Date Indicator & Navigation -->
         <div class="flex justify-between items-center bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-slate-800 shadow-sm">
             <button onclick="changeDay(-1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
                 <i class="fa-solid fa-chevron-left text-xs"></i>
             </button>
             <div id="display-date" class="text-sm font-semibold text-slate-200 text-center">
-                วันพฤหัสบดีที่ 12 พฤศจิกายน 2569
+                กำลังโหลดวันที่...
             </div>
             <button onclick="changeDay(1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
                 <i class="fa-solid fa-chevron-right text-xs"></i>
@@ -78,11 +74,11 @@
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">พลังงานคงเหลือ (เป้า 1,500)</span>
-                    <div class="text-3xl font-extrabold text-white mt-0.5" id="calories-remaining">520 <span class="text-sm font-normal text-slate-400">kcal</span></div>
+                    <div class="text-3xl font-extrabold text-white mt-0.5" id="calories-remaining">0 <span class="text-sm font-normal text-slate-400">kcal</span></div>
                 </div>
                 <div class="text-right">
                     <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">โปรตีนวันนี้</span>
-                    <div class="text-lg font-bold text-emerald-400 mt-0.5" id="protein-summary">60.5 / <span class="text-xs font-normal text-slate-400">96-128 g</span></div>
+                    <div class="text-lg font-bold text-emerald-400 mt-0.5" id="protein-summary">0.0 / <span class="text-xs font-normal text-slate-400">96-128 g</span></div>
                 </div>
             </div>
 
@@ -132,14 +128,12 @@
 
             <!-- Progress Bar -->
             <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div id="calorie-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 65%;"></div>
+                <div id="calorie-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
             </div>
         </section>
 
         <!-- Meals Container -->
-        <div id="meals-container" class="space-y-4">
-            <!-- Rendered by JavaScript -->
-        </div>
+        <div id="meals-container" class="space-y-4"></div>
 
         <!-- Activity & Steps Tracker Card -->
         <section class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3.5">
@@ -179,9 +173,7 @@
             </div>
 
             <!-- Workout List -->
-            <div id="workouts-list" class="space-y-1">
-                <!-- Rendered by JavaScript -->
-            </div>
+            <div id="workouts-list" class="space-y-1"></div>
 
             <button type="button" onclick="openWorkoutModal()" class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 text-slate-300 text-xs font-medium py-2 rounded-xl transition flex items-center justify-center gap-1.5">
                 <i class="fa-solid fa-plus text-orange-400"></i> เพิ่มการออกกำลังกาย
@@ -189,9 +181,7 @@
         </section>
 
         <!-- Smart Nutrition Coach Container -->
-        <div id="coach-container" class="space-y-3">
-            <!-- Rendered by JavaScript -->
-        </div>
+        <div id="coach-container" class="space-y-3"></div>
 
     </main>
 
@@ -237,14 +227,14 @@
                 <input type="hidden" id="edit-item-index">
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">ชื่ออาหาร</label>
-                    <input type="text" id="food-name" list="food-catalog-list" required placeholder="เช่น อกไก่ต้ม, ข้าวสวย" 
+                    <label class="block text-xs font-medium text-slate-300 mb-1">ชื่ออาหาร (ใส่หน่วยไว้ในชื่อได้เลย เช่น 100g, 1 ฟอง)</label>
+                    <input type="text" id="food-name" list="food-catalog-list" required placeholder="เช่น อกไก่ต้ม (100g), ไข่ต้ม (1 ฟอง)" 
                         class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                         oninput="autofillFoodCatalog(this.value)">
                     <datalist id="food-catalog-list"></datalist>
                 </div>
 
-               <div class="grid grid-cols-2 gap-2.5">
+                <div class="grid grid-cols-2 gap-2.5">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">จำนวน (ตัวคูณ)</label>
                         <input type="number" step="0.1" min="0.1" id="food-qty" value="1" placeholder="1" 
@@ -263,17 +253,20 @@
                     <div>
                         <label class="block text-[11px] font-medium text-emerald-400 mb-1">โปรตีน (g)</label>
                         <input type="number" step="0.1" id="food-protein" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                     <div>
                         <label class="block text-[11px] font-medium text-slate-300 mb-1">คาร์บ (g)</label>
                         <input type="number" step="0.1" id="food-carbs" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                     <div>
                         <label class="block text-[11px] font-medium text-pink-400 mb-1">น้ำตาล (g)</label>
                         <input type="number" step="0.1" id="food-sugar" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                 </div>
 
@@ -281,17 +274,20 @@
                     <div>
                         <label class="block text-[11px] font-medium text-slate-300 mb-1">ไขมันรวม (g)</label>
                         <input type="number" step="0.1" id="food-fat" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                     <div>
                         <label class="block text-[11px] font-medium text-orange-300 mb-1">ไขมันอิ่มตัว (g)</label>
                         <input type="number" step="0.1" id="food-satfat" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                     <div>
                         <label class="block text-[11px] font-medium text-red-400 mb-1">ไขมันทรานส์ (g)</label>
                         <input type="number" step="0.1" id="food-transfat" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                 </div>
 
@@ -299,12 +295,14 @@
                     <div>
                         <label class="block text-[11px] font-medium text-amber-400 mb-1">โซเดียม (mg)</label>
                         <input type="number" id="food-sodium" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                     <div>
                         <label class="block text-[11px] font-medium text-rose-400 mb-1">คอเลสเตอรอล (mg)</label>
                         <input type="number" id="food-cholesterol" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                 </div>
 
@@ -388,7 +386,6 @@
                 </button>
             </div>
             <div class="space-y-4">
-                <!-- GitHub Sync Section -->
                 <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2.5">
                     <div class="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
                         <i class="fa-brands fa-github"></i> ซิงก์ข้ามเครื่อง (fittracker-db/db.json)
@@ -411,7 +408,6 @@
                     </div>
                 </div>
 
-                <!-- Gemini AI Section -->
                 <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
                     <div class="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Gemini AI (สำหรับปุ่มถ่ายรูปอาหาร)
@@ -427,7 +423,6 @@
         </div>
     </div>
 
-    <!-- Calendar Modal -->
     <!-- Calendar Modal (ปฏิทินรายเดือน + จุดสถานะ 2 จุด + พรีวิวรายละเอียด) -->
     <div id="calendar-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 w-full max-w-md rounded-3xl border border-slate-800 p-4 space-y-3 max-h-[92vh] overflow-y-auto">
@@ -440,7 +435,6 @@
                 </button>
             </div>
 
-            <!-- แถบเลื่อนเดือน -->
             <div class="flex justify-between items-center bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800/80">
                 <button type="button" onclick="changeCalendarMonth(-1)" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
                     <i class="fa-solid fa-chevron-left text-xs"></i>
@@ -451,13 +445,11 @@
                 </button>
             </div>
 
-            <!-- คำอธิบายจุดสี -->
             <div class="flex justify-between text-[10px] text-slate-400 px-1">
                 <span>• จุดซ้าย (แคล): <b class="text-emerald-400">&lt;1500</b> / <b class="text-orange-400">1500-2000</b> / <b class="text-rose-400">&gt;2000</b></span>
                 <span>• จุดขวา (โปรตีน): <b class="text-rose-400">&lt;50%</b> / <b class="text-amber-300">50-75%</b> / <b class="text-emerald-400">&ge;75%</b></span>
             </div>
 
-            <!-- หัวตาราง อา. - ส. -->
             <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-slate-400 pt-1">
                 <div class="text-rose-400">อา</div>
                 <div>จ</div>
@@ -468,18 +460,12 @@
                 <div class="text-indigo-400">ส</div>
             </div>
 
-            <!-- ตารางวันที่ -->
-            <div id="calendar-grid-container" class="grid grid-cols-7 gap-1">
-                <!-- Rendered dynamically -->
-            </div>
+            <div id="calendar-grid-container" class="grid grid-cols-7 gap-1"></div>
 
-            <!-- กล่องพรีวิวรายละเอียดของวันที่กดเลือก -->
-            <div id="calendar-day-detail" class="bg-slate-950/90 rounded-2xl p-3.5 border border-slate-800 space-y-2.5">
-                <!-- Rendered dynamically -->
-            </div>
+            <div id="calendar-day-detail" class="bg-slate-950/90 rounded-2xl p-3.5 border border-slate-800 space-y-2.5"></div>
         </div>
     </div>
 
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=14"></script>
 </body>
 </html>
