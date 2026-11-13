@@ -690,13 +690,13 @@ function deleteWorkout(index) {
 }
 
 // ==========================================
-// Summary & Smart Nutrition Coach (1-Click Add)
+// 1. แทนที่ renderSummary() และเพิ่ม showMacroTip()
 // ==========================================
 function renderSummary() {
     const dayData = getDayData(currentDateKey);
-    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalSugar = 0;
+    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalSugar = 0, totalFiber = 0;
     let totalFat = 0, totalSatFat = 0, totalTransFat = 0;
-    let totalSodium = 0, totalChol = 0;
+    let totalSodium = 0, totalPotassium = 0, totalChol = 0;
 
     Object.values(dayData.meals).forEach(mealList => {
         mealList.forEach(item => {
@@ -704,10 +704,12 @@ function renderSummary() {
             totalProt += Number(item.protein || 0);
             totalCarbs += Number(item.carbs || 0);
             totalSugar += Number(item.sugar || 0);
+            totalFiber += Number(item.fiber || 0);
             totalFat += Number(item.fat || 0);
             totalSatFat += Number(item.satFat || 0);
             totalTransFat += Number(item.transFat || 0);
             totalSodium += Number(item.sodium || 0);
+            totalPotassium += Number(item.potassium || 0);
             totalChol += Number(item.cholesterol || 0);
         });
     });
@@ -725,12 +727,15 @@ function renderSummary() {
     document.getElementById('calories-consumed').innerText = `${totalCal} kcal`;
     document.getElementById('calories-burned').innerText = `${totalBurn} kcal`;
     document.getElementById('protein-summary').innerHTML = `${totalProt.toFixed(1)} / <span class="text-xs font-normal text-slate-400">${protMin}-${protMax} g</span>`;
+    
     document.getElementById('carbs-total').innerText = `${totalCarbs.toFixed(1)}g`;
     document.getElementById('sugar-total').innerText = `${totalSugar.toFixed(1)}g`;
+    document.getElementById('fiber-total').innerText = `${totalFiber.toFixed(1)}g`;
     document.getElementById('fats-total').innerText = `${totalFat.toFixed(1)}g`;
     document.getElementById('satfat-total').innerText = `${totalSatFat.toFixed(1)}g`;
     document.getElementById('transfat-total').innerText = `${totalTransFat.toFixed(1)}g`;
     document.getElementById('sodium-total').innerText = `${Math.round(totalSodium)}mg`;
+    document.getElementById('potassium-total').innerText = `${Math.round(totalPotassium)}mg`;
     document.getElementById('cholesterol-total').innerText = `${Math.round(totalChol)}mg`;
 
     const percent = Math.min(Math.round((totalCal / effectiveBudget) * 100), 100);
@@ -744,6 +749,92 @@ function renderSummary() {
         statusEl.innerText = "ต่ำกว่าเกณฑ์ / กำลังคุม";
         statusEl.className = "px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-medium";
     }
+}
+
+let activeMacroTip = null;
+
+function showMacroTip(type) {
+    const box = document.getElementById('macro-tip-box');
+    const content = document.getElementById('macro-tip-content');
+    if (!box || !content) return;
+
+    if (activeMacroTip === type && !box.classList.contains('hidden')) {
+        hideMacroTip();
+        return;
+    }
+    activeMacroTip = type;
+
+    const dayData = getDayData(currentDateKey);
+    let totals = { carbs: 0, sugar: 0, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 0, potassium: 0, cholesterol: 0 };
+    Object.values(dayData.meals).forEach(list => {
+        list.forEach(item => {
+            totals.carbs += Number(item.carbs || 0);
+            totals.sugar += Number(item.sugar || 0);
+            totals.fiber += Number(item.fiber || 0);
+            totals.fat += Number(item.fat || 0);
+            totals.satFat += Number(item.satFat || 0);
+            totals.transFat += Number(item.transFat || 0);
+            totals.sodium += Number(item.sodium || 0);
+            totals.potassium += Number(item.potassium || 0);
+            totals.cholesterol += Number(item.cholesterol || 0);
+        });
+    });
+
+    const targetCal = Number(userGoals.calories) || 1500;
+    const recCarbsMax = Math.round((targetCal * 0.50) / 4);
+    const recFatMax = Math.round((targetCal * 0.30) / 9);
+
+    const rules = {
+        carbs: { title: "คาร์บ (Carbs)", limitText: `ประมาณ 130 – ${recCarbsMax}g / วัน`, current: totals.carbs, max: recCarbsMax, unit: "g", isMinGoal: false, tip: "เน้นข้าวกล้อง ไรซ์เบอร์รี ฟักทอง" },
+        sugar: { title: "น้ำตาล (Sugar)", limitText: "ไม่เกิน 24g / วัน (6 ช้อนชา)", current: totals.sugar, max: 24, unit: "g", isMinGoal: false, tip: "เกณฑ์ WHO เพื่อลดไขมันสะสม" },
+        fiber: { title: "ไฟเบอร์ (Fiber)", limitText: "ควรได้ 25 – 30g / วัน", current: totals.fiber, max: 25, unit: "g", isMinGoal: true, tip: "ช่วยให้อิ่มนานและขับถ่ายดี" },
+        fat: { title: "ไขมันรวม (Total Fat)", limitText: `ไม่เกิน ${recFatMax}g / วัน`, current: totals.fat, max: recFatMax, unit: "g", isMinGoal: false, tip: "เลือกไขมันดีจากปลา ถั่ว อะโวคาโด" },
+        satFat: { title: "ไขมันอิ่มตัว (Sat Fat)", limitText: "ไม่เกิน 15 – 20g / วัน", current: totals.satFat, max: 16, unit: "g", isMinGoal: false, tip: "เลี่ยงหนังสัตว์ กะทิ ของทอด" },
+        transFat: { title: "ไขมันทรานส์ (Trans Fat)", limitText: "ควรเป็น 0g (ไม่เกิน 2g / วัน)", current: totals.transFat, max: 2, unit: "g", isMinGoal: false, tip: "เลี่ยงครีมเทียม เบเกอรี่" },
+        sodium: { title: "โซเดียม (Sodium)", limitText: "ไม่เกิน 2,000mg / วัน", current: totals.sodium, max: 2000, unit: "mg", isMinGoal: false, tip: "เลี่ยงซดน้ำซุปและของแปรรูป" },
+        potassium: { title: "โพแทสเซียม (Potassium)", limitText: "ควรได้ ~3,500mg / วัน", current: totals.potassium, max: 3500, unit: "mg", isMinGoal: true, tip: "ช่วยขับโซเดียม ลดบวมน้ำ (ผักใบเขียว กล้วย)" },
+        cholesterol: { title: "คอเลสเตอรอล (Cholesterol)", limitText: "ไม่เกิน 300mg / วัน", current: totals.cholesterol, max: 300, unit: "mg", isMinGoal: false, tip: "เลี่ยงไข่แดงเกินวันละฟองและเครื่องใน" }
+    };
+
+    const info = rules[type];
+    if (!info) return;
+
+    const dec = info.unit === 'mg' ? 0 : 1;
+    let statusBadge = "";
+    let isAlert = false;
+
+    if (info.isMinGoal) {
+        // ไฟเบอร์ & โพแทสเซียม ยิ่งใกล้เป้าหรือเกินเป้าถือว่าดี
+        const rem = Math.max(0, info.max - info.current);
+        statusBadge = rem === 0
+            ? `<span class="text-emerald-400 font-bold">ถึงเกณฑ์แนะนำต่อวันแล้ว!</span>`
+            : `<span class="text-sky-400 font-semibold">ขาดอีก ${rem.toFixed(dec)}${info.unit} จะถึงเป้า</span>`;
+    } else {
+        const rem = Math.max(0, info.max - info.current);
+        isAlert = info.current > info.max;
+        statusBadge = isAlert
+            ? `<span class="text-rose-400 font-bold">เกินเกณฑ์แล้ว ${(info.current - info.max).toFixed(dec)}${info.unit}</span>`
+            : `<span class="text-emerald-400 font-semibold">เหลือโควตาอีก ${rem.toFixed(dec)}${info.unit}</span>`;
+    }
+
+    content.innerHTML = `
+        <div class="font-bold text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info text-indigo-400"></i> ${info.title}: <span class="text-amber-300">${info.limitText}</span>
+        </div>
+        <div class="text-[11px] text-slate-300 mt-0.5">
+            วันนี้ทานไป <b>${info.current.toFixed(dec)}${info.unit}</b> (${statusBadge}) — <span class="text-slate-400">${info.tip}</span>
+        </div>
+    `;
+
+    box.className = isAlert
+        ? "bg-rose-950/60 border border-rose-500/50 rounded-xl px-3 py-2.5 text-xs flex justify-between items-start gap-2 transition-all"
+        : "bg-slate-950/90 border border-indigo-500/40 rounded-xl px-3 py-2.5 text-xs flex justify-between items-start gap-2 transition-all";
+}
+
+function hideMacroTip() {
+    const box = document.getElementById('macro-tip-box');
+    if (box) box.classList.add('hidden');
+    activeMacroTip = null;
 }
 
 const coachProteinMenus = [
@@ -900,6 +991,9 @@ function extractMultiplier(qtyVal) {
     return (!isNaN(num) && num > 0) ? num : 1;
 }
 
+// ==========================================
+// 2. แทนที่ชุดตัวคูณและการกรอก/สแกน/บันทึก ให้รองรับ fiber และ potassium
+// ==========================================
 function setBaseNutritionFromCurrentInputs() {
     const mult = extractMultiplier(document.getElementById('food-qty').value);
     baseNutrition = {
@@ -907,10 +1001,12 @@ function setBaseNutritionFromCurrentInputs() {
         protein: (Number(document.getElementById('food-protein').value) || 0) / mult,
         carbs: (Number(document.getElementById('food-carbs').value) || 0) / mult,
         sugar: (Number(document.getElementById('food-sugar').value) || 0) / mult,
+        fiber: (Number(document.getElementById('food-fiber').value) || 0) / mult,
         fat: (Number(document.getElementById('food-fat').value) || 0) / mult,
         satFat: (Number(document.getElementById('food-satfat').value) || 0) / mult,
         transFat: (Number(document.getElementById('food-transfat').value) || 0) / mult,
         sodium: (Number(document.getElementById('food-sodium').value) || 0) / mult,
+        potassium: (Number(document.getElementById('food-potassium').value) || 0) / mult,
         cholesterol: (Number(document.getElementById('food-cholesterol').value) || 0) / mult
     };
 }
@@ -920,9 +1016,7 @@ function updateBaseNutritionFromInputs() {
 }
 
 function applyQuantityMultiplier() {
-    if (!baseNutrition) {
-        setBaseNutritionFromCurrentInputs();
-    }
+    if (!baseNutrition) setBaseNutritionFromCurrentInputs();
     const mult = extractMultiplier(document.getElementById('food-qty').value);
     const round1 = (val) => Math.round(val * 10) / 10;
 
@@ -930,10 +1024,12 @@ function applyQuantityMultiplier() {
     document.getElementById('food-protein').value = round1(baseNutrition.protein * mult);
     document.getElementById('food-carbs').value = round1(baseNutrition.carbs * mult);
     document.getElementById('food-sugar').value = round1(baseNutrition.sugar * mult);
+    document.getElementById('food-fiber').value = round1(baseNutrition.fiber * mult);
     document.getElementById('food-fat').value = round1(baseNutrition.fat * mult);
     document.getElementById('food-satfat').value = round1(baseNutrition.satFat * mult);
     document.getElementById('food-transfat').value = round1(baseNutrition.transFat * mult);
     document.getElementById('food-sodium').value = Math.round(baseNutrition.sodium * mult);
+    document.getElementById('food-potassium').value = Math.round(baseNutrition.potassium * mult);
     document.getElementById('food-cholesterol').value = Math.round(baseNutrition.cholesterol * mult);
 }
 
@@ -1167,10 +1263,12 @@ function fillFormWithNutritionData(item) {
     document.getElementById('food-protein').value = item.protein ?? 0;
     document.getElementById('food-carbs').value = item.carbs ?? 0;
     document.getElementById('food-sugar').value = item.sugar ?? 0;
+    document.getElementById('food-fiber').value = item.fiber ?? 0;
     document.getElementById('food-fat').value = item.fat ?? 0;
     document.getElementById('food-satfat').value = item.satFat ?? 0;
     document.getElementById('food-transfat').value = item.transFat ?? 0;
     document.getElementById('food-sodium').value = item.sodium ?? 0;
+    document.getElementById('food-potassium').value = item.potassium ?? 0;
     document.getElementById('food-cholesterol').value = item.cholesterol ?? 0;
     setBaseNutritionFromCurrentInputs();
 }
@@ -1304,9 +1402,6 @@ function deleteCatalogItem(idx) {
     }
 }
 
-// ==========================================
-// Food Modal Controls
-// ==========================================
 function openFoodModal(mealType, itemIndex = null) {
     document.getElementById('edit-meal-type').value = mealType;
     document.getElementById('edit-item-index').value = itemIndex !== null ? itemIndex : '';
@@ -1320,10 +1415,12 @@ function openFoodModal(mealType, itemIndex = null) {
         document.getElementById('food-protein').value = item.protein || '';
         document.getElementById('food-carbs').value = item.carbs || '';
         document.getElementById('food-sugar').value = item.sugar || '';
+        document.getElementById('food-fiber').value = item.fiber || '';
         document.getElementById('food-fat').value = item.fat || '';
         document.getElementById('food-satfat').value = item.satFat || '';
         document.getElementById('food-transfat').value = item.transFat || '';
         document.getElementById('food-sodium').value = item.sodium || '';
+        document.getElementById('food-potassium').value = item.potassium || '';
         document.getElementById('food-cholesterol').value = item.cholesterol || '';
         setBaseNutritionFromCurrentInputs();
     } else {
@@ -1352,10 +1449,12 @@ function handleFoodSubmit(e) {
         protein: Number(document.getElementById('food-protein').value || 0),
         carbs: Number(document.getElementById('food-carbs').value || 0),
         sugar: Number(document.getElementById('food-sugar').value || 0),
+        fiber: Number(document.getElementById('food-fiber').value || 0),
         fat: Number(document.getElementById('food-fat').value || 0),
         satFat: Number(document.getElementById('food-satfat').value || 0),
         transFat: Number(document.getElementById('food-transfat').value || 0),
         sodium: Number(document.getElementById('food-sodium').value || 0),
+        potassium: Number(document.getElementById('food-potassium').value || 0),
         cholesterol: Number(document.getElementById('food-cholesterol').value || 0)
     };
 
@@ -1372,10 +1471,12 @@ function handleFoodSubmit(e) {
         protein: Math.round((newItem.protein / qtyNum) * 10) / 10,
         carbs: Math.round((newItem.carbs / qtyNum) * 10) / 10,
         sugar: Math.round((newItem.sugar / qtyNum) * 10) / 10,
+        fiber: Math.round((newItem.fiber / qtyNum) * 10) / 10,
         fat: Math.round((newItem.fat / qtyNum) * 10) / 10,
         satFat: Math.round((newItem.satFat / qtyNum) * 10) / 10,
         transFat: Math.round((newItem.transFat / qtyNum) * 10) / 10,
         sodium: Math.round(newItem.sodium / qtyNum),
+        potassium: Math.round(newItem.potassium / qtyNum),
         cholesterol: Math.round(newItem.cholesterol / qtyNum)
     };
     if (!foodCatalog.some(f => f.name.toLowerCase() === unitItem.name.toLowerCase())) {
@@ -1407,10 +1508,12 @@ function autofillFoodCatalog(name) {
         document.getElementById('food-protein').value = found.protein;
         document.getElementById('food-carbs').value = found.carbs;
         document.getElementById('food-sugar').value = found.sugar ?? 0;
+        document.getElementById('food-fiber').value = found.fiber ?? 0;
         document.getElementById('food-fat').value = found.fat;
         document.getElementById('food-satfat').value = found.satFat ?? 0;
         document.getElementById('food-transfat').value = found.transFat ?? 0;
         document.getElementById('food-sodium').value = found.sodium;
+        document.getElementById('food-potassium').value = found.potassium ?? 0;
         document.getElementById('food-cholesterol').value = found.cholesterol;
         setBaseNutritionFromCurrentInputs();
     }
