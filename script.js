@@ -1,4 +1,13 @@
 // ==========================================
+// Register PWA Service Worker
+// ==========================================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+}
+
+// ==========================================
 // GitHub DB Config (Lavy-Lallaby/fittracker-db)
 // ==========================================
 const GITHUB_OWNER = "Lavy-Lallaby";
@@ -6,7 +15,6 @@ const GITHUB_REPO  = "fittracker-db";
 const GITHUB_PATH  = "db.json";
 let currentFileSha = null;
 
-// Helper Date Formatter (ต้องประกาศก่อนใช้สร้าง currentDateKey)
 function getFormattedDateKey(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -22,31 +30,44 @@ function formatDisplayDate(dateKey) {
 }
 
 // ==========================================
-// State Management
+// State Management & Flexible Goals
 // ==========================================
 let currentDateKey = getFormattedDateKey(new Date());
 let currentScanMode = 'label';
 let html5QrCode = null;
 let baseNutrition = null;
 
-// Calendar State
 let calendarViewYear = new Date().getFullYear();
 let calendarViewMonth = new Date().getMonth();
 let calendarSelectedKey = currentDateKey;
 
+const defaultGoals = {
+    calories: 1500,
+    minCalories: 1200,
+    proteinMin: 96,
+    proteinMax: 128,
+    steps: 10000,
+    water: 2000,
+    targetWeight: null
+};
+
+let userGoals = Object.assign({}, defaultGoals, JSON.parse(localStorage.getItem('fitTracker_goals') || '{}'));
+
 const defaultHistory = {
     "2026-11-12": {
         steps: 4500,
+        water: 1500,
+        weight: null,
         workouts: [],
         meals: {
             "มื้อเช้า": [
-                { name: "หมูย่าง", qty: "x3", calories: 300, protein: 21, carbs: 0, sugar: 0, fat: 15, satFat: 5, transFat: 0, sodium: 400, cholesterol: 80 },
-                { name: "ข้าวเหนียว", qty: "x1", calories: 155, protein: 2.5, carbs: 34, sugar: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 10, cholesterol: 0 },
-                { name: "ชามะนาว น้ำผึ้ง", qty: "x1", calories: 25, protein: 0, carbs: 6, sugar: 6, fat: 0, satFat: 0, transFat: 0, sodium: 5, cholesterol: 0 }
+                { name: "หมูย่าง", qty: 3, calories: 300, protein: 21, carbs: 0, sugar: 0, fat: 15, satFat: 5, transFat: 0, sodium: 400, cholesterol: 80 },
+                { name: "ข้าวเหนียว", qty: 1, calories: 155, protein: 2.5, carbs: 34, sugar: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 10, cholesterol: 0 },
+                { name: "ชามะนาว น้ำผึ้ง", qty: 1, calories: 25, protein: 0, carbs: 6, sugar: 6, fat: 0, satFat: 0, transFat: 0, sodium: 5, cholesterol: 0 }
             ],
             "มื้อเที่ยง": [
-                { name: "หมูย่าง", qty: "x1", calories: 100, protein: 7, carbs: 0, sugar: 0, fat: 5, satFat: 1.5, transFat: 0, sodium: 130, cholesterol: 25 },
-                { name: "เกาเหลาหมู", qty: "x1", calories: 400, protein: 30, carbs: 14, sugar: 4, fat: 23, satFat: 8, transFat: 0, sodium: 1760, cholesterol: 115 }
+                { name: "หมูย่าง", qty: 1, calories: 100, protein: 7, carbs: 0, sugar: 0, fat: 5, satFat: 1.5, transFat: 0, sodium: 130, cholesterol: 25 },
+                { name: "เกาเหลาหมู", qty: 1, calories: 400, protein: 30, carbs: 14, sugar: 4, fat: 23, satFat: 8, transFat: 0, sodium: 1760, cholesterol: 115 }
             ],
             "มื้อเย็น": [],
             "มื้อว่าง/อื่นๆ": []
@@ -143,6 +164,10 @@ async function syncFromGitHub(showAlert = false) {
                 foodCatalog = cloudData.catalog;
                 localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
             }
+            if (cloudData.goals) {
+                userGoals = Object.assign({}, defaultGoals, cloudData.goals);
+                localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+            }
             renderUIOnly();
             setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
             if (showAlert) alert("ดึงข้อมูลล่าสุดจาก GitHub เรียบร้อยแล้ว!");
@@ -180,6 +205,7 @@ async function pushToGitHub(showAlert = false) {
 
         const payload = {
             updatedAt: new Date().toISOString(),
+            goals: userGoals,
             history: allMealsHistory,
             catalog: foodCatalog
         };
@@ -219,6 +245,7 @@ async function pushToGitHub(showAlert = false) {
 function saveDataAndSync() {
     localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
     localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
     renderUIOnly();
     pushToGitHub(false);
 }
@@ -230,6 +257,7 @@ function renderUIOnly() {
     renderWeeklyChart();
     renderDateDisplay();
     renderMeals();
+    renderWaterAndWeight();
     renderActivity();
     renderSummary();
     renderNutritionCoach();
@@ -255,19 +283,22 @@ function changeDay(direction) {
     renderUIOnly();
 }
 
+function getPreviousDateKey(dateKey) {
+    const parts = dateKey.split('-');
+    let d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setDate(d.getDate() - 1);
+    return getFormattedDateKey(d);
+}
+
 function getDayData(dateKey) {
     if (!allMealsHistory[dateKey]) {
-        allMealsHistory[dateKey] = { steps: 0, workouts: [], meals: {} };
+        allMealsHistory[dateKey] = { steps: 0, water: 0, weight: null, workouts: [], meals: {} };
     }
-    if (!allMealsHistory[dateKey].meals) {
-        allMealsHistory[dateKey].meals = {};
-    }
-    if (allMealsHistory[dateKey].steps === undefined) {
-        allMealsHistory[dateKey].steps = 0;
-    }
-    if (!allMealsHistory[dateKey].workouts) {
-        allMealsHistory[dateKey].workouts = [];
-    }
+    if (!allMealsHistory[dateKey].meals) allMealsHistory[dateKey].meals = {};
+    if (allMealsHistory[dateKey].steps === undefined) allMealsHistory[dateKey].steps = 0;
+    if (allMealsHistory[dateKey].water === undefined) allMealsHistory[dateKey].water = 0;
+    if (!allMealsHistory[dateKey].workouts) allMealsHistory[dateKey].workouts = [];
+
     mealTypes.forEach(type => {
         if (!allMealsHistory[dateKey].meals[type]) {
             allMealsHistory[dateKey].meals[type] = [];
@@ -283,20 +314,20 @@ function getTotalBurned(dayData) {
 }
 
 // ==========================================
-// Weekly Calorie Chart (7 วัน + เส้น 1,500 & 1,200)
+// Weekly Calorie Chart (7 วัน + เส้นเป้าหมาย & ขั้นต่ำ)
 // ==========================================
 function renderWeeklyChart() {
     const container = document.getElementById('weekly-chart-container');
     if (!container) return;
 
-    const targetCal = 1500;
-    const minCal = 1200;
+    const targetCal = Number(userGoals.calories) || 1500;
+    const minCal = Number(userGoals.minCalories) || 1200;
     const parts = currentDateKey.split('-');
     const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 
     let daysData = [];
-    let maxVal = 2000;
+    let maxVal = Math.max(2000, targetCal + 500);
 
     for (let i = 6; i >= 0; i--) {
         let d = new Date(baseDate);
@@ -364,13 +395,13 @@ function renderWeeklyChart() {
             <div class="absolute left-0 right-0 border-t border-dashed border-amber-400/80 z-20 pointer-events-none flex justify-end"
                  style="bottom: calc(30px + (96px * ${targetLineBottomPct / 100}));">
                 <span class="text-[9px] bg-slate-900/95 text-amber-400 px-1 rounded -mt-2.5 font-semibold border border-amber-500/30">
-                    1,500
+                    ${targetCal.toLocaleString()}
                 </span>
             </div>
             <div class="absolute left-0 right-0 border-t border-dashed border-cyan-400/70 z-20 pointer-events-none flex justify-end"
                  style="bottom: calc(30px + (96px * ${minLineBottomPct / 100}));">
                 <span class="text-[9px] bg-slate-900/95 text-cyan-400 px-1 rounded -mt-2.5 font-semibold border border-cyan-500/30">
-                    1,200
+                    ${minCal.toLocaleString()}
                 </span>
             </div>
             <div class="flex items-end justify-between gap-1.5">
@@ -386,17 +417,43 @@ function selectChartDay(dateKey) {
 }
 
 // ==========================================
-// Meals Rendering
+// Meals Rendering & Copy Yesterday Feature
 // ==========================================
+function copyMealFromYesterday(mealType) {
+    const yesterdayKey = getPreviousDateKey(currentDateKey);
+    const yesterdayData = allMealsHistory[yesterdayKey];
+    const yesterdayItems = yesterdayData && yesterdayData.meals ? (yesterdayData.meals[mealType] || []) : [];
+
+    if (yesterdayItems.length === 0) {
+        alert(`เมื่อวาน (${yesterdayKey}) ไม่มีรายการอาหารใน "${mealType}" ให้คัดลอกครับ`);
+        return;
+    }
+
+    const dayData = getDayData(currentDateKey);
+    const cloned = JSON.parse(JSON.stringify(yesterdayItems));
+    dayData.meals[mealType].push(...cloned);
+    saveDataAndSync();
+}
+
 function renderMeals() {
     const container = document.getElementById('meals-container');
     container.innerHTML = '';
     const dayData = getDayData(currentDateKey);
 
+    const yesterdayKey = getPreviousDateKey(currentDateKey);
+    const yesterdayData = allMealsHistory[yesterdayKey];
+
     mealTypes.forEach(mealType => {
         const items = dayData.meals[mealType] || [];
         const totalCal = items.reduce((sum, item) => sum + Number(item.calories), 0);
         const totalProt = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
+
+        const hasYesterday = yesterdayData && yesterdayData.meals && (yesterdayData.meals[mealType] || []).length > 0;
+        const copyBtnHtml = hasYesterday
+            ? `<button type="button" onclick="copyMealFromYesterday('${mealType}')" title="ดึงรายการมื้อนี้จากเมื่อวาน" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
+                   <i class="fa-regular fa-copy mr-0.5"></i> คัดลอกเมื่อวาน
+               </button>`
+            : '';
 
         let itemsHtml = items.map((item, idx) => {
             const qtyDisplay = item.qty ? (isNaN(item.qty) ? item.qty : `x${item.qty}`) : '';
@@ -423,13 +480,14 @@ function renderMeals() {
         const card = document.createElement('div');
         card.className = "bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3";
         card.innerHTML = `
-            <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+            <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5 gap-2">
                 <div class="flex items-center space-x-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
                     <h4 class="font-semibold text-white text-sm">${mealType}</h4>
+                    ${copyBtnHtml}
                 </div>
-                <div class="text-xs text-slate-400 font-medium">
-                    ${totalCal} kcal | โปรตีน ${totalProt.toFixed(1)}g
+                <div class="text-xs text-slate-400 font-medium shrink-0">
+                    ${totalCal} kcal | P ${totalProt.toFixed(1)}g
                 </div>
             </div>
             <div class="space-y-1">
@@ -444,18 +502,122 @@ function renderMeals() {
 }
 
 // ==========================================
+// Water & Weight Tracker
+// ==========================================
+function renderWaterAndWeight() {
+    const dayData = getDayData(currentDateKey);
+    const water = Number(dayData.water || 0);
+    const goalWater = Number(userGoals.water) || 2000;
+    const pct = Math.min(Math.round((water / goalWater) * 100), 100);
+
+    document.getElementById('water-summary-badge').innerText = `${water.toLocaleString()} / ${goalWater.toLocaleString()} ml`;
+    document.getElementById('goal-water-label').innerText = goalWater.toLocaleString();
+    document.getElementById('water-progress-bar').style.width = `${pct}%`;
+    document.getElementById('water-percent').innerText = `${pct}%`;
+
+    // Weight input & diff
+    const weightInput = document.getElementById('weight-input');
+    weightInput.value = (dayData.weight !== null && dayData.weight !== undefined && dayData.weight !== '') ? dayData.weight : '';
+
+    const diffLabel = document.getElementById('goal-weight-diff');
+    if (userGoals.targetWeight && dayData.weight) {
+        const diff = (Number(dayData.weight) - Number(userGoals.targetWeight)).toFixed(1);
+        if (diff > 0) {
+            diffLabel.innerText = `อีก ${diff} kg ถึงเป้า (${userGoals.targetWeight})`;
+            diffLabel.className = "text-[10px] text-amber-300 shrink-0";
+        } else {
+            diffLabel.innerText = `ถึงเป้า ${userGoals.targetWeight} kg แล้ว!`;
+            diffLabel.className = "text-[10px] text-emerald-400 font-semibold shrink-0";
+        }
+    } else if (userGoals.targetWeight) {
+        diffLabel.innerText = `เป้า ${userGoals.targetWeight} kg`;
+        diffLabel.className = "text-[10px] text-slate-400 shrink-0";
+    } else {
+        diffLabel.innerText = `ตั้งเป้าใน ⚙️`;
+        diffLabel.className = "text-[10px] text-slate-500 shrink-0";
+    }
+
+    renderWeightTrend();
+}
+
+function addWater(ml) {
+    const dayData = getDayData(currentDateKey);
+    dayData.water = Math.max(0, (Number(dayData.water) || 0) + ml);
+    saveDataAndSync();
+}
+
+function updateWeight(val) {
+    const dayData = getDayData(currentDateKey);
+    const num = parseFloat(val);
+    dayData.weight = (!isNaN(num) && num > 0) ? num : null;
+    saveDataAndSync();
+}
+
+function renderWeightTrend() {
+    const container = document.getElementById('weight-trend-container');
+    if (!container) return;
+
+    const parts = currentDateKey.split('-');
+    const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    let points = [];
+
+    for (let i = 6; i >= 0; i--) {
+        let d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i);
+        let key = getFormattedDateKey(d);
+        let w = allMealsHistory[key] ? allMealsHistory[key].weight : null;
+        points.push({
+            day: d.getDate(),
+            weight: (w !== null && w !== undefined && w !== '') ? Number(w) : null
+        });
+    }
+
+    const validWeights = points.filter(p => p.weight !== null).map(p => p.weight);
+    if (validWeights.length === 0) {
+        container.innerHTML = `<div class="text-[10px] text-slate-500 text-center py-1">กรอกน้ำหนักตัวเพื่อดูแนวโน้ม 7 วัน</div>`;
+        return;
+    }
+
+    const minW = Math.min(...validWeights) - 1;
+    const maxW = Math.max(...validWeights) + 1;
+    const range = Math.max(maxW - minW, 1);
+
+    container.innerHTML = `
+        <div class="flex items-end justify-between gap-1 pt-1">
+            ${points.map(p => {
+                if (p.weight === null) {
+                    return `<div class="flex-1 flex flex-col items-center"><span class="text-[8px] text-slate-600 mb-0.5">-</span><div class="w-2 h-6 bg-slate-800/40 rounded-full"></div><span class="text-[8px] text-slate-500 mt-0.5">${p.day}</span></div>`;
+                }
+                const hPct = Math.max(20, Math.round(((p.weight - minW) / range) * 100));
+                return `
+                    <div class="flex-1 flex flex-col items-center">
+                        <span class="text-[9px] text-purple-300 font-semibold mb-0.5">${p.weight}</span>
+                        <div class="w-full max-w-[18px] h-7 bg-slate-900 rounded flex items-end justify-center overflow-hidden">
+                            <div class="w-full bg-purple-500 rounded-t" style="height: ${hPct}%;"></div>
+                        </div>
+                        <span class="text-[8px] text-slate-400 mt-0.5">${p.day}</span>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+// ==========================================
 // Steps & Workouts Controls
 // ==========================================
 function renderActivity() {
     const dayData = getDayData(currentDateKey);
     const steps = Number(dayData.steps || 0);
+    const goalSteps = Number(userGoals.steps) || 10000;
     const { stepsCal, totalBurn } = getTotalBurned(dayData);
 
     document.getElementById('steps-input').value = steps > 0 ? steps : '';
     document.getElementById('steps-calories').innerText = stepsCal;
     document.getElementById('activity-total-burn').innerText = totalBurn;
+    document.getElementById('goal-steps-label').innerText = goalSteps.toLocaleString();
 
-    const pct = Math.min(Math.round((steps / 10000) * 100), 100);
+    const pct = Math.min(Math.round((steps / goalSteps) * 100), 100);
     document.getElementById('steps-progress-bar').style.width = `${pct}%`;
     document.getElementById('steps-percent').innerText = `${pct}%`;
 
@@ -528,7 +690,7 @@ function deleteWorkout(index) {
 }
 
 // ==========================================
-// Summary & Smart Nutrition Coach
+// Summary & Smart Nutrition Coach (1-Click Add)
 // ==========================================
 function renderSummary() {
     const dayData = getDayData(currentDateKey);
@@ -551,14 +713,18 @@ function renderSummary() {
     });
 
     const { totalBurn } = getTotalBurned(dayData);
-    const targetCal = 1500;
+    const targetCal = Number(userGoals.calories) || 1500;
+    const protMin = Number(userGoals.proteinMin) || 96;
+    const protMax = Number(userGoals.proteinMax) || 128;
+
     const effectiveBudget = targetCal + totalBurn;
     const remaining = effectiveBudget - totalCal;
 
+    document.getElementById('goal-cal-label').innerText = targetCal.toLocaleString();
     document.getElementById('calories-remaining').innerHTML = `${remaining} <span class="text-sm font-normal text-slate-400">kcal</span>`;
     document.getElementById('calories-consumed').innerText = `${totalCal} kcal`;
     document.getElementById('calories-burned').innerText = `${totalBurn} kcal`;
-    document.getElementById('protein-summary').innerHTML = `${totalProt.toFixed(1)} / <span class="text-xs font-normal text-slate-400">96-128 g</span>`;
+    document.getElementById('protein-summary').innerHTML = `${totalProt.toFixed(1)} / <span class="text-xs font-normal text-slate-400">${protMin}-${protMax} g</span>`;
     document.getElementById('carbs-total').innerText = `${totalCarbs.toFixed(1)}g`;
     document.getElementById('sugar-total').innerText = `${totalSugar.toFixed(1)}g`;
     document.getElementById('fats-total').innerText = `${totalFat.toFixed(1)}g`;
@@ -578,6 +744,38 @@ function renderSummary() {
         statusEl.innerText = "ต่ำกว่าเกณฑ์ / กำลังคุม";
         statusEl.className = "px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-medium";
     }
+}
+
+const coachProteinMenus = [
+    { name: "ไข่ขาวต้ม (3 ฟอง)", calories: 50, protein: 11, carbs: 1, sugar: 0, fat: 0, satFat: 0, transFat: 0, sodium: 165, cholesterol: 0, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
+    { name: "เวย์โปรตีนไอโซเลต (1 สกู๊ป)", calories: 120, protein: 25, carbs: 2, sugar: 1, fat: 1, satFat: 0.5, transFat: 0, sodium: 80, cholesterol: 15, note: "ดูดซึมไว เติมโปรตีนได้เยอะในแคลน้อย" },
+    { name: "อกไก่นุ่มเซเว่น (1 ชิ้น)", calories: 130, protein: 23, carbs: 2, sugar: 1, fat: 3, satFat: 0.8, transFat: 0, sodium: 390, cholesterol: 65, note: "หาซื้อง่าย อิ่มท้องนาน" },
+    { name: "ทูน่าในน้ำแร่ (1 กระป๋อง)", calories: 110, protein: 24, carbs: 0, sugar: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 320, cholesterol: 45, note: "ไขมันต่ำมาก ยำหรือกินกับสลัดได้" },
+    { name: "กรีกโยเกิร์ต 0% (1 ถ้วย)", calories: 90, protein: 15, carbs: 6, sugar: 5, fat: 0, satFat: 0, transFat: 0, sodium: 55, cholesterol: 5, note: "ช่วยเรื่องขับถ่ายและลดอยากของหวาน" },
+    { name: "นมถั่วเหลืองโปรตีนสูง (1 ขวด)", calories: 180, protein: 28, carbs: 6, sugar: 2, fat: 4.5, satFat: 0.5, transFat: 0, sodium: 150, cholesterol: 0, note: "ดื่มง่าย โปรตีนแน่น" },
+    { name: "ปลานิล/ปลาทับทิมนึ่ง (1 ตัว)", calories: 220, protein: 35, carbs: 0, sugar: 0, fat: 8, satFat: 2, transFat: 0, sodium: 110, cholesterol: 95, note: "ย่อยง่าย เหมาะเป็นมื้อเย็น" },
+    { name: "ไข่ต้มทั้งฟอง (2 ฟอง)", calories: 150, protein: 12, carbs: 1, sugar: 1, fat: 10, satFat: 3.2, transFat: 0, sodium: 140, cholesterol: 372, note: "ประหยัด อิ่มนาน" }
+];
+
+function quickAddRecommendedFood(idx) {
+    const item = coachProteinMenus[idx];
+    if (!item) return;
+
+    const dayData = getDayData(currentDateKey);
+    dayData.meals["มื้อว่าง/อื่นๆ"].push({
+        name: item.name,
+        qty: 1,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        sugar: item.sugar,
+        fat: item.fat,
+        satFat: item.satFat,
+        transFat: item.transFat,
+        sodium: item.sodium,
+        cholesterol: item.cholesterol
+    });
+    saveDataAndSync();
 }
 
 function renderNutritionCoach() {
@@ -600,8 +798,9 @@ function renderNutritionCoach() {
     });
 
     const { totalBurn } = getTotalBurned(dayData);
-    const targetCal = 1500;
-    const minProt = 96;
+    const targetCal = Number(userGoals.calories) || 1500;
+    const minProt = Number(userGoals.proteinMin) || 96;
+    const maxProt = Number(userGoals.proteinMax) || 128;
     const remCal = (targetCal + totalBurn) - totalCal;
     const remProt = Math.max(0, minProt - totalProt);
 
@@ -628,36 +827,34 @@ function renderNutritionCoach() {
         warnings.push(`ค่าโซเดียม น้ำตาล และไขมันยังอยู่ในเกณฑ์ดี <b>เลี่ยง</b> ของทอดและน้ำหวานเพื่อรักษาสมดุลต่อ`);
     }
 
-    const proteinMenus = [
-        { name: "ไข่ขาวต้ม 3 ฟอง", cal: 50, prot: 11, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
-        { name: "เวย์โปรตีนไอโซเลต 1 สกู๊ป", cal: 120, prot: 25, note: "ดูดซึมไว เติมโปรตีนได้เยอะในแคลน้อย" },
-        { name: "อกไก่นุ่มเซเว่น 1 ชิ้น", cal: 130, prot: 23, note: "หาซื้อง่าย อิ่มท้องนาน" },
-        { name: "ทูน่าในน้ำแร่ 1 กระป๋อง", cal: 110, prot: 24, note: "ไขมันต่ำมาก ยำหรือกินกับสลัดได้" },
-        { name: "กรีกโยเกิร์ต 0% 1 ถ้วย", cal: 90, prot: 15, note: "ช่วยเรื่องขับถ่ายและลดอยากของหวาน" },
-        { name: "นมถั่วเหลืองโปรตีนสูง (ไม่หวาน) 1 ขวด", cal: 180, prot: 28, note: "ดื่มง่าย โปรตีนแน่น" },
-        { name: "ปลาทับทิม/ปลานิลนึ่ง 1 ตัวกลาง", cal: 220, prot: 35, note: "ย่อยง่าย เหมาะเป็นมื้อเย็น" },
-        { name: "ไข่ต้มทั้งฟอง 2 ฟอง", cal: 150, prot: 12, note: "ประหยัด อิ่มนาน" }
-    ];
-
     let protHtml = "";
     if (remProt <= 0) {
         protHtml = `<div class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-circle-check mr-1"></i> ยินดีด้วย! วันนี้คุณทานโปรตีนถึงเป้าหมาย (${totalProt.toFixed(1)}g) เรียบร้อยแล้ว</div>`;
     } else {
-        let suitable = proteinMenus.filter(m => m.cal <= Math.max(remCal, 130)).slice(0, 3);
+        let suitableWithIdx = coachProteinMenus
+            .map((m, originalIdx) => ({ ...m, originalIdx }))
+            .filter(m => m.calories <= Math.max(remCal, 130))
+            .slice(0, 3);
+
         protHtml = `
             <p class="text-xs text-slate-300 mb-2">
-                ยังขาดโปรตีนอีก <span class="text-emerald-400 font-bold">${remProt.toFixed(1)}g</span> (งบพลังงานเหลือ <span class="text-white font-semibold">${Math.max(0, remCal)} kcal</span>) แนะนำเมนูนี้:
+                ยังขาดโปรตีนอีก <span class="text-emerald-400 font-bold">${remProt.toFixed(1)}g</span> (งบพลังงานเหลือ <span class="text-white font-semibold">${Math.max(0, remCal)} kcal</span>) กดเพิ่มเข้ามื้อว่างได้ทันที:
             </p>
             <div class="space-y-1.5">
-                ${suitable.map(m => `
-                    <div class="flex justify-between items-center bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-800/80 text-xs">
+                ${suitableWithIdx.map(m => `
+                    <div class="flex justify-between items-center bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-800/80 text-xs gap-2">
                         <div>
                             <span class="text-slate-100 font-medium">${m.name}</span>
                             <span class="text-[10px] text-slate-400 block">${m.note}</span>
                         </div>
-                        <div class="text-right shrink-0 ml-2">
-                            <span class="text-emerald-400 font-bold block">+${m.prot}g โปรตีน</span>
-                            <span class="text-[10px] text-slate-400">${m.cal} kcal</span>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <div class="text-right">
+                                <span class="text-emerald-400 font-bold block">+${m.protein}g P</span>
+                                <span class="text-[10px] text-slate-400">${m.calories} kcal</span>
+                            </div>
+                            <button type="button" onclick="quickAddRecommendedFood(${m.originalIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition">
+                                + เพิ่ม
+                            </button>
                         </div>
                     </div>
                 `).join('')}
@@ -676,7 +873,7 @@ function renderNutritionCoach() {
 
             <div class="space-y-1">
                 <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                    <i class="fa-solid fa-drumstick-bite"></i> เติมโปรตีนให้ถึงเป้า (96-128g)
+                    <i class="fa-solid fa-drumstick-bite"></i> เติมโปรตีนให้ถึงเป้า (${minProt}-${maxProt}g)
                 </div>
                 ${protHtml}
             </div>
@@ -694,7 +891,7 @@ function renderNutritionCoach() {
 }
 
 // ==========================================
-// Quantity Multiplier (คูณสารอาหารตามตัวเลขจำนวน)
+// Quantity Multiplier
 // ==========================================
 function extractMultiplier(qtyVal) {
     if (!qtyVal) return 1;
@@ -979,9 +1176,18 @@ function fillFormWithNutritionData(item) {
 }
 
 // ==========================================
-// Settings & Food Modal Controls
+// Settings, Goals & Food Catalog Manager
 // ==========================================
 function openSettingsModal() {
+    document.getElementById('goal-cal-input').value = userGoals.calories;
+    document.getElementById('goal-min-cal-input').value = userGoals.minCalories;
+    document.getElementById('goal-prot-min-input').value = userGoals.proteinMin;
+    document.getElementById('goal-prot-max-input').value = userGoals.proteinMax;
+    document.getElementById('goal-steps-input').value = userGoals.steps;
+    document.getElementById('goal-water-input').value = userGoals.water;
+    document.getElementById('goal-weight-input').value = userGoals.targetWeight || '';
+
+    document.getElementById('catalog-count-badge').innerText = foodCatalog.length;
     document.getElementById('github-token-input').value = localStorage.getItem('fitTracker_github_token') || '';
     document.getElementById('gemini-api-key-input').value = localStorage.getItem('fitTracker_gemini_key') || '';
     document.getElementById('settings-modal').classList.remove('hidden');
@@ -992,6 +1198,17 @@ function closeSettingsModal() {
 }
 
 async function saveAllSettings() {
+    userGoals = {
+        calories: Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500),
+        minCalories: Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200),
+        proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
+        proteinMax: Math.max(10, Number(document.getElementById('goal-prot-max-input').value) || 128),
+        steps: Math.max(1000, Number(document.getElementById('goal-steps-input').value) || 10000),
+        water: Math.max(500, Number(document.getElementById('goal-water-input').value) || 2000),
+        targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
+    };
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+
     const ghToken = document.getElementById('github-token-input').value.trim();
     const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
 
@@ -1008,14 +1225,88 @@ async function saveAllSettings() {
     }
 
     closeSettingsModal();
+    renderUIOnly();
+
     if (ghToken) {
-        await syncFromGitHub(true);
+        await pushToGitHub(true);
     } else {
         setSyncStatus('local', 'บันทึกในเครื่อง');
-        alert("บันทึกการตั้งค่าเรียบร้อยแล้ว!");
+        alert("บันทึกเป้าหมายและการตั้งค่าเรียบร้อยแล้ว!");
     }
 }
 
+function openCatalogManagerModal() {
+    document.getElementById('catalog-search-input').value = '';
+    renderCatalogManagerList();
+    document.getElementById('catalog-modal').classList.remove('hidden');
+}
+
+function closeCatalogManagerModal() {
+    document.getElementById('catalog-modal').classList.add('hidden');
+}
+
+function renderCatalogManagerList() {
+    const listEl = document.getElementById('catalog-manager-list');
+    const keyword = (document.getElementById('catalog-search-input').value || '').toLowerCase();
+
+    const filtered = foodCatalog
+        .map((item, idx) => ({ ...item, idx }))
+        .filter(item => item.name.toLowerCase().includes(keyword));
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="text-xs text-slate-500 text-center py-6">ไม่พบเมนูในคลัง</div>`;
+        return;
+    }
+
+    listEl.innerHTML = filtered.map(item => `
+        <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+            <div>
+                <div class="text-xs font-semibold text-white">${item.name}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">
+                    ${item.calories} kcal | P: <span class="text-emerald-400">${item.protein}g</span> | C: ${item.carbs}g | F: ${item.fat}g
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" onclick="editCatalogItem(${item.idx})" class="bg-slate-800 hover:bg-slate-700 text-amber-400 w-7 h-7 rounded-lg flex items-center justify-center transition">
+                    <i class="fa-solid fa-pen text-[11px]"></i>
+                </button>
+                <button type="button" onclick="deleteCatalogItem(${item.idx})" class="bg-slate-800 hover:bg-slate-700 text-rose-400 w-7 h-7 rounded-lg flex items-center justify-center transition">
+                    <i class="fa-solid fa-trash text-[11px]"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editCatalogItem(idx) {
+    const item = foodCatalog[idx];
+    if (!item) return;
+
+    const newCal = prompt(`แก้ไขแคลอรีต่อ 1 หน่วยของ "${item.name}":`, item.calories);
+    if (newCal === null) return;
+    const newProt = prompt(`แก้ไขโปรตีน (g) ต่อ 1 หน่วยของ "${item.name}":`, item.protein);
+    if (newProt === null) return;
+
+    foodCatalog[idx].calories = Math.max(0, Number(newCal) || 0);
+    foodCatalog[idx].protein = Math.max(0, Number(newProt) || 0);
+    renderCatalogManagerList();
+    saveDataAndSync();
+}
+
+function deleteCatalogItem(idx) {
+    const item = foodCatalog[idx];
+    if (!item) return;
+    if (confirm(`ต้องการลบ "${item.name}" ออกจากรายการแนะนำใช่ไหม?`)) {
+        foodCatalog.splice(idx, 1);
+        document.getElementById('catalog-count-badge').innerText = foodCatalog.length;
+        renderCatalogManagerList();
+        saveDataAndSync();
+    }
+}
+
+// ==========================================
+// Food Modal Controls
+// ==========================================
 function openFoodModal(mealType, itemIndex = null) {
     document.getElementById('edit-meal-type').value = mealType;
     document.getElementById('edit-item-index').value = itemIndex !== null ? itemIndex : '';
@@ -1177,13 +1468,14 @@ function getDayStatsForCalendar(dateKey) {
     }
 
     const steps = Number(dayObj.steps || 0);
+    const water = Number(dayObj.water || 0);
     const stepsCal = Math.round(steps * 0.04);
     const workoutCal = (dayObj.workouts || []).reduce((s, w) => s + Number(w.calories || 0), 0);
     const totalBurn = stepsCal + workoutCal;
 
-    if (itemCount === 0 && steps === 0 && workoutCal === 0) return null;
+    if (itemCount === 0 && steps === 0 && workoutCal === 0 && water === 0 && !dayObj.weight) return null;
 
-    return { totalCal, totalProt, totalCarbs, totalFat, totalSugar, totalSodium, steps, totalBurn, dayObj };
+    return { totalCal, totalProt, totalCarbs, totalFat, totalSugar, totalSodium, steps, water, weight: dayObj.weight, totalBurn, dayObj };
 }
 
 function renderCalendarMonth() {
@@ -1200,6 +1492,9 @@ function renderCalendarMonth() {
     const daysInMonth = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
     const todayKey = getFormattedDateKey(new Date());
 
+    const targetCal = Number(userGoals.calories) || 1500;
+    const protMin = Number(userGoals.proteinMin) || 96;
+
     for (let i = 0; i < firstDayOfWeek; i++) {
         container.innerHTML += `<div class="h-11"></div>`;
     }
@@ -1213,13 +1508,13 @@ function renderCalendarMonth() {
         let dotsHtml = `<div class="h-2 flex items-center justify-center gap-1 mt-0.5"></div>`;
         if (stats && stats.totalCal > 0) {
             let calDotClass = 'bg-emerald-400';
-            if (stats.totalCal > 2000) {
+            if (stats.totalCal > targetCal + 500) {
                 calDotClass = 'bg-rose-500';
-            } else if (stats.totalCal >= 1500) {
+            } else if (stats.totalCal >= targetCal) {
                 calDotClass = 'bg-orange-400';
             }
 
-            const protPct = (stats.totalProt / 96) * 100;
+            const protPct = (stats.totalProt / protMin) * 100;
             let protDotClass = 'bg-emerald-400';
             if (protPct < 50) {
                 protDotClass = 'bg-rose-500';
@@ -1271,8 +1566,10 @@ function renderCalendarDayDetail(dateKey) {
         return;
     }
 
-    const protPct = Math.round((stats.totalProt / 96) * 100);
-    const remaining = (1500 + stats.totalBurn) - stats.totalCal;
+    const targetCal = Number(userGoals.calories) || 1500;
+    const protMin = Number(userGoals.proteinMin) || 96;
+    const protPct = Math.round((stats.totalProt / protMin) * 100);
+    const remaining = (targetCal + stats.totalBurn) - stats.totalCal;
 
     let mealsBreakdown = '';
     mealTypes.forEach(mType => {
@@ -1288,7 +1585,8 @@ function renderCalendarDayDetail(dateKey) {
             <div>
                 <div class="text-xs font-bold text-white">${formatDisplayDate(dateKey)}</div>
                 <div class="text-[11px] text-slate-400 mt-0.5">
-                    ทาน <b class="text-white">${stats.totalCal}</b> kcal | เผาผลาญ <b class="text-orange-400">${stats.totalBurn}</b> kcal (${stats.steps.toLocaleString()} ก้าว)
+                    ทาน <b class="text-white">${stats.totalCal}</b> kcal | เผาผลาญ <b class="text-orange-400">${stats.totalBurn}</b> kcal | น้ำ <b class="text-sky-400">${stats.water}</b> ml
+                    ${stats.weight ? `| นน. <b class="text-purple-400">${stats.weight}</b> kg` : ''}
                 </div>
             </div>
             <button type="button" onclick="jumpToDate('${dateKey}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-xl font-semibold transition shrink-0">
