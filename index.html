@@ -93,6 +93,9 @@
                 </div>
             </div>
 
+            <!-- ป้ายแจ้งเตือนชดเชยแคลอรี & สารอาหารข้ามวัน -->
+            <div id="rollover-alert-box" class="hidden text-[11px] px-3 py-2 rounded-xl border flex items-start gap-2"></div>
+
             <!-- Macros Grid (แถวที่ 1: คาร์บ | น้ำตาล | ไฟเบอร์) -->
             <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/60 text-center">
                 <div onclick="showMacroTip('carbs')" class="bg-slate-950/40 hover:bg-slate-800/70 active:scale-95 p-2 rounded-xl border border-slate-800/40 cursor-pointer transition select-none">
@@ -498,7 +501,7 @@
                             <input type="number" id="goal-cal-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
                         </div>
                         <div>
-                            <label class="block text-[11px] text-slate-300 mb-1">แคลอรีขั้นต่ำ (เส้นกราฟ)</label>
+                            <label class="block text-[11px] text-slate-300 mb-1">แคลอรีขั้นต่ำ (เส้นกราฟ/ชดเชย)</label>
                             <input type="number" id="goal-min-cal-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
                         </div>
                         <div>
@@ -652,6 +655,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=19"></script>
+    <script src="script.js?v=20"></script>
 </body>
 </html>
