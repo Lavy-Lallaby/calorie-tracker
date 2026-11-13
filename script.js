@@ -36,6 +36,8 @@ let currentDateKey = getFormattedDateKey(new Date());
 let currentScanMode = 'label';
 let html5QrCode = null;
 let baseNutrition = null;
+let activeMacroTip = null;
+let currentReportDays = 7;
 
 let calendarViewYear = new Date().getFullYear();
 let calendarViewMonth = new Date().getMonth();
@@ -61,13 +63,13 @@ const defaultHistory = {
         workouts: [],
         meals: {
             "มื้อเช้า": [
-                { name: "หมูย่าง", qty: 3, calories: 300, protein: 21, carbs: 0, sugar: 0, fat: 15, satFat: 5, transFat: 0, sodium: 400, cholesterol: 80 },
-                { name: "ข้าวเหนียว", qty: 1, calories: 155, protein: 2.5, carbs: 34, sugar: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 10, cholesterol: 0 },
-                { name: "ชามะนาว น้ำผึ้ง", qty: 1, calories: 25, protein: 0, carbs: 6, sugar: 6, fat: 0, satFat: 0, transFat: 0, sodium: 5, cholesterol: 0 }
+                { name: "หมูย่าง", qty: 3, calories: 300, protein: 21, carbs: 0, sugar: 0, fiber: 0, fat: 15, satFat: 5, transFat: 0, sodium: 400, potassium: 250, cholesterol: 80 },
+                { name: "ข้าวเหนียว", qty: 1, calories: 155, protein: 2.5, carbs: 34, sugar: 0, fiber: 1, fat: 1, satFat: 0.2, transFat: 0, sodium: 10, potassium: 35, cholesterol: 0 },
+                { name: "ชามะนาว น้ำผึ้ง", qty: 1, calories: 25, protein: 0, carbs: 6, sugar: 6, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 5, potassium: 20, cholesterol: 0 }
             ],
             "มื้อเที่ยง": [
-                { name: "หมูย่าง", qty: 1, calories: 100, protein: 7, carbs: 0, sugar: 0, fat: 5, satFat: 1.5, transFat: 0, sodium: 130, cholesterol: 25 },
-                { name: "เกาเหลาหมู", qty: 1, calories: 400, protein: 30, carbs: 14, sugar: 4, fat: 23, satFat: 8, transFat: 0, sodium: 1760, cholesterol: 115 }
+                { name: "หมูย่าง", qty: 1, calories: 100, protein: 7, carbs: 0, sugar: 0, fiber: 0, fat: 5, satFat: 1.5, transFat: 0, sodium: 130, potassium: 85, cholesterol: 25 },
+                { name: "เกาเหลาหมู", qty: 1, calories: 400, protein: 30, carbs: 14, sugar: 4, fiber: 2, fat: 23, satFat: 8, transFat: 0, sodium: 1760, potassium: 420, cholesterol: 115 }
             ],
             "มื้อเย็น": [],
             "มื้อว่าง/อื่นๆ": []
@@ -77,9 +79,9 @@ const defaultHistory = {
 
 let allMealsHistory = JSON.parse(localStorage.getItem('fitTracker_history')) || defaultHistory;
 let foodCatalog = JSON.parse(localStorage.getItem('fitTracker_catalog')) || [
-    { name: "อกไก่ต้ม (100g)", calories: 120, protein: 25, carbs: 0, sugar: 0, fat: 1.5, satFat: 0.4, transFat: 0, sodium: 60, cholesterol: 50 },
-    { name: "ข้าวสวย (1 ทัพพี)", calories: 80, protein: 2, carbs: 18, sugar: 0, fat: 0.2, satFat: 0, transFat: 0, sodium: 0, cholesterol: 0 },
-    { name: "ไข่ต้ม (1 ฟอง)", calories: 75, protein: 6, carbs: 0.5, sugar: 0.5, fat: 5, satFat: 1.6, transFat: 0, sodium: 70, cholesterol: 186 }
+    { name: "อกไก่ต้ม (100g)", calories: 120, protein: 25, carbs: 0, sugar: 0, fiber: 0, fat: 1.5, satFat: 0.4, transFat: 0, sodium: 60, potassium: 255, cholesterol: 50 },
+    { name: "ข้าวสวย (1 ทัพพี)", calories: 80, protein: 2, carbs: 18, sugar: 0, fiber: 0.5, fat: 0.2, satFat: 0, transFat: 0, sodium: 0, potassium: 25, cholesterol: 0 },
+    { name: "ไข่ต้ม (1 ฟอง)", calories: 75, protein: 6, carbs: 0.5, sugar: 0.5, fiber: 0, fat: 5, satFat: 1.6, transFat: 0, sodium: 70, potassium: 63, cholesterol: 186 }
 ];
 
 const mealTypes = ["มื้อเช้า", "มื้อเที่ยง", "มื้อเย็น", "มื้อว่าง/อื่นๆ"];
@@ -280,6 +282,7 @@ function changeDay(direction) {
     let d = new Date(parts[0], parts[1] - 1, parts[2]);
     d.setDate(d.getDate() + direction);
     currentDateKey = getFormattedDateKey(d);
+    hideMacroTip();
     renderUIOnly();
 }
 
@@ -413,6 +416,7 @@ function renderWeeklyChart() {
 
 function selectChartDay(dateKey) {
     currentDateKey = dateKey;
+    hideMacroTip();
     renderUIOnly();
 }
 
@@ -515,7 +519,6 @@ function renderWaterAndWeight() {
     document.getElementById('water-progress-bar').style.width = `${pct}%`;
     document.getElementById('water-percent').innerText = `${pct}%`;
 
-    // Weight input & diff
     const weightInput = document.getElementById('weight-input');
     weightInput.value = (dayData.weight !== null && dayData.weight !== undefined && dayData.weight !== '') ? dayData.weight : '';
 
@@ -690,7 +693,7 @@ function deleteWorkout(index) {
 }
 
 // ==========================================
-// 1. แทนที่ renderSummary() และเพิ่ม showMacroTip()
+// Summary & Macro Tooltip Label
 // ==========================================
 function renderSummary() {
     const dayData = getDayData(currentDateKey);
@@ -727,7 +730,7 @@ function renderSummary() {
     document.getElementById('calories-consumed').innerText = `${totalCal} kcal`;
     document.getElementById('calories-burned').innerText = `${totalBurn} kcal`;
     document.getElementById('protein-summary').innerHTML = `${totalProt.toFixed(1)} / <span class="text-xs font-normal text-slate-400">${protMin}-${protMax} g</span>`;
-    
+
     document.getElementById('carbs-total').innerText = `${totalCarbs.toFixed(1)}g`;
     document.getElementById('sugar-total').innerText = `${totalSugar.toFixed(1)}g`;
     document.getElementById('fiber-total').innerText = `${totalFiber.toFixed(1)}g`;
@@ -750,8 +753,6 @@ function renderSummary() {
         statusEl.className = "px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-medium";
     }
 }
-
-let activeMacroTip = null;
 
 function showMacroTip(type) {
     const box = document.getElementById('macro-tip-box');
@@ -786,14 +787,14 @@ function showMacroTip(type) {
 
     const rules = {
         carbs: { title: "คาร์บ (Carbs)", limitText: `ประมาณ 130 – ${recCarbsMax}g / วัน`, current: totals.carbs, max: recCarbsMax, unit: "g", isMinGoal: false, tip: "เน้นข้าวกล้อง ไรซ์เบอร์รี ฟักทอง" },
-        sugar: { title: "น้ำตาล (Sugar)", limitText: "ไม่เกิน 24g / วัน (6 ช้อนชา)", current: totals.sugar, max: 24, unit: "g", isMinGoal: false, tip: "เกณฑ์ WHO เพื่อลดไขมันสะสม" },
+        sugar: { title: "น้ำตาล (Sugar)", limitText: "ไม่ควรเกิน 24g / วัน (6 ช้อนชา)", current: totals.sugar, max: 24, unit: "g", isMinGoal: false, tip: "เกณฑ์ WHO เพื่อลดไขมันสะสม" },
         fiber: { title: "ไฟเบอร์ (Fiber)", limitText: "ควรได้ 25 – 30g / วัน", current: totals.fiber, max: 25, unit: "g", isMinGoal: true, tip: "ช่วยให้อิ่มนานและขับถ่ายดี" },
-        fat: { title: "ไขมันรวม (Total Fat)", limitText: `ไม่เกิน ${recFatMax}g / วัน`, current: totals.fat, max: recFatMax, unit: "g", isMinGoal: false, tip: "เลือกไขมันดีจากปลา ถั่ว อะโวคาโด" },
-        satFat: { title: "ไขมันอิ่มตัว (Sat Fat)", limitText: "ไม่เกิน 15 – 20g / วัน", current: totals.satFat, max: 16, unit: "g", isMinGoal: false, tip: "เลี่ยงหนังสัตว์ กะทิ ของทอด" },
+        fat: { title: "ไขมันรวม (Total Fat)", limitText: `ไม่ควรเกิน ${recFatMax}g / วัน`, current: totals.fat, max: recFatMax, unit: "g", isMinGoal: false, tip: "เลือกไขมันดีจากปลา ถั่ว อะโวคาโด" },
+        satFat: { title: "ไขมันอิ่มตัว (Sat Fat)", limitText: "ไม่ควรเกิน 15 – 20g / วัน", current: totals.satFat, max: 16, unit: "g", isMinGoal: false, tip: "เลี่ยงหนังสัตว์ กะทิ ของทอด" },
         transFat: { title: "ไขมันทรานส์ (Trans Fat)", limitText: "ควรเป็น 0g (ไม่เกิน 2g / วัน)", current: totals.transFat, max: 2, unit: "g", isMinGoal: false, tip: "เลี่ยงครีมเทียม เบเกอรี่" },
-        sodium: { title: "โซเดียม (Sodium)", limitText: "ไม่เกิน 2,000mg / วัน", current: totals.sodium, max: 2000, unit: "mg", isMinGoal: false, tip: "เลี่ยงซดน้ำซุปและของแปรรูป" },
+        sodium: { title: "โซเดียม (Sodium)", limitText: "ไม่ควรเกิน 2,000mg / วัน", current: totals.sodium, max: 2000, unit: "mg", isMinGoal: false, tip: "เลี่ยงซดน้ำซุปและของแปรรูป" },
         potassium: { title: "โพแทสเซียม (Potassium)", limitText: "ควรได้ ~3,500mg / วัน", current: totals.potassium, max: 3500, unit: "mg", isMinGoal: true, tip: "ช่วยขับโซเดียม ลดบวมน้ำ (ผักใบเขียว กล้วย)" },
-        cholesterol: { title: "คอเลสเตอรอล (Cholesterol)", limitText: "ไม่เกิน 300mg / วัน", current: totals.cholesterol, max: 300, unit: "mg", isMinGoal: false, tip: "เลี่ยงไข่แดงเกินวันละฟองและเครื่องใน" }
+        cholesterol: { title: "คอเลสเตอรอล (Cholesterol)", limitText: "ไม่ควรเกิน 300mg / วัน", current: totals.cholesterol, max: 300, unit: "mg", isMinGoal: false, tip: "เลี่ยงไข่แดงเกินวันละฟองและเครื่องใน" }
     };
 
     const info = rules[type];
@@ -804,7 +805,6 @@ function showMacroTip(type) {
     let isAlert = false;
 
     if (info.isMinGoal) {
-        // ไฟเบอร์ & โพแทสเซียม ยิ่งใกล้เป้าหรือเกินเป้าถือว่าดี
         const rem = Math.max(0, info.max - info.current);
         statusBadge = rem === 0
             ? `<span class="text-emerald-400 font-bold">ถึงเกณฑ์แนะนำต่อวันแล้ว!</span>`
@@ -837,15 +837,18 @@ function hideMacroTip() {
     activeMacroTip = null;
 }
 
+// ==========================================
+// Smart Nutrition Coach (1-Click Add)
+// ==========================================
 const coachProteinMenus = [
-    { name: "ไข่ขาวต้ม (3 ฟอง)", calories: 50, protein: 11, carbs: 1, sugar: 0, fat: 0, satFat: 0, transFat: 0, sodium: 165, cholesterol: 0, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
-    { name: "เวย์โปรตีนไอโซเลต (1 สกู๊ป)", calories: 120, protein: 25, carbs: 2, sugar: 1, fat: 1, satFat: 0.5, transFat: 0, sodium: 80, cholesterol: 15, note: "ดูดซึมไว เติมโปรตีนได้เยอะในแคลน้อย" },
-    { name: "อกไก่นุ่มเซเว่น (1 ชิ้น)", calories: 130, protein: 23, carbs: 2, sugar: 1, fat: 3, satFat: 0.8, transFat: 0, sodium: 390, cholesterol: 65, note: "หาซื้อง่าย อิ่มท้องนาน" },
-    { name: "ทูน่าในน้ำแร่ (1 กระป๋อง)", calories: 110, protein: 24, carbs: 0, sugar: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 320, cholesterol: 45, note: "ไขมันต่ำมาก ยำหรือกินกับสลัดได้" },
-    { name: "กรีกโยเกิร์ต 0% (1 ถ้วย)", calories: 90, protein: 15, carbs: 6, sugar: 5, fat: 0, satFat: 0, transFat: 0, sodium: 55, cholesterol: 5, note: "ช่วยเรื่องขับถ่ายและลดอยากของหวาน" },
-    { name: "นมถั่วเหลืองโปรตีนสูง (1 ขวด)", calories: 180, protein: 28, carbs: 6, sugar: 2, fat: 4.5, satFat: 0.5, transFat: 0, sodium: 150, cholesterol: 0, note: "ดื่มง่าย โปรตีนแน่น" },
-    { name: "ปลานิล/ปลาทับทิมนึ่ง (1 ตัว)", calories: 220, protein: 35, carbs: 0, sugar: 0, fat: 8, satFat: 2, transFat: 0, sodium: 110, cholesterol: 95, note: "ย่อยง่าย เหมาะเป็นมื้อเย็น" },
-    { name: "ไข่ต้มทั้งฟอง (2 ฟอง)", calories: 150, protein: 12, carbs: 1, sugar: 1, fat: 10, satFat: 3.2, transFat: 0, sodium: 140, cholesterol: 372, note: "ประหยัด อิ่มนาน" }
+    { name: "ไข่ขาวต้ม (3 ฟอง)", calories: 50, protein: 11, carbs: 1, sugar: 0, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 165, potassium: 160, cholesterol: 0, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
+    { name: "เวย์โปรตีนไอโซเลต (1 สกู๊ป)", calories: 120, protein: 25, carbs: 2, sugar: 1, fiber: 0, fat: 1, satFat: 0.5, transFat: 0, sodium: 80, potassium: 150, cholesterol: 15, note: "ดูดซึมไว เติมโปรตีนได้เยอะในแคลน้อย" },
+    { name: "อกไก่นุ่มเซเว่น (1 ชิ้น)", calories: 130, protein: 23, carbs: 2, sugar: 1, fiber: 0, fat: 3, satFat: 0.8, transFat: 0, sodium: 390, potassium: 220, cholesterol: 65, note: "หาซื้อง่าย อิ่มท้องนาน" },
+    { name: "ทูน่าในน้ำแร่ (1 กระป๋อง)", calories: 110, protein: 24, carbs: 0, sugar: 0, fiber: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 320, potassium: 210, cholesterol: 45, note: "ไขมันต่ำมาก ยำหรือกินกับสลัดได้" },
+    { name: "กรีกโยเกิร์ต 0% (1 ถ้วย)", calories: 90, protein: 15, carbs: 6, sugar: 5, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 55, potassium: 190, cholesterol: 5, note: "ช่วยเรื่องขับถ่ายและลดอยากของหวาน" },
+    { name: "นมถั่วเหลืองโปรตีนสูง (1 ขวด)", calories: 180, protein: 28, carbs: 6, sugar: 2, fiber: 2, fat: 4.5, satFat: 0.5, transFat: 0, sodium: 150, potassium: 350, cholesterol: 0, note: "ดื่มง่าย โปรตีนแน่น" },
+    { name: "ปลานิล/ปลาทับทิมนึ่ง (1 ตัว)", calories: 220, protein: 35, carbs: 0, sugar: 0, fiber: 0, fat: 8, satFat: 2, transFat: 0, sodium: 110, potassium: 450, cholesterol: 95, note: "ย่อยง่าย เหมาะเป็นมื้อเย็น" },
+    { name: "ไข่ต้มทั้งฟอง (2 ฟอง)", calories: 150, protein: 12, carbs: 1, sugar: 1, fiber: 0, fat: 10, satFat: 3.2, transFat: 0, sodium: 140, potassium: 126, cholesterol: 372, note: "ประหยัด อิ่มนาน" }
 ];
 
 function quickAddRecommendedFood(idx) {
@@ -860,10 +863,12 @@ function quickAddRecommendedFood(idx) {
         protein: item.protein,
         carbs: item.carbs,
         sugar: item.sugar,
+        fiber: item.fiber,
         fat: item.fat,
         satFat: item.satFat,
         transFat: item.transFat,
         sodium: item.sodium,
+        potassium: item.potassium,
         cholesterol: item.cholesterol
     });
     saveDataAndSync();
@@ -991,9 +996,6 @@ function extractMultiplier(qtyVal) {
     return (!isNaN(num) && num > 0) ? num : 1;
 }
 
-// ==========================================
-// 2. แทนที่ชุดตัวคูณและการกรอก/สแกน/บันทึก ให้รองรับ fiber และ potassium
-// ==========================================
 function setBaseNutritionFromCurrentInputs() {
     const mult = extractMultiplier(document.getElementById('food-qty').value);
     baseNutrition = {
@@ -1016,7 +1018,9 @@ function updateBaseNutritionFromInputs() {
 }
 
 function applyQuantityMultiplier() {
-    if (!baseNutrition) setBaseNutritionFromCurrentInputs();
+    if (!baseNutrition) {
+        setBaseNutritionFromCurrentInputs();
+    }
     const mult = extractMultiplier(document.getElementById('food-qty').value);
     const round1 = (val) => Math.round(val * 10) / 10;
 
@@ -1078,15 +1082,17 @@ async function scanLabelOfflineOCR(file) {
             return match ? parseFloat(match[1]) : 0;
         };
 
-        const calories = extractValue(/(?:พลังงานทั้งหมด|พลังงาน|Energy|Calories)[^\d]*(\d+(?:\.\d+)?)/i);
-        const protein  = extractValue(/(?:โปรตีน|Protein)[^\d]*(\d+(?:\.\d+)?)/i);
-        const carbs    = extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|Carbohydrate)[^\d]*(\d+(?:\.\d+)?)/i);
-        const sugar    = extractValue(/(?:น้ำตาล|Sugar)[^\d]*(\d+(?:\.\d+)?)/i);
-        const fat      = extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Total Fat|Fat)[^\d]*(\d+(?:\.\d+)?)/i);
-        const satFat   = extractValue(/(?:ไขมันอิ่มตัว|Saturated Fat)[^\d]*(\d+(?:\.\d+)?)/i);
-        const transFat = extractValue(/(?:ไขมันทรานส์|Trans Fat)[^\d]*(\d+(?:\.\d+)?)/i);
-        const sodium   = extractValue(/(?:โซเดียม|Sodium)[^\d]*(\d+(?:\.\d+)?)/i);
-        const chol     = extractValue(/(?:โคเลสเตอรอล|คอเลสเตอรอล|Cholesterol)[^\d]*(\d+(?:\.\d+)?)/i);
+        const calories  = extractValue(/(?:พลังงานทั้งหมด|พลังงาน|Energy|Calories)[^\d]*(\d+(?:\.\d+)?)/i);
+        const protein   = extractValue(/(?:โปรตีน|Protein)[^\d]*(\d+(?:\.\d+)?)/i);
+        const carbs     = extractValue(/(?:คาร์โบไฮเดรตทั้งหมด|คาร์โบไฮเดรต|Carbohydrate)[^\d]*(\d+(?:\.\d+)?)/i);
+        const sugar     = extractValue(/(?:น้ำตาล|Sugar)[^\d]*(\d+(?:\.\d+)?)/i);
+        const fiber     = extractValue(/(?:ใยอาหาร|Dietary Fiber|Fiber)[^\d]*(\d+(?:\.\d+)?)/i);
+        const fat       = extractValue(/(?:ไขมันทั้งหมด|ไขมัน|Total Fat|Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const satFat    = extractValue(/(?:ไขมันอิ่มตัว|Saturated Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const transFat  = extractValue(/(?:ไขมันทรานส์|Trans Fat)[^\d]*(\d+(?:\.\d+)?)/i);
+        const sodium    = extractValue(/(?:โซเดียม|Sodium)[^\d]*(\d+(?:\.\d+)?)/i);
+        const potassium = extractValue(/(?:โพแทสเซียม|Potassium)[^\d]*(\d+(?:\.\d+)?)/i);
+        const chol      = extractValue(/(?:โคเลสเตอรอล|คอเลสเตอรอล|Cholesterol)[^\d]*(\d+(?:\.\d+)?)/i);
 
         fillFormWithNutritionData({
             name: "สินค้าจากฉลาก",
@@ -1094,10 +1100,12 @@ async function scanLabelOfflineOCR(file) {
             protein,
             carbs: carbs || sugar,
             sugar,
+            fiber,
             fat,
             satFat,
             transFat,
             sodium,
+            potassium,
             cholesterol: chol
         });
 
@@ -1122,7 +1130,7 @@ async function scanFoodWithGemini(file) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
         const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
-           {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "cholesterol": ตัวเลข}`;
+           {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
 
         const response = await fetch(url, {
             method: 'POST',
@@ -1240,10 +1248,12 @@ async function fetchBarcodeProduct(barcode) {
                 protein: Number((n[`proteins${suffix}`] || 0).toFixed(1)),
                 carbs: Number((n[`carbohydrates${suffix}`] || 0).toFixed(1)),
                 sugar: Number((n[`sugars${suffix}`] || 0).toFixed(1)),
+                fiber: Number((n[`fiber${suffix}`] || 0).toFixed(1)),
                 fat: Number((n[`fat${suffix}`] || 0).toFixed(1)),
                 satFat: Number((n[`saturated-fat${suffix}`] || 0).toFixed(1)),
                 transFat: Number((n[`trans-fat${suffix}`] || 0).toFixed(1)),
                 sodium: Math.round((n[`sodium${suffix}`] || 0) * 1000),
+                potassium: Math.round((n[`potassium${suffix}`] || 0) * 1000),
                 cholesterol: Math.round((n[`cholesterol${suffix}`] || 0) * 1000)
             });
         } else {
@@ -1402,6 +1412,9 @@ function deleteCatalogItem(idx) {
     }
 }
 
+// ==========================================
+// Food Modal Controls
+// ==========================================
 function openFoodModal(mealType, itemIndex = null) {
     document.getElementById('edit-meal-type').value = mealType;
     document.getElementById('edit-item-index').value = itemIndex !== null ? itemIndex : '';
@@ -1729,8 +1742,344 @@ function renderCalendarDayDetail(dateKey) {
 
 function jumpToDate(dateKey) {
     currentDateKey = dateKey;
+    hideMacroTip();
     closeCalendarModal();
     renderUIOnly();
+}
+
+// ==========================================
+// Weekly & Monthly Report Analytics (7 วัน / 30 วัน)
+// ==========================================
+function openReportModal() {
+    currentReportDays = 7;
+    switchReportPeriod(7);
+    document.getElementById('report-modal').classList.remove('hidden');
+}
+
+function closeReportModal() {
+    document.getElementById('report-modal').classList.add('hidden');
+}
+
+function switchReportPeriod(days) {
+    currentReportDays = days;
+    const tab7 = document.getElementById('report-tab-7');
+    const tab30 = document.getElementById('report-tab-30');
+
+    if (days === 7) {
+        tab7.className = "py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white";
+        tab30.className = "py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white";
+    } else {
+        tab30.className = "py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white";
+        tab7.className = "py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white";
+    }
+
+    renderHealthReport(days);
+}
+
+function renderHealthReport(daysCount) {
+    const container = document.getElementById('report-content-container');
+    if (!container) return;
+
+    const parts = currentDateKey.split('-');
+    const endDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    const targetCal = Number(userGoals.calories) || 1500;
+    const minCal = Number(userGoals.minCalories) || 1200;
+    const protMin = Number(userGoals.proteinMin) || 96;
+    const goalWater = Number(userGoals.water) || 2000;
+
+    let activeDays = 0;
+    let calOnTargetDays = 0;
+    let calTooLowDays = 0;
+    let calOverDays = 0;
+    let protPassDays = 0;
+
+    let sums = {
+        cal: 0, burn: 0, prot: 0, carbs: 0, sugar: 0, fiber: 0,
+        fat: 0, satFat: 0, transFat: 0, sodium: 0, potassium: 0, chol: 0,
+        water: 0, steps: 0
+    };
+    let weights = [];
+    let foodFrequency = {};
+
+    for (let i = daysCount - 1; i >= 0; i--) {
+        let d = new Date(endDate);
+        d.setDate(endDate.getDate() - i);
+        let key = getFormattedDateKey(d);
+        let dayObj = allMealsHistory[key];
+
+        if (dayObj && dayObj.weight) {
+            weights.push({ date: key, weight: Number(dayObj.weight) });
+        }
+
+        if (!dayObj || !dayObj.meals) continue;
+
+        let dCal = 0, dProt = 0, dCarbs = 0, dSugar = 0, dFiber = 0;
+        let dFat = 0, dSatFat = 0, dTransFat = 0, dSodium = 0, dPotas = 0, dChol = 0;
+
+        Object.values(dayObj.meals).forEach(list => {
+            list.forEach(item => {
+                const c = Number(item.calories || 0);
+                dCal += c;
+                dProt += Number(item.protein || 0);
+                dCarbs += Number(item.carbs || 0);
+                dSugar += Number(item.sugar || 0);
+                dFiber += Number(item.fiber || 0);
+                dFat += Number(item.fat || 0);
+                dSatFat += Number(item.satFat || 0);
+                dTransFat += Number(item.transFat || 0);
+                dSodium += Number(item.sodium || 0);
+                dPotas += Number(item.potassium || 0);
+                dChol += Number(item.cholesterol || 0);
+
+                const cleanName = (item.name || '').trim();
+                if (cleanName) {
+                    if (!foodFrequency[cleanName]) {
+                        foodFrequency[cleanName] = { count: 0, totalCal: 0, totalProt: 0 };
+                    }
+                    foodFrequency[cleanName].count += 1;
+                    foodFrequency[cleanName].totalCal += c;
+                    foodFrequency[cleanName].totalProt += Number(item.protein || 0);
+                }
+            });
+        });
+
+        if (dCal > 0) {
+            activeDays++;
+            const { totalBurn } = getTotalBurned(dayObj);
+            const effectiveLimit = targetCal + totalBurn;
+
+            if (dCal > effectiveLimit) {
+                calOverDays++;
+            } else if (dCal < minCal) {
+                calTooLowDays++;
+            } else {
+                calOnTargetDays++;
+            }
+
+            if (dProt >= protMin) {
+                protPassDays++;
+            }
+
+            sums.cal += dCal;
+            sums.burn += totalBurn;
+            sums.prot += dProt;
+            sums.carbs += dCarbs;
+            sums.sugar += dSugar;
+            sums.fiber += dFiber;
+            sums.fat += dFat;
+            sums.satFat += dSatFat;
+            sums.transFat += dTransFat;
+            sums.sodium += dSodium;
+            sums.potassium += dPotas;
+            sums.chol += dChol;
+            sums.water += Number(dayObj.water || 0);
+            sums.steps += Number(dayObj.steps || 0);
+        }
+    }
+
+    if (activeDays === 0) {
+        container.innerHTML = `
+            <div class="bg-slate-950/80 p-6 rounded-2xl border border-slate-800 text-center space-y-2">
+                <i class="fa-solid fa-folder-open text-2xl text-slate-500"></i>
+                <div class="text-sm font-semibold text-slate-300">ยังไม่มีข้อมูลอาหารในช่วง ${daysCount} วันนี้</div>
+                <div class="text-xs text-slate-500">เริ่มบันทึกมื้ออาหารเพื่อให้ระบบวิเคราะห์แนวโน้มสุขภาพของคุณครับ</div>
+            </div>
+        `;
+        return;
+    }
+
+    const avg = {
+        cal: Math.round(sums.cal / activeDays),
+        burn: Math.round(sums.burn / activeDays),
+        prot: (sums.prot / activeDays).toFixed(1),
+        carbs: (sums.carbs / activeDays).toFixed(1),
+        sugar: (sums.sugar / activeDays).toFixed(1),
+        fiber: (sums.fiber / activeDays).toFixed(1),
+        fat: (sums.fat / activeDays).toFixed(1),
+        satFat: (sums.satFat / activeDays).toFixed(1),
+        sodium: Math.round(sums.sodium / activeDays),
+        potassium: Math.round(sums.potassium / activeDays),
+        chol: Math.round(sums.chol / activeDays),
+        water: Math.round(sums.water / activeDays),
+        steps: Math.round(sums.steps / activeDays)
+    };
+
+    const calSuccessRate = Math.round(((calOnTargetDays + calTooLowDays) / activeDays) * 100);
+    const protSuccessRate = Math.round((protPassDays / activeDays) * 100);
+    const overallScore = Math.round((calSuccessRate * 0.6) + (protSuccessRate * 0.4));
+
+    let grade = 'C', gradeColor = 'text-amber-400', gradeDesc = 'ยังหลุดเป้าบ่อย ค่อยๆ ปรับทีละมื้อ';
+    if (overallScore >= 85) {
+        grade = 'A+'; gradeColor = 'text-emerald-400'; gradeDesc = 'คุมวินัยได้ดีเยี่ยมมาก! รักษามาตรฐานนี้ไว้';
+    } else if (overallScore >= 70) {
+        grade = 'A'; gradeColor = 'text-emerald-400'; gradeDesc = 'ทำได้ดีมาก ภาพรวมอยู่ในเกณฑ์คุมน้ำหนัก';
+    } else if (overallScore >= 50) {
+        grade = 'B'; gradeColor = 'text-sky-400'; gradeDesc = 'อยู่ในเกณฑ์ดี เพิ่มโปรตีนอีกนิดจะสมบูรณ์แบบ';
+    }
+
+    let goodPoints = [];
+    let tooLowPoints = [];
+    let tooHighPoints = [];
+
+    if (avg.cal < minCal) {
+        tooLowPoints.push(`<b>แคลอรีเฉลี่ย (${avg.cal} kcal/วัน)</b> ต่ำกว่าเกณฑ์ขั้นต่ำ (${minCal} kcal) ระวังระบบเผาผลาญลดลงและเสียมวลกล้ามเนื้อ`);
+    } else if (avg.cal > targetCal + avg.burn) {
+        tooHighPoints.push(`<b>แคลอรีเฉลี่ย (${avg.cal} kcal/วัน)</b> สูงกว่างบพลังงานรวมเผาผลาญ (${targetCal + avg.burn} kcal)`);
+    } else {
+        goodPoints.push(`<b>แคลอรีเฉลี่ย (${avg.cal} kcal/วัน)</b> อยู่ในโซนลดไขมันที่เหมาะสม (${minCal}–${targetCal} kcal)`);
+    }
+
+    if (Number(avg.prot) < protMin) {
+        tooLowPoints.push(`<b>โปรตีนเฉลี่ย (${avg.prot}g/วัน)</b> น้อยกว่าเป้าขั้นต่ำ (${protMin}g) ควรเพิ่มอกไก่ ไข่ขาว หรือเวย์`);
+    } else {
+        goodPoints.push(`<b>โปรตีนเฉลี่ย (${avg.prot}g/วัน)</b> ถึงเป้าหมาย (${protMin}g+) ช่วยรักษามวลกล้ามเนื้อได้ดี`);
+    }
+
+    if (Number(avg.fiber) < 15) {
+        tooLowPoints.push(`<b>ไฟเบอร์เฉลี่ย (${avg.fiber}g/วัน)</b> ค่อนข้างน้อย (ควรได้ 25g/วัน) ควรเพิ่มผักใบเขียวหรือธัญพืช`);
+    } else {
+        goodPoints.push(`<b>ไฟเบอร์เฉลี่ย (${avg.fiber}g/วัน)</b> อยู่ในเกณฑ์ดีต่อระบบขับถ่าย`);
+    }
+
+    if (avg.water < goalWater * 0.75) {
+        tooLowPoints.push(`<b>น้ำดื่มเฉลี่ย (${avg.water.toLocaleString()} ml/วัน)</b> น้อยกว่าเป้า (${goalWater.toLocaleString()} ml)`);
+    } else {
+        goodPoints.push(`<b>น้ำดื่มเฉลี่ย (${avg.water.toLocaleString()} ml/วัน)</b> ดื่มน้ำได้เพียงพอ`);
+    }
+
+    if (Number(avg.sugar) > 24) {
+        tooHighPoints.push(`<b>น้ำตาลเฉลี่ย (${avg.sugar}g/วัน)</b> เกินเกณฑ์ 24g/วัน ควรลดเครื่องดื่มหวานหรือขนม`);
+    }
+    if (avg.sodium > 2000) {
+        tooHighPoints.push(`<b>โซเดียมเฉลี่ย (${avg.sodium.toLocaleString()}mg/วัน)</b> เกิน 2,000mg/วัน เสี่ยงตัวบวมน้ำ`);
+    }
+    if (Number(avg.satFat) > 16) {
+        tooHighPoints.push(`<b>ไขมันอิ่มตัวเฉลี่ย (${avg.satFat}g/วัน)</b> เกิน 16g/วัน ควรเลี่ยงของทอดและเนื้อติดมัน`);
+    }
+    if (avg.chol > 300) {
+        tooHighPoints.push(`<b>คอเลสเตอรอลเฉลี่ย (${avg.chol}mg/วัน)</b> เกิน 300mg/วัน`);
+    }
+
+    let weightChangeHtml = '';
+    if (weights.length >= 2) {
+        const firstW = weights[0].weight;
+        const lastW = weights[weights.length - 1].weight;
+        const diff = (lastW - firstW).toFixed(1);
+        const diffText = diff < 0 ? `<span class="text-emerald-400 font-bold">${diff} kg</span>` : (diff > 0 ? `<span class="text-rose-400 font-bold">+${diff} kg</span>` : `<span class="text-slate-300 font-bold">คงที่ (0.0 kg)</span>`);
+        weightChangeHtml = `
+            <div class="bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                <span class="text-slate-400"><i class="fa-solid fa-weight-scale text-purple-400 mr-1.5"></i>แนวโน้มน้ำหนัก (${firstW} → ${lastW} kg)</span>
+                ${diffText}
+            </div>
+        `;
+    }
+
+    const topFoods = Object.entries(foodFrequency)
+        .map(([name, info]) => ({ name, ...info }))
+        .sort((a, b) => b.count - a.count || b.totalCal - a.totalCal)
+        .slice(0, 5);
+
+    container.innerHTML = `
+        <div class="bg-gradient-to-br from-slate-950 to-indigo-950/40 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between gap-3">
+            <div>
+                <div class="text-[11px] text-slate-400">ประเมินผลจากข้อมูลที่บันทึก <b>${activeDays} วัน</b> (ในรอบ ${daysCount} วัน)</div>
+                <div class="text-xs font-semibold text-white mt-1">${gradeDesc}</div>
+                <div class="flex flex-wrap gap-2 mt-2 text-[10px]">
+                    <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50">ตามเป้า: ${calOnTargetDays} วัน</span>
+                    <span class="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/50">กินน้อย: ${calTooLowDays} วัน</span>
+                    <span class="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800/50">เกินเป้า: ${calOverDays} วัน</span>
+                </div>
+            </div>
+            <div class="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center shrink-0">
+                <span class="text-[9px] text-slate-400">เกรด</span>
+                <span class="text-2xl font-extrabold ${gradeColor} leading-none">${grade}</span>
+            </div>
+        </div>
+
+        ${weightChangeHtml}
+
+        <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-calculator text-sky-400"></i> ค่าเฉลี่ยต่อวัน (ช่วง ${daysCount} วัน)
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block">พลังงานเฉลี่ย</span>
+                    <span class="font-bold text-white">${avg.cal} <span class="text-[9px] font-normal">kcal</span></span>
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block">โปรตีนเฉลี่ย</span>
+                    <span class="font-bold text-emerald-400">${avg.prot}g</span>
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block">เผาผลาญเฉลี่ย</span>
+                    <span class="font-bold text-orange-400">${avg.burn} <span class="text-[9px] font-normal">kcal</span></span>
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block">คาร์บ / น้ำตาล</span>
+                    <span class="font-semibold text-slate-200">${avg.carbs}g <span class="text-pink-400">/ ${avg.sugar}g</span></span>
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block">ไขมัน / อิ่มตัว</span>
+                    <span class="font-semibold text-slate-200">${avg.fat}g <span class="text-orange-300">/ ${avg.satFat}g</span></span>
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block">โซเดียมเฉลี่ย</span>
+                    <span class="font-semibold text-amber-400">${avg.sodium.toLocaleString()}mg</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-2">
+            ${goodPoints.length > 0 ? `
+                <div class="bg-emerald-950/30 border border-emerald-800/40 rounded-2xl p-3 space-y-1">
+                    <div class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-circle-check mr-1"></i> สิ่งที่ทำได้ดี (อยู่ในเกณฑ์เหมาะสม)</div>
+                    <ul class="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+                        ${goodPoints.map(p => `<li>${p}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+
+            ${tooLowPoints.length > 0 ? `
+                <div class="bg-amber-950/30 border border-amber-800/40 rounded-2xl p-3 space-y-1">
+                    <div class="text-xs font-bold text-amber-400"><i class="fa-solid fa-arrow-trend-down mr-1"></i> สิ่งที่ยังน้อยเกินไป (ควรเพิ่ม)</div>
+                    <ul class="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+                        ${tooLowPoints.map(p => `<li>${p}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+
+            ${tooHighPoints.length > 0 ? `
+                <div class="bg-rose-950/30 border border-rose-800/40 rounded-2xl p-3 space-y-1">
+                    <div class="text-xs font-bold text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i> สิ่งที่มากเกินไป (ควรลด)</div>
+                    <ul class="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+                        ${tooHighPoints.map(p => `<li>${p}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-ranking-star text-amber-400"></i> 5 อันดับเมนูที่ทานบ่อยที่สุด
+            </div>
+            <div class="space-y-1.5">
+                ${topFoods.map((f, i) => `
+                    <div class="flex justify-between items-center text-xs bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800/60">
+                        <div class="truncate pr-2">
+                            <span class="text-amber-400 font-bold mr-1.5">#${i + 1}</span>
+                            <span class="text-slate-200 font-medium">${f.name}</span>
+                        </div>
+                        <div class="text-right shrink-0 text-[11px]">
+                            <span class="text-indigo-300 font-semibold">${f.count} ครั้ง</span>
+                            <span class="text-slate-400 ml-1">(${f.totalCal.toLocaleString()} kcal)</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
 }
 
 // Initialize on load
