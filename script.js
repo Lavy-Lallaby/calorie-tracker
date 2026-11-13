@@ -317,6 +317,93 @@ function getTotalBurned(dayData) {
 }
 
 // ==========================================
+// Calorie & Nutrient Rollover Compensation (ชดเชยข้ามวันอัตโนมัติ)
+// ==========================================
+function getCalorieAdjustment(dateKey) {
+    const baseTarget = Number(userGoals.calories) || 1500;
+    const minFloor = Number(userGoals.minCalories) || 1200;
+
+    const yKey = getPreviousDateKey(dateKey);
+    const yData = allMealsHistory[yKey];
+    let yOver = 0;
+
+    if (yData && yData.meals) {
+        let yCal = 0;
+        Object.values(yData.meals).forEach(list => {
+            list.forEach(item => { yCal += Number(item.calories || 0); });
+        });
+        if (yCal > 0) {
+            const { totalBurn: yBurn } = getTotalBurned(yData);
+            const yLimit = baseTarget + yBurn;
+            if (yCal > yLimit) {
+                yOver = yCal - yLimit;
+            }
+        }
+    }
+
+    const rawAdjusted = baseTarget - yOver;
+    const safeTarget = yOver > 0 ? Math.max(minFloor, rawAdjusted) : baseTarget;
+    const actualDeducted = baseTarget - safeTarget;
+    const uncompensatedBurn = Math.max(0, yOver - actualDeducted);
+
+    return {
+        baseTarget,
+        yOver,
+        safeTarget,
+        actualDeducted,
+        uncompensatedBurn
+    };
+}
+
+function getNutrientAdjustments(dateKey) {
+    const baseTargetCal = Number(userGoals.calories) || 1500;
+    const baseLimits = {
+        carbs: { label: "คาร์บ", max: Math.round((baseTargetCal * 0.50) / 4), floor: 80, unit: "g", dec: 1 },
+        sugar: { label: "น้ำตาล", max: 24, floor: 6, unit: "g", dec: 1 },
+        fat: { label: "ไขมันรวม", max: Math.round((baseTargetCal * 0.30) / 9), floor: 25, unit: "g", dec: 1 },
+        satFat: { label: "ไขมันอิ่มตัว", max: 16, floor: 5, unit: "g", dec: 1 },
+        transFat: { label: "ไขมันทรานส์", max: 0, floor: 0, unit: "g", dec: 1 },
+        sodium: { label: "โซเดียม", max: 2000, floor: 1000, unit: "mg", dec: 0 },
+        cholesterol: { label: "คอเลสเตอรอล", max: 300, floor: 100, unit: "mg", dec: 0 }
+    };
+
+    const yKey = getPreviousDateKey(dateKey);
+    const yData = allMealsHistory[yKey];
+    let yTotals = { carbs: 0, sugar: 0, fat: 0, satFat: 0, transFat: 0, sodium: 0, cholesterol: 0 };
+
+    if (yData && yData.meals) {
+        Object.values(yData.meals).forEach(list => {
+            list.forEach(item => {
+                yTotals.carbs += Number(item.carbs || 0);
+                yTotals.sugar += Number(item.sugar || 0);
+                yTotals.fat += Number(item.fat || 0);
+                yTotals.satFat += Number(item.satFat || 0);
+                yTotals.transFat += Number(item.transFat || 0);
+                yTotals.sodium += Number(item.sodium || 0);
+                yTotals.cholesterol += Number(item.cholesterol || 0);
+            });
+        });
+    }
+
+    let result = {};
+    Object.keys(baseLimits).forEach(key => {
+        const cfg = baseLimits[key];
+        const yVal = yTotals[key];
+        const yOver = Math.max(0, yVal - cfg.max);
+        const adjustedMax = yOver > 0 ? Math.max(cfg.floor, cfg.max - yOver) : cfg.max;
+
+        result[key] = {
+            ...cfg,
+            yVal,
+            yOver,
+            adjustedMax: cfg.dec === 0 ? Math.round(adjustedMax) : Math.round(adjustedMax * 10) / 10
+        };
+    });
+
+    return result;
+}
+
+// ==========================================
 // Weekly Calorie Chart (7 วัน + เส้นเป้าหมาย & ขั้นต่ำ)
 // ==========================================
 function renderWeeklyChart() {
@@ -693,7 +780,7 @@ function deleteWorkout(index) {
 }
 
 // ==========================================
-// Summary & Macro Tooltip Label
+// Summary (รวมระบบชดเชยแคลอรี & สารอาหาร) & Macro Tooltip Label
 // ==========================================
 function renderSummary() {
     const dayData = getDayData(currentDateKey);
@@ -718,14 +805,21 @@ function renderSummary() {
     });
 
     const { totalBurn } = getTotalBurned(dayData);
-    const targetCal = Number(userGoals.calories) || 1500;
+    const adj = getCalorieAdjustment(currentDateKey);
+    const macroAdj = getNutrientAdjustments(currentDateKey);
     const protMin = Number(userGoals.proteinMin) || 96;
     const protMax = Number(userGoals.proteinMax) || 128;
 
-    const effectiveBudget = targetCal + totalBurn;
+    const effectiveBudget = adj.safeTarget + totalBurn;
     const remaining = effectiveBudget - totalCal;
 
-    document.getElementById('goal-cal-label').innerText = targetCal.toLocaleString();
+    const goalLabelEl = document.getElementById('goal-cal-label');
+    if (adj.actualDeducted > 0) {
+        goalLabelEl.innerHTML = `<span class="line-through text-slate-500 mr-1">${adj.baseTarget.toLocaleString()}</span><span class="text-amber-400 font-bold">${adj.safeTarget.toLocaleString()}</span>`;
+    } else {
+        goalLabelEl.innerText = adj.baseTarget.toLocaleString();
+    }
+
     document.getElementById('calories-remaining').innerHTML = `${remaining} <span class="text-sm font-normal text-slate-400">kcal</span>`;
     document.getElementById('calories-consumed').innerText = `${totalCal} kcal`;
     document.getElementById('calories-burned').innerText = `${totalBurn} kcal`;
@@ -745,12 +839,75 @@ function renderSummary() {
     document.getElementById('calorie-progress-bar').style.width = `${percent}%`;
 
     const statusEl = document.getElementById('calorie-status');
+    const rolloverBox = document.getElementById('rollover-alert-box');
+
+    // รวบรวมรายการที่วันนี้กินเกิน (เพื่อบอกโควตาวันพรุ่งนี้)
+    const todayTotalsMap = {
+        carbs: totalCarbs, sugar: totalSugar, fat: totalFat,
+        satFat: totalSatFat, transFat: totalTransFat, sodium: totalSodium, cholesterol: totalChol
+    };
+    let tomorrowCaps = [];
+    Object.keys(macroAdj).forEach(k => {
+        const m = macroAdj[k];
+        const cur = todayTotalsMap[k];
+        if (cur > m.adjustedMax) {
+            const over = cur - m.adjustedMax;
+            const nextLimit = m.dec === 0
+                ? Math.round(Math.max(m.floor, m.max - over))
+                : Math.round(Math.max(m.floor, m.max - over) * 10) / 10;
+            tomorrowCaps.push(`${m.label}ไม่เกิน <b>${nextLimit}${m.unit}</b>`);
+        }
+    });
+
+    // รวบรวมรายการที่เมื่อวานกินเกิน (เพื่อบอกโควตาวันนี้ที่ถูกหักลดลง)
+    let todayCapsFromYesterday = [];
+    Object.keys(macroAdj).forEach(k => {
+        const m = macroAdj[k];
+        if (m.yOver > 0) {
+            todayCapsFromYesterday.push(`${m.label}ไม่เกิน <b>${m.adjustedMax}${m.unit}</b>`);
+        }
+    });
+
+    let alertLines = [];
+    if (remaining < 0) {
+        const overToday = Math.abs(remaining);
+        const minFloor = Number(userGoals.minCalories) || 1200;
+        const tomorrowTarget = Math.max(minFloor, adj.baseTarget - overToday);
+        const tomorrowExtraBurn = Math.max(0, overToday - (adj.baseTarget - tomorrowTarget));
+        alertLines.push(`พลังงานวันนี้เกิน <b>${overToday} kcal</b> → พรุ่งนี้ปรับเป้าเหลือ <b>${tomorrowTarget.toLocaleString()} kcal</b>${tomorrowExtraBurn > 0 ? ` (และแนะนำเดินเพิ่ม <b>${tomorrowExtraBurn} kcal</b>)` : ''}`);
+    }
+    if (tomorrowCaps.length > 0) {
+        alertLines.push(`สารอาหารวันนี้เกินเกณฑ์ → พรุ่งนี้ควรคุม: ${tomorrowCaps.join(', ')}`);
+    }
+    if (adj.yOver > 0) {
+        alertLines.push(`ชดเชยพลังงานเมื่อวาน (เกิน ${adj.yOver} kcal) → วันนี้โควตาเหลือ <b>${adj.safeTarget.toLocaleString()} kcal</b>${adj.uncompensatedBurn > 0 ? ` (แนะนำเดินเพิ่ม ~${Math.round(adj.uncompensatedBurn / 0.04).toLocaleString()} ก้าว)` : ''}`);
+    }
+    if (todayCapsFromYesterday.length > 0) {
+        alertLines.push(`ชดเชยสารอาหารเมื่อวาน → วันนี้ควรคุม: ${todayCapsFromYesterday.join(', ')}`);
+    }
+
     if (remaining < 0) {
         statusEl.innerText = "เกินเป้าหมาย";
         statusEl.className = "px-2.5 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/50 font-medium";
+    } else if (adj.yOver > 0 || todayCapsFromYesterday.length > 0) {
+        statusEl.innerText = "โหมดชดเชยเมื่อวาน";
+        statusEl.className = "px-2.5 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-700/50 font-medium";
     } else {
         statusEl.innerText = "ต่ำกว่าเกณฑ์ / กำลังคุม";
         statusEl.className = "px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-medium";
+    }
+
+    if (alertLines.length > 0) {
+        const isDanger = remaining < 0 || tomorrowCaps.length > 0;
+        rolloverBox.className = isDanger
+            ? "bg-rose-950/60 border-rose-500/40 text-rose-200 text-[11px] px-3 py-2 rounded-xl border flex items-start gap-2"
+            : "bg-amber-950/50 border-amber-500/40 text-amber-200 text-[11px] px-3 py-2 rounded-xl border flex items-start gap-2";
+        rolloverBox.innerHTML = `
+            <i class="fa-solid fa-scale-unbalanced ${isDanger ? 'text-rose-400' : 'text-amber-400'} mt-0.5 shrink-0"></i>
+            <div class="space-y-1">${alertLines.map(line => `<div>• ${line}</div>`).join('')}</div>
+        `;
+    } else {
+        rolloverBox.classList.add('hidden');
     }
 }
 
@@ -781,48 +938,58 @@ function showMacroTip(type) {
         });
     });
 
-    const targetCal = Number(userGoals.calories) || 1500;
-    const recCarbsMax = Math.round((targetCal * 0.50) / 4);
-    const recFatMax = Math.round((targetCal * 0.30) / 9);
+    const macroAdj = getNutrientAdjustments(currentDateKey);
 
-    const rules = {
-        carbs: { title: "คาร์บ (Carbs)", limitText: `ประมาณ 130 – ${recCarbsMax}g / วัน`, current: totals.carbs, max: recCarbsMax, unit: "g", isMinGoal: false, tip: "เน้นข้าวกล้อง ไรซ์เบอร์รี ฟักทอง" },
-        sugar: { title: "น้ำตาล (Sugar)", limitText: "ไม่ควรเกิน 24g / วัน (6 ช้อนชา)", current: totals.sugar, max: 24, unit: "g", isMinGoal: false, tip: "เกณฑ์ WHO เพื่อลดไขมันสะสม" },
-        fiber: { title: "ไฟเบอร์ (Fiber)", limitText: "ควรได้ 25 – 30g / วัน", current: totals.fiber, max: 25, unit: "g", isMinGoal: true, tip: "ช่วยให้อิ่มนานและขับถ่ายดี" },
-        fat: { title: "ไขมันรวม (Total Fat)", limitText: `ไม่ควรเกิน ${recFatMax}g / วัน`, current: totals.fat, max: recFatMax, unit: "g", isMinGoal: false, tip: "เลือกไขมันดีจากปลา ถั่ว อะโวคาโด" },
-        satFat: { title: "ไขมันอิ่มตัว (Sat Fat)", limitText: "ไม่ควรเกิน 15 – 20g / วัน", current: totals.satFat, max: 16, unit: "g", isMinGoal: false, tip: "เลี่ยงหนังสัตว์ กะทิ ของทอด" },
-        transFat: { title: "ไขมันทรานส์ (Trans Fat)", limitText: "ควรเป็น 0g (ไม่เกิน 2g / วัน)", current: totals.transFat, max: 2, unit: "g", isMinGoal: false, tip: "เลี่ยงครีมเทียม เบเกอรี่" },
-        sodium: { title: "โซเดียม (Sodium)", limitText: "ไม่ควรเกิน 2,000mg / วัน", current: totals.sodium, max: 2000, unit: "mg", isMinGoal: false, tip: "เลี่ยงซดน้ำซุปและของแปรรูป" },
-        potassium: { title: "โพแทสเซียม (Potassium)", limitText: "ควรได้ ~3,500mg / วัน", current: totals.potassium, max: 3500, unit: "mg", isMinGoal: true, tip: "ช่วยขับโซเดียม ลดบวมน้ำ (ผักใบเขียว กล้วย)" },
-        cholesterol: { title: "คอเลสเตอรอล (Cholesterol)", limitText: "ไม่ควรเกิน 300mg / วัน", current: totals.cholesterol, max: 300, unit: "mg", isMinGoal: false, tip: "เลี่ยงไข่แดงเกินวันละฟองและเครื่องใน" }
-    };
+    if (type === 'fiber' || type === 'potassium') {
+        const isFiber = type === 'fiber';
+        const title = isFiber ? "ไฟเบอร์ (Fiber)" : "โพแทสเซียม (Potassium)";
+        const target = isFiber ? 25 : 3500;
+        const unit = isFiber ? "g" : "mg";
+        const dec = isFiber ? 1 : 0;
+        const cur = totals[type];
+        const rem = Math.max(0, target - cur);
+        const tip = isFiber ? "ช่วยให้อิ่มนานและขับถ่ายดี" : "ช่วยขับโซเดียม ลดบวมน้ำ (ผักใบเขียว กล้วย)";
 
-    const info = rules[type];
-    if (!info) return;
+        content.innerHTML = `
+            <div class="font-bold text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-info text-indigo-400"></i> ${title}: <span class="text-amber-300">ควรได้ ${target.toLocaleString()}${unit} / วัน</span>
+            </div>
+            <div class="text-[11px] text-slate-300 mt-0.5">
+                วันนี้ทานไป <b>${cur.toFixed(dec)}${unit}</b> (${rem === 0 ? '<span class="text-emerald-400 font-bold">ถึงเกณฑ์แล้ว!</span>' : `<span class="text-sky-400 font-semibold">ขาดอีก ${rem.toFixed(dec)}${unit}</span>`}) — <span class="text-slate-400">${tip}</span>
+            </div>
+        `;
+        box.className = "bg-slate-950/90 border border-indigo-500/40 rounded-xl px-3 py-2.5 text-xs flex justify-between items-start gap-2 transition-all";
+        return;
+    }
 
-    const dec = info.unit === 'mg' ? 0 : 1;
-    let statusBadge = "";
-    let isAlert = false;
+    const m = macroAdj[type];
+    if (!m) return;
 
-    if (info.isMinGoal) {
-        const rem = Math.max(0, info.max - info.current);
-        statusBadge = rem === 0
-            ? `<span class="text-emerald-400 font-bold">ถึงเกณฑ์แนะนำต่อวันแล้ว!</span>`
-            : `<span class="text-sky-400 font-semibold">ขาดอีก ${rem.toFixed(dec)}${info.unit} จะถึงเป้า</span>`;
+    const cur = totals[type];
+    const dec = m.dec;
+    const isAlert = cur > m.adjustedMax;
+    const limitDisplay = m.yOver > 0
+        ? `<span class="line-through text-slate-500 mr-1">${m.max}${m.unit}</span><span class="text-amber-300 font-bold">${m.adjustedMax}${m.unit}</span> <span class="text-[10px] text-amber-400">(ลดชดเชยเมื่อวาน)</span>`
+        : `<span class="text-amber-300">ไม่เกิน ${m.max}${m.unit} / วัน</span>`;
+
+    let statusDetail = "";
+    if (isAlert) {
+        const overNow = cur - m.adjustedMax;
+        const tomorrowCap = dec === 0
+            ? Math.round(Math.max(m.floor, m.max - overNow))
+            : Math.round(Math.max(m.floor, m.max - overNow) * 10) / 10;
+        statusDetail = `<span class="text-rose-400 font-bold">เกินเกณฑ์แล้ว ${overNow.toFixed(dec)}${m.unit}</span> → พรุ่งนี้ไม่ควรทานเกิน <b class="text-white underline">${tomorrowCap}${m.unit}</b>`;
     } else {
-        const rem = Math.max(0, info.max - info.current);
-        isAlert = info.current > info.max;
-        statusBadge = isAlert
-            ? `<span class="text-rose-400 font-bold">เกินเกณฑ์แล้ว ${(info.current - info.max).toFixed(dec)}${info.unit}</span>`
-            : `<span class="text-emerald-400 font-semibold">เหลือโควตาอีก ${rem.toFixed(dec)}${info.unit}</span>`;
+        const rem = Math.max(0, m.adjustedMax - cur);
+        statusDetail = `<span class="text-emerald-400 font-semibold">เหลือโควตาวันนี้ ${rem.toFixed(dec)}${m.unit}</span>`;
     }
 
     content.innerHTML = `
-        <div class="font-bold text-white flex items-center gap-1.5">
-            <i class="fa-solid fa-circle-info text-indigo-400"></i> ${info.title}: <span class="text-amber-300">${info.limitText}</span>
+        <div class="font-bold text-white flex items-center gap-1.5 flex-wrap">
+            <i class="fa-solid fa-circle-info text-indigo-400"></i> ${m.label}: ${limitDisplay}
         </div>
         <div class="text-[11px] text-slate-300 mt-0.5">
-            วันนี้ทานไป <b>${info.current.toFixed(dec)}${info.unit}</b> (${statusBadge}) — <span class="text-slate-400">${info.tip}</span>
+            วันนี้ทานไป <b>${cur.toFixed(dec)}${m.unit}</b> (${statusDetail})
         </div>
     `;
 
@@ -838,7 +1005,7 @@ function hideMacroTip() {
 }
 
 // ==========================================
-// Smart Nutrition Coach (1-Click Add)
+// Smart Nutrition Coach (1-Click Add + อิงโควตาชดเชย)
 // ==========================================
 const coachProteinMenus = [
     { name: "ไข่ขาวต้ม (3 ฟอง)", calories: 50, protein: 11, carbs: 1, sugar: 0, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 165, potassium: 160, cholesterol: 0, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
@@ -894,24 +1061,26 @@ function renderNutritionCoach() {
     });
 
     const { totalBurn } = getTotalBurned(dayData);
-    const targetCal = Number(userGoals.calories) || 1500;
+    const adj = getCalorieAdjustment(currentDateKey);
+    const macroAdj = getNutrientAdjustments(currentDateKey);
     const minProt = Number(userGoals.proteinMin) || 96;
     const maxProt = Number(userGoals.proteinMax) || 128;
-    const remCal = (targetCal + totalBurn) - totalCal;
+
+    const remCal = (adj.safeTarget + totalBurn) - totalCal;
     const remProt = Math.max(0, minProt - totalProt);
 
     let warnings = [];
-    if (totalSodium > 2000) {
-        warnings.push(`โซเดียมสูงแล้ว (${Math.round(totalSodium)}/2,000 mg) <b>ควรงด</b> ซดน้ำซุป อาหารแปรรูป บะหมี่กึ่งสำเร็จรูป และของหมักดอง`);
+    if (totalSodium > macroAdj.sodium.adjustedMax) {
+        warnings.push(`โซเดียมเกินโควตาแล้ว (${Math.round(totalSodium)}/${macroAdj.sodium.adjustedMax} mg) <b>ควรงด</b> ซดน้ำซุป อาหารแปรรูป บะหมี่กึ่งสำเร็จรูป และของหมักดอง`);
     }
-    if (totalSugar > 24) {
-        warnings.push(`น้ำตาลเกินเกณฑ์ (${totalSugar.toFixed(1)}/24 g) <b>ควรเลี่ยง</b> ชานม น้ำอัดลม ขนมหวาน และผลไม้รสหวานจัด`);
+    if (totalSugar > macroAdj.sugar.adjustedMax) {
+        warnings.push(`น้ำตาลเกินโควตา (${totalSugar.toFixed(1)}/${macroAdj.sugar.adjustedMax} g) <b>ควรเลี่ยง</b> ชานม น้ำอัดลม ขนมหวาน และผลไม้รสหวานจัด`);
     }
-    if (totalSatFat > 15 || totalTransFat > 0) {
-        warnings.push(`ไขมันอิ่มตัว/ทรานส์เริ่มสูง <b>ควรเลี่ยง</b> ของทอด เบเกอรี่ ครีมเทียม กะทิ และเนื้อสัตว์ติดมัน`);
+    if (totalSatFat > macroAdj.satFat.adjustedMax || totalTransFat > macroAdj.transFat.adjustedMax) {
+        warnings.push(`ไขมันอิ่มตัว/ทรานส์เกินเกณฑ์ <b>ควรเลี่ยง</b> ของทอด เบเกอรี่ ครีมเทียม กะทิ และเนื้อสัตว์ติดมัน`);
     }
-    if (totalChol > 250) {
-        warnings.push(`คอเลสเตอรอลใกล้เกิน 300 mg <b>ควรเลี่ยง</b> ไข่แดง เครื่องในสัตว์ (เลือกกินเฉพาะไข่ขาวแทน)`);
+    if (totalChol > macroAdj.cholesterol.adjustedMax) {
+        warnings.push(`คอเลสเตอรอลเกินโควตา (${Math.round(totalChol)}/${macroAdj.cholesterol.adjustedMax} mg) <b>ควรเลี่ยง</b> ไข่แดง เครื่องในสัตว์ (เลือกกินเฉพาะไข่ขาวแทน)`);
     }
     if (remCal < 150 && remCal >= 0) {
         warnings.push(`แคลอรีเหลือน้อย (${remCal} kcal) <b>ควรงด</b> ของทานเล่นที่มีแป้งและไขมันสูง`);
@@ -1682,10 +1851,10 @@ function renderCalendarDayDetail(dateKey) {
         return;
     }
 
-    const targetCal = Number(userGoals.calories) || 1500;
+    const adj = getCalorieAdjustment(dateKey);
     const protMin = Number(userGoals.proteinMin) || 96;
     const protPct = Math.round((stats.totalProt / protMin) * 100);
-    const remaining = (targetCal + stats.totalBurn) - stats.totalCal;
+    const remaining = (adj.safeTarget + stats.totalBurn) - stats.totalCal;
 
     let mealsBreakdown = '';
     mealTypes.forEach(mType => {
