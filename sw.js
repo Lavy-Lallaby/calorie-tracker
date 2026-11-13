@@ -1,8 +1,8 @@
-const CACHE_NAME = 'fittracker-pwa-v18';
+const CACHE_NAME = 'fittracker-pwa-v19';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './script.js?v=15',
+  './script.js?v=19',
   './manifest.json',
   './animal.png'
 ];
@@ -24,7 +24,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // ข้ามการแคช API ภายนอก (GitHub, Gemini, OpenFoodFacts) เพื่อให้ข้อมูลสดใหม่เสมอ
   if (!event.request.url.startsWith(self.location.origin)) {
     return;
   }
