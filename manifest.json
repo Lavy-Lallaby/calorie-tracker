@@ -1,0 +1,22 @@
+{
+  "name": "FitTracker - บันทึกโภชนาการและสุขภาพ",
+  "short_name": "FitTracker",
+  "description": "แอปบันทึกแคลอรี โปรตีน การดื่มน้ำ ก้าวเดิน และน้ำหนักตัว",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "animal.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "animal.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
