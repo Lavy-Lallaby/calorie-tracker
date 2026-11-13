@@ -1979,6 +1979,95 @@ function switchReportPeriod(days) {
     renderHealthReport(days);
 }
 
+function applyGoalPreset(presetKey) {
+    const descEl = document.getElementById('preset-desc-label');
+    if (presetKey === 'custom' || !goalPresets[presetKey]) {
+        if (descEl) descEl.innerText = "ปรับแต่งเป้าหมายแคลอรี โปรตีน คาร์บ และไขมันเองตามต้องการ";
+        return;
+    }
+
+    const p = goalPresets[presetKey];
+    document.getElementById('goal-cal-input').value = p.calories;
+    document.getElementById('goal-min-cal-input').value = p.minCalories;
+    document.getElementById('goal-prot-min-input').value = p.proteinMin;
+    document.getElementById('goal-prot-max-input').value = p.proteinMax;
+    document.getElementById('goal-carbs-input').value = p.carbsMax;
+    document.getElementById('goal-fat-input').value = p.fatMax;
+    if (descEl) descEl.innerText = p.desc;
+}
+
+function markPresetCustom() {
+    const sel = document.getElementById('goal-preset-select');
+    const descEl = document.getElementById('preset-desc-label');
+    if (sel) sel.value = 'custom';
+    if (descEl) descEl.innerText = "โหมดกำหนดตัวเลขเอง (Custom)";
+}
+
+function openSettingsModal() {
+    const currentPreset = userGoals.preset || 'fat_loss';
+    document.getElementById('goal-preset-select').value = goalPresets[currentPreset] ? currentPreset : 'custom';
+    const descEl = document.getElementById('preset-desc-label');
+    if (descEl) {
+        descEl.innerText = goalPresets[currentPreset] ? goalPresets[currentPreset].desc : "โหมดกำหนดตัวเลขเอง (Custom)";
+    }
+
+    document.getElementById('goal-cal-input').value = userGoals.calories;
+    document.getElementById('goal-min-cal-input').value = userGoals.minCalories;
+    document.getElementById('goal-prot-min-input').value = userGoals.proteinMin;
+    document.getElementById('goal-prot-max-input').value = userGoals.proteinMax;
+    document.getElementById('goal-carbs-input').value = userGoals.carbsMax || 150;
+    document.getElementById('goal-fat-input').value = userGoals.fatMax || 50;
+    document.getElementById('goal-steps-input').value = userGoals.steps;
+    document.getElementById('goal-water-input').value = userGoals.water;
+    document.getElementById('goal-weight-input').value = userGoals.targetWeight || '';
+
+    document.getElementById('catalog-count-badge').innerText = foodCatalog.length;
+    document.getElementById('github-token-input').value = localStorage.getItem('fitTracker_github_token') || '';
+    document.getElementById('gemini-api-key-input').value = localStorage.getItem('fitTracker_gemini_key') || '';
+    document.getElementById('settings-modal').classList.remove('hidden');
+}
+
+async function saveAllSettings() {
+    userGoals = {
+        preset: document.getElementById('goal-preset-select').value || 'custom',
+        calories: Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500),
+        minCalories: Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200),
+        proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
+        proteinMax: Math.max(10, Number(document.getElementById('goal-prot-max-input').value) || 128),
+        carbsMax: Math.max(10, Number(document.getElementById('goal-carbs-input').value) || 150),
+        fatMax: Math.max(10, Number(document.getElementById('goal-fat-input').value) || 50),
+        steps: Math.max(1000, Number(document.getElementById('goal-steps-input').value) || 10000),
+        water: Math.max(500, Number(document.getElementById('goal-water-input').value) || 2000),
+        targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
+    };
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+
+    const ghToken = document.getElementById('github-token-input').value.trim();
+    const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
+
+    if (ghToken) {
+        localStorage.setItem('fitTracker_github_token', ghToken);
+    } else {
+        localStorage.removeItem('fitTracker_github_token');
+    }
+
+    if (geminiKey) {
+        localStorage.setItem('fitTracker_gemini_key', geminiKey);
+    } else {
+        localStorage.removeItem('fitTracker_gemini_key');
+    }
+
+    closeSettingsModal();
+    renderUIOnly();
+
+    if (ghToken) {
+        await pushToGitHub(true);
+    } else {
+        setSyncStatus('local', 'บันทึกในเครื่อง');
+        alert("บันทึกโปรแกรมและเป้าหมายเรียบร้อยแล้ว!");
+    }
+}
+
 function renderHealthReport(daysCount) {
     const container = document.getElementById('report-content-container');
     if (!container) return;
