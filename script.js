@@ -5,15 +5,34 @@ const GITHUB_OWNER = "Lavy-Lallaby";
 const GITHUB_REPO  = "fittracker-db";
 const GITHUB_PATH  = "db.json";
 let currentFileSha = null;
-let baseNutrition = null;
-let calendarViewYear = new Date().getFullYear();
-let calendarViewMonth = new Date().getMonth();
-let calendarSelectedKey = currentDateKey;
 
+// Helper Date Formatter (ต้องประกาศก่อนใช้สร้าง currentDateKey)
+function getFormattedDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(dateKey) {
+    const parts = dateKey.split('-');
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('th-TH', options);
+}
+
+// ==========================================
 // State Management
+// ==========================================
 let currentDateKey = getFormattedDateKey(new Date());
 let currentScanMode = 'label';
 let html5QrCode = null;
+let baseNutrition = null;
+
+// Calendar State
+let calendarViewYear = new Date().getFullYear();
+let calendarViewMonth = new Date().getMonth();
+let calendarSelectedKey = currentDateKey;
 
 const defaultHistory = {
     "2026-11-12": {
@@ -117,7 +136,6 @@ async function syncFromGitHub(showAlert = false) {
         const decodedText = base64ToUtf8(data.content);
         const cloudData = JSON.parse(decodedText || '{}');
 
-        // ถ้าใน db.json มีข้อมูลอยู่แล้ว ให้นำมาแสดงผล
         if (cloudData.history && Object.keys(cloudData.history).length > 0) {
             allMealsHistory = cloudData.history;
             localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
@@ -129,7 +147,6 @@ async function syncFromGitHub(showAlert = false) {
             setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
             if (showAlert) alert("ดึงข้อมูลล่าสุดจาก GitHub เรียบร้อยแล้ว!");
         } else {
-            // ถ้า db.json ยังเป็น {} ว่างๆ ให้ส่งข้อมูลในเครื่องขึ้นไปเก็บครั้งแรก
             await pushToGitHub(false);
             if (showAlert) alert("อัปโหลดข้อมูลเริ่มต้นขึ้น GitHub เรียบร้อยแล้ว!");
         }
@@ -149,7 +166,6 @@ async function pushToGitHub(showAlert = false) {
 
     setSyncStatus('syncing', 'กำลังบันทึกขึ้น Cloud...');
     try {
-        // ดึง sha ล่าสุดก่อนเสมอเพื่อป้องกัน conflict กรณีแก้จากหลายเครื่อง
         const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
         const getRes = await fetch(getUrl, {
             headers: {
@@ -210,20 +226,6 @@ function saveDataAndSync() {
 // ==========================================
 // Core App Initialization & UI Rendering
 // ==========================================
-function getFormattedDateKey(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function formatDisplayDate(dateKey) {
-    const parts = dateKey.split('-');
-    const date = new Date(parts[0], parts[1] - 1, parts[2]);
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('th-TH', options);
-}
-
 function renderUIOnly() {
     renderWeeklyChart();
     renderDateDisplay();
@@ -280,6 +282,112 @@ function getTotalBurned(dayData) {
     return { stepsCal, workoutCal, totalBurn: stepsCal + workoutCal };
 }
 
+// ==========================================
+// Weekly Calorie Chart (7 วัน + เส้น 1,500 & 1,200)
+// ==========================================
+function renderWeeklyChart() {
+    const container = document.getElementById('weekly-chart-container');
+    if (!container) return;
+
+    const targetCal = 1500;
+    const minCal = 1200;
+    const parts = currentDateKey.split('-');
+    const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
+    let daysData = [];
+    let maxVal = 2000;
+
+    for (let i = 6; i >= 0; i--) {
+        let d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i);
+        let key = getFormattedDateKey(d);
+        let dayObj = allMealsHistory[key];
+
+        let totalCal = 0;
+        let totalBurn = 0;
+        if (dayObj) {
+            if (dayObj.meals) {
+                Object.values(dayObj.meals).forEach(list => {
+                    list.forEach(item => { totalCal += Number(item.calories || 0); });
+                });
+            }
+            const stepsCal = Math.round((Number(dayObj.steps) || 0) * 0.04);
+            const workoutCal = (dayObj.workouts || []).reduce((s, w) => s + Number(w.calories || 0), 0);
+            totalBurn = stepsCal + workoutCal;
+        }
+
+        const effectiveLimit = targetCal + totalBurn;
+        if (totalCal > maxVal) maxVal = totalCal;
+
+        daysData.push({
+            key,
+            label: dayNames[d.getDay()],
+            dayNum: d.getDate(),
+            cal: totalCal,
+            limit: effectiveLimit,
+            isSelected: key === currentDateKey
+        });
+    }
+
+    const targetLineBottomPct = Math.min(100, Math.round((targetCal / maxVal) * 100));
+    const minLineBottomPct = Math.min(100, Math.round((minCal / maxVal) * 100));
+
+    const barsHtml = daysData.map(d => {
+        const barHeightPct = Math.min(100, Math.round((d.cal / maxVal) * 100));
+        const isOver = d.cal > d.limit;
+
+        let barColor = 'bg-slate-700';
+        if (d.cal > 0) {
+            barColor = isOver ? 'bg-rose-500' : 'bg-emerald-400';
+        }
+        const activeRing = d.isSelected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900' : 'opacity-85 hover:opacity-100';
+
+        return `
+            <button type="button" onclick="selectChartDay('${d.key}')" class="flex-1 flex flex-col items-center group focus:outline-none">
+                <span class="text-[9px] font-semibold mb-1 ${isOver ? 'text-rose-400' : (d.cal > 0 ? 'text-slate-300' : 'text-slate-600')}">
+                    ${d.cal > 0 ? d.cal : '-'}
+                </span>
+                <div class="w-full max-w-[24px] h-24 bg-slate-950/80 rounded-t-lg flex items-end justify-center overflow-hidden relative z-10 ${activeRing} transition">
+                    <div class="w-full ${barColor} rounded-t-md transition-all duration-500" style="height: ${barHeightPct}%;"></div>
+                </div>
+                <div class="mt-1.5 text-center leading-tight">
+                    <span class="text-[10px] block font-bold ${d.isSelected ? 'text-indigo-400' : 'text-slate-400'}">${d.label}</span>
+                    <span class="text-[9px] block ${d.isSelected ? 'text-white font-semibold' : 'text-slate-500'}">${d.dayNum}</span>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="relative pt-3">
+            <div class="absolute left-0 right-0 border-t border-dashed border-amber-400/80 z-20 pointer-events-none flex justify-end"
+                 style="bottom: calc(30px + (96px * ${targetLineBottomPct / 100}));">
+                <span class="text-[9px] bg-slate-900/95 text-amber-400 px-1 rounded -mt-2.5 font-semibold border border-amber-500/30">
+                    1,500
+                </span>
+            </div>
+            <div class="absolute left-0 right-0 border-t border-dashed border-cyan-400/70 z-20 pointer-events-none flex justify-end"
+                 style="bottom: calc(30px + (96px * ${minLineBottomPct / 100}));">
+                <span class="text-[9px] bg-slate-900/95 text-cyan-400 px-1 rounded -mt-2.5 font-semibold border border-cyan-500/30">
+                    1,200
+                </span>
+            </div>
+            <div class="flex items-end justify-between gap-1.5">
+                ${barsHtml}
+            </div>
+        </div>
+    `;
+}
+
+function selectChartDay(dateKey) {
+    currentDateKey = dateKey;
+    renderUIOnly();
+}
+
+// ==========================================
+// Meals Rendering
+// ==========================================
 function renderMeals() {
     const container = document.getElementById('meals-container');
     container.innerHTML = '';
@@ -290,7 +398,7 @@ function renderMeals() {
         const totalCal = items.reduce((sum, item) => sum + Number(item.calories), 0);
         const totalProt = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
 
-       let itemsHtml = items.map((item, idx) => {
+        let itemsHtml = items.map((item, idx) => {
             const qtyDisplay = item.qty ? (isNaN(item.qty) ? item.qty : `x${item.qty}`) : '';
             return `
             <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
@@ -420,7 +528,7 @@ function deleteWorkout(index) {
 }
 
 // ==========================================
-// Summary & Coach
+// Summary & Smart Nutrition Coach
 // ==========================================
 function renderSummary() {
     const dayData = getDayData(currentDateKey);
@@ -586,6 +694,53 @@ function renderNutritionCoach() {
 }
 
 // ==========================================
+// Quantity Multiplier (คูณสารอาหารตามตัวเลขจำนวน)
+// ==========================================
+function extractMultiplier(qtyVal) {
+    if (!qtyVal) return 1;
+    const match = String(qtyVal).match(/(\d+(?:\.\d+)?)/);
+    const num = match ? parseFloat(match[1]) : 1;
+    return (!isNaN(num) && num > 0) ? num : 1;
+}
+
+function setBaseNutritionFromCurrentInputs() {
+    const mult = extractMultiplier(document.getElementById('food-qty').value);
+    baseNutrition = {
+        calories: (Number(document.getElementById('food-calories').value) || 0) / mult,
+        protein: (Number(document.getElementById('food-protein').value) || 0) / mult,
+        carbs: (Number(document.getElementById('food-carbs').value) || 0) / mult,
+        sugar: (Number(document.getElementById('food-sugar').value) || 0) / mult,
+        fat: (Number(document.getElementById('food-fat').value) || 0) / mult,
+        satFat: (Number(document.getElementById('food-satfat').value) || 0) / mult,
+        transFat: (Number(document.getElementById('food-transfat').value) || 0) / mult,
+        sodium: (Number(document.getElementById('food-sodium').value) || 0) / mult,
+        cholesterol: (Number(document.getElementById('food-cholesterol').value) || 0) / mult
+    };
+}
+
+function updateBaseNutritionFromInputs() {
+    setBaseNutritionFromCurrentInputs();
+}
+
+function applyQuantityMultiplier() {
+    if (!baseNutrition) {
+        setBaseNutritionFromCurrentInputs();
+    }
+    const mult = extractMultiplier(document.getElementById('food-qty').value);
+    const round1 = (val) => Math.round(val * 10) / 10;
+
+    document.getElementById('food-calories').value = Math.round(baseNutrition.calories * mult);
+    document.getElementById('food-protein').value = round1(baseNutrition.protein * mult);
+    document.getElementById('food-carbs').value = round1(baseNutrition.carbs * mult);
+    document.getElementById('food-sugar').value = round1(baseNutrition.sugar * mult);
+    document.getElementById('food-fat').value = round1(baseNutrition.fat * mult);
+    document.getElementById('food-satfat').value = round1(baseNutrition.satFat * mult);
+    document.getElementById('food-transfat').value = round1(baseNutrition.transFat * mult);
+    document.getElementById('food-sodium').value = Math.round(baseNutrition.sodium * mult);
+    document.getElementById('food-cholesterol').value = Math.round(baseNutrition.cholesterol * mult);
+}
+
+// ==========================================
 // Image Capture Router (Tesseract OCR vs AI)
 // ==========================================
 function triggerImageCapture(mode) {
@@ -642,7 +797,6 @@ async function scanLabelOfflineOCR(file) {
 
         fillFormWithNutritionData({
             name: "สินค้าจากฉลาก",
-            qty: "1 หน่วยบริโภค",
             calories,
             protein,
             carbs: carbs || sugar,
@@ -674,8 +828,8 @@ async function scanFoodWithGemini(file) {
         const apiKey = localStorage.getItem('fitTracker_gemini_key');
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย ปริมาณ และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
-           {"name": "ชื่อเมนูภาษาไทย", "qty": "ปริมาณ เช่น 1 จาน", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "cholesterol": ตัวเลข}`;
+        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
+           {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "cholesterol": ตัวเลข}`;
 
         const response = await fetch(url, {
             method: 'POST',
@@ -784,10 +938,11 @@ async function fetchBarcodeProduct(barcode) {
             const n = p.nutriments || {};
             const hasServing = n['energy-kcal_serving'] !== undefined;
             const suffix = hasServing ? '_serving' : '_100g';
+            const unitLabel = hasServing ? (p.serving_size || "1 หน่วย") : "100g";
+            const rawName = p.product_name_th || p.product_name || `สินค้า (${barcode})`;
 
             fillFormWithNutritionData({
-                name: p.product_name_th || p.product_name || `สินค้า (${barcode})`,
-                qty: hasServing ? (p.serving_size || "1 หน่วยบริโภค") : "100g",
+                name: `${rawName} (${unitLabel})`,
                 calories: Math.round(n[`energy-kcal${suffix}`] || 0),
                 protein: Number((n[`proteins${suffix}`] || 0).toFixed(1)),
                 carbs: Number((n[`carbohydrates${suffix}`] || 0).toFixed(1)),
@@ -810,7 +965,7 @@ async function fetchBarcodeProduct(barcode) {
 
 function fillFormWithNutritionData(item) {
     if (item.name) document.getElementById('food-name').value = item.name;
-    document.getElementById('food-qty').value = 1; // ตั้งค่าตัวคูณเริ่มต้นเป็น 1 เสมอเวลาสแกน
+    document.getElementById('food-qty').value = 1;
     document.getElementById('food-calories').value = item.calories ?? 0;
     document.getElementById('food-protein').value = item.protein ?? 0;
     document.getElementById('food-carbs').value = item.carbs ?? 0;
@@ -824,7 +979,7 @@ function fillFormWithNutritionData(item) {
 }
 
 // ==========================================
-// Settings & Existing Modal Controls
+// Settings & Food Modal Controls
 // ==========================================
 function openSettingsModal() {
     document.getElementById('github-token-input').value = localStorage.getItem('fitTracker_github_token') || '';
@@ -869,7 +1024,7 @@ function openFoodModal(mealType, itemIndex = null) {
     if (itemIndex !== null) {
         const item = allMealsHistory[currentDateKey].meals[mealType][itemIndex];
         document.getElementById('food-name').value = item.name || '';
-        document.getElementById('food-qty').value = item.qty || '';
+        document.getElementById('food-qty').value = extractMultiplier(item.qty);
         document.getElementById('food-calories').value = item.calories || '';
         document.getElementById('food-protein').value = item.protein || '';
         document.getElementById('food-carbs').value = item.carbs || '';
@@ -879,10 +1034,10 @@ function openFoodModal(mealType, itemIndex = null) {
         document.getElementById('food-transfat').value = item.transFat || '';
         document.getElementById('food-sodium').value = item.sodium || '';
         document.getElementById('food-cholesterol').value = item.cholesterol || '';
-        setBaseNutritionFromCurrentInputs(); // <-- ต้องอยู่หลังเติมค่าครบทุกช่องแล้ว
+        setBaseNutritionFromCurrentInputs();
     } else {
         document.getElementById('food-form').reset();
-        document.getElementById('food-qty').value = 1; // <-- เพิ่มบรรทัดนี้
+        document.getElementById('food-qty').value = 1;
         baseNutrition = null;
     }
 
@@ -897,10 +1052,11 @@ function handleFoodSubmit(e) {
     e.preventDefault();
     const mealType = document.getElementById('edit-meal-type').value;
     const itemIndex = document.getElementById('edit-item-index').value;
+    const qtyNum = extractMultiplier(document.getElementById('food-qty').value);
 
     const newItem = {
         name: document.getElementById('food-name').value,
-        qty: document.getElementById('food-qty').value,
+        qty: qtyNum,
         calories: Number(document.getElementById('food-calories').value),
         protein: Number(document.getElementById('food-protein').value || 0),
         carbs: Number(document.getElementById('food-carbs').value || 0),
@@ -919,19 +1075,17 @@ function handleFoodSubmit(e) {
         dayData.meals[mealType].push(newItem);
     }
 
-    // บันทึกเข้าคลังเมนูแนะนำโดยหารให้เป็นค่าต่อ 1 หน่วยเสมอ
-    const mult = extractMultiplier(newItem.qty);
     const unitItem = {
         name: newItem.name,
-        calories: Math.round(newItem.calories / mult),
-        protein: Math.round((newItem.protein / mult) * 10) / 10,
-        carbs: Math.round((newItem.carbs / mult) * 10) / 10,
-        sugar: Math.round((newItem.sugar / mult) * 10) / 10,
-        fat: Math.round((newItem.fat / mult) * 10) / 10,
-        satFat: Math.round((newItem.satFat / mult) * 10) / 10,
-        transFat: Math.round((newItem.transFat / mult) * 10) / 10,
-        sodium: Math.round(newItem.sodium / mult),
-        cholesterol: Math.round(newItem.cholesterol / mult)
+        calories: Math.round(newItem.calories / qtyNum),
+        protein: Math.round((newItem.protein / qtyNum) * 10) / 10,
+        carbs: Math.round((newItem.carbs / qtyNum) * 10) / 10,
+        sugar: Math.round((newItem.sugar / qtyNum) * 10) / 10,
+        fat: Math.round((newItem.fat / qtyNum) * 10) / 10,
+        satFat: Math.round((newItem.satFat / qtyNum) * 10) / 10,
+        transFat: Math.round((newItem.transFat / qtyNum) * 10) / 10,
+        sodium: Math.round(newItem.sodium / qtyNum),
+        cholesterol: Math.round(newItem.cholesterol / qtyNum)
     };
     if (!foodCatalog.some(f => f.name.toLowerCase() === unitItem.name.toLowerCase())) {
         foodCatalog.push(unitItem);
@@ -957,7 +1111,7 @@ function updateCatalogDatalist() {
 function autofillFoodCatalog(name) {
     const found = foodCatalog.find(f => f.name.toLowerCase() === name.toLowerCase());
     if (found) {
-        document.getElementById('food-qty').value = found.qty ?? 1;
+        document.getElementById('food-qty').value = 1;
         document.getElementById('food-calories').value = found.calories;
         document.getElementById('food-protein').value = found.protein;
         document.getElementById('food-carbs').value = found.carbs;
@@ -969,152 +1123,6 @@ function autofillFoodCatalog(name) {
         document.getElementById('food-cholesterol').value = found.cholesterol;
         setBaseNutritionFromCurrentInputs();
     }
-}
-
-function extractMultiplier(qtyVal) {
-    const num = parseFloat(qtyVal);
-    return (!isNaN(num) && num > 0) ? num : 1;
-}
-
-function setBaseNutritionFromCurrentInputs() {
-    const mult = extractMultiplier(document.getElementById('food-qty').value);
-    baseNutrition = {
-        calories: (Number(document.getElementById('food-calories').value) || 0) / mult,
-        protein: (Number(document.getElementById('food-protein').value) || 0) / mult,
-        carbs: (Number(document.getElementById('food-carbs').value) || 0) / mult,
-        sugar: (Number(document.getElementById('food-sugar').value) || 0) / mult,
-        fat: (Number(document.getElementById('food-fat').value) || 0) / mult,
-        satFat: (Number(document.getElementById('food-satfat').value) || 0) / mult,
-        transFat: (Number(document.getElementById('food-transfat').value) || 0) / mult,
-        sodium: (Number(document.getElementById('food-sodium').value) || 0) / mult,
-        cholesterol: (Number(document.getElementById('food-cholesterol').value) || 0) / mult
-    };
-}
-
-function updateBaseNutritionFromInputs() {
-    setBaseNutritionFromCurrentInputs();
-}
-
-function applyQuantityMultiplier() {
-    if (!baseNutrition) {
-        setBaseNutritionFromCurrentInputs();
-    }
-    const mult = extractMultiplier(document.getElementById('food-qty').value);
-    const round1 = (val) => Math.round(val * 10) / 10;
-
-    document.getElementById('food-calories').value = Math.round(baseNutrition.calories * mult);
-    document.getElementById('food-protein').value = round1(baseNutrition.protein * mult);
-    document.getElementById('food-carbs').value = round1(baseNutrition.carbs * mult);
-    document.getElementById('food-sugar').value = round1(baseNutrition.sugar * mult);
-    document.getElementById('food-fat').value = round1(baseNutrition.fat * mult);
-    document.getElementById('food-satfat').value = round1(baseNutrition.satFat * mult);
-    document.getElementById('food-transfat').value = round1(baseNutrition.transFat * mult);
-    document.getElementById('food-sodium').value = Math.round(baseNutrition.sodium * mult);
-    document.getElementById('food-cholesterol').value = Math.round(baseNutrition.cholesterol * mult);
-}
-
-// ==========================================
-// Weekly Calorie Chart (7 วัน + เส้น 1,500 & 1,200 kcal)
-// ==========================================
-function renderWeeklyChart() {
-    const container = document.getElementById('weekly-chart-container');
-    if (!container) return;
-
-    const targetCal = 1500;
-    const minCal = 1200;
-    const parts = currentDateKey.split('-');
-    const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
-    const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
-
-    let daysData = [];
-    let maxVal = 2000;
-
-    for (let i = 6; i >= 0; i--) {
-        let d = new Date(baseDate);
-        d.setDate(baseDate.getDate() - i);
-        let key = getFormattedDateKey(d);
-        let dayObj = allMealsHistory[key];
-
-        let totalCal = 0;
-        let totalBurn = 0;
-        if (dayObj) {
-            if (dayObj.meals) {
-                Object.values(dayObj.meals).forEach(list => {
-                    list.forEach(item => { totalCal += Number(item.calories || 0); });
-                });
-            }
-            const stepsCal = Math.round((Number(dayObj.steps) || 0) * 0.04);
-            const workoutCal = (dayObj.workouts || []).reduce((s, w) => s + Number(w.calories || 0), 0);
-            totalBurn = stepsCal + workoutCal;
-        }
-
-        const effectiveLimit = targetCal + totalBurn;
-        if (totalCal > maxVal) maxVal = totalCal;
-
-        daysData.push({
-            key,
-            label: dayNames[d.getDay()],
-            dayNum: d.getDate(),
-            cal: totalCal,
-            limit: effectiveLimit,
-            isSelected: key === currentDateKey
-        });
-    }
-
-    // คำนวณตำแหน่งความสูงของเส้น 1,500 และ 1,200 kcal
-    const targetLineBottomPct = Math.min(100, Math.round((targetCal / maxVal) * 100));
-    const minLineBottomPct = Math.min(100, Math.round((minCal / maxVal) * 100));
-
-    const barsHtml = daysData.map(d => {
-        const barHeightPct = Math.min(100, Math.round((d.cal / maxVal) * 100));
-        const isOver = d.cal > d.limit;
-
-        let barColor = 'bg-slate-700';
-        if (d.cal > 0) {
-            barColor = isOver ? 'bg-rose-500' : 'bg-emerald-400';
-        }
-        const activeRing = d.isSelected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900' : 'opacity-85 hover:opacity-100';
-
-        return `
-            <button type="button" onclick="selectChartDay('${d.key}')" class="flex-1 flex flex-col items-center group focus:outline-none">
-                <span class="text-[9px] font-semibold mb-1 ${isOver ? 'text-rose-400' : (d.cal > 0 ? 'text-slate-300' : 'text-slate-600')}">
-                    ${d.cal > 0 ? d.cal : '-'}
-                </span>
-                <div class="w-full max-w-[24px] h-24 bg-slate-950/80 rounded-t-lg flex items-end justify-center overflow-hidden relative z-10 ${activeRing} transition">
-                    <div class="w-full ${barColor} rounded-t-md transition-all duration-500" style="height: ${barHeightPct}%;"></div>
-                </div>
-                <div class="mt-1.5 text-center leading-tight">
-                    <span class="text-[10px] block font-bold ${d.isSelected ? 'text-indigo-400' : 'text-slate-400'}">${d.label}</span>
-                    <span class="text-[9px] block ${d.isSelected ? 'text-white font-semibold' : 'text-slate-500'}">${d.dayNum}</span>
-                </div>
-            </button>
-        `;
-    }).join('');
-
-    container.innerHTML = `
-        <div class="relative pt-3">
-            <!-- เส้นประเป้าหมายสูงสุด 1,500 kcal (สีเหลือง) -->
-            <div class="absolute left-0 right-0 border-t border-dashed border-amber-400/80 z-20 pointer-events-none flex justify-end"
-                 style="bottom: calc(30px + (96px * ${targetLineBottomPct / 100}));">
-                <span class="text-[9px] bg-slate-900/95 text-amber-400 px-1 rounded -mt-2.5 font-semibold border border-amber-500/30">
-                    1,500
-                </span>
-            </div>
-
-            <!-- เส้นประเกณฑ์ขั้นต่ำ 1,200 kcal (สีฟ้า Cyan) -->
-            <div class="absolute left-0 right-0 border-t border-dashed border-cyan-400/70 z-20 pointer-events-none flex justify-end"
-                 style="bottom: calc(30px + (96px * ${minLineBottomPct / 100}));">
-                <span class="text-[9px] bg-slate-900/95 text-cyan-400 px-1 rounded -mt-2.5 font-semibold border border-cyan-500/30">
-                    1,200
-                </span>
-            </div>
-
-            <!-- แท่งกราฟ 7 วัน -->
-            <div class="flex items-end justify-between gap-1.5">
-                ${barsHtml}
-            </div>
-        </div>
-    `;
 }
 
 // ==========================================
@@ -1173,7 +1181,6 @@ function getDayStatsForCalendar(dateKey) {
     const workoutCal = (dayObj.workouts || []).reduce((s, w) => s + Number(w.calories || 0), 0);
     const totalBurn = stepsCal + workoutCal;
 
-    // ถือว่ามีข้อมูลถ้ามีรายการอาหาร หรือมีก้าวเดิน/ออกกำลังกาย
     if (itemCount === 0 && steps === 0 && workoutCal === 0) return null;
 
     return { totalCal, totalProt, totalCarbs, totalFat, totalSugar, totalSodium, steps, totalBurn, dayObj };
@@ -1189,16 +1196,14 @@ function renderCalendarMonth() {
     const container = document.getElementById('calendar-grid-container');
     container.innerHTML = '';
 
-    const firstDayOfWeek = new Date(calendarViewYear, calendarViewMonth, 1).getDay(); // 0 = อา.
+    const firstDayOfWeek = new Date(calendarViewYear, calendarViewMonth, 1).getDay();
     const daysInMonth = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
     const todayKey = getFormattedDateKey(new Date());
 
-    // ช่องว่างก่อนวันที่ 1
     for (let i = 0; i < firstDayOfWeek; i++) {
         container.innerHTML += `<div class="h-11"></div>`;
     }
 
-    // วาดวันที่ 1 ถึงวันสุดท้ายของเดือน
     for (let day = 1; day <= daysInMonth; day++) {
         const key = `${calendarViewYear}-${String(calendarViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const stats = getDayStatsForCalendar(key);
@@ -1207,7 +1212,6 @@ function renderCalendarMonth() {
 
         let dotsHtml = `<div class="h-2 flex items-center justify-center gap-1 mt-0.5"></div>`;
         if (stats && stats.totalCal > 0) {
-            // 1. จุดซ้าย: แคลอรี (<1500 เขียว, 1500-2000 ส้ม, >2000 แดง)
             let calDotClass = 'bg-emerald-400';
             if (stats.totalCal > 2000) {
                 calDotClass = 'bg-rose-500';
@@ -1215,7 +1219,6 @@ function renderCalendarMonth() {
                 calDotClass = 'bg-orange-400';
             }
 
-            // 2. จุดขวา: โปรตีนเทียบเป้า 96g (<50% แดง, 50-75% เหลือง, >=75% เขียว)
             const protPct = (stats.totalProt / 96) * 100;
             let protDotClass = 'bg-emerald-400';
             if (protPct < 50) {
@@ -1271,7 +1274,6 @@ function renderCalendarDayDetail(dateKey) {
     const protPct = Math.round((stats.totalProt / 96) * 100);
     const remaining = (1500 + stats.totalBurn) - stats.totalCal;
 
-    // สร้างรายการอาหารย่อแยกตามมื้อสำหรับกดขยายดู
     let mealsBreakdown = '';
     mealTypes.forEach(mType => {
         const list = (stats.dayObj.meals && stats.dayObj.meals[mType]) || [];
@@ -1313,7 +1315,6 @@ function renderCalendarDayDetail(dateKey) {
             </div>
         </div>
 
-        <!-- ปุ่มกดขยายดูรายการอาหารทั้งหมดของวันนั้น -->
         <details class="pt-1">
             <summary class="text-[11px] text-amber-400 font-medium cursor-pointer select-none hover:underline">
                 กดเพื่อขยายดูรายการอาหารทั้งหมดของวันนี้
