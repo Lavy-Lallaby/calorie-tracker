@@ -388,10 +388,13 @@ function getCalorieAdjustment(dateKey) {
 
 function getNutrientAdjustments(dateKey) {
     const baseTargetCal = Number(userGoals.calories) || 1500;
+    const targetCarbs = Number(userGoals.carbsMax) || Math.round((baseTargetCal * 0.50) / 4);
+    const targetFat = Number(userGoals.fatMax) || Math.round((baseTargetCal * 0.30) / 9);
+
     const baseLimits = {
-        carbs: { label: "คาร์บ", max: Math.round((baseTargetCal * 0.50) / 4), floor: 80, unit: "g", dec: 1 },
+        carbs: { label: "คาร์บ", max: targetCarbs, floor: Math.min(25, Math.round(targetCarbs * 0.6)), unit: "g", dec: 1 },
         sugar: { label: "น้ำตาล", max: 24, floor: 6, unit: "g", dec: 1 },
-        fat: { label: "ไขมันรวม", max: Math.round((baseTargetCal * 0.30) / 9), floor: 25, unit: "g", dec: 1 },
+        fat: { label: "ไขมันรวม", max: targetFat, floor: Math.round(targetFat * 0.6), unit: "g", dec: 1 },
         satFat: { label: "ไขมันอิ่มตัว", max: 16, floor: 5, unit: "g", dec: 1 },
         transFat: { label: "ไขมันทรานส์", max: 0, floor: 0, unit: "g", dec: 1 },
         sodium: { label: "โซเดียม", max: 2000, floor: 1000, unit: "mg", dec: 0 },
