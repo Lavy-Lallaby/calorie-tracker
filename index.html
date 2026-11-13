@@ -38,6 +38,9 @@
             <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลเดี๋ยวนี้" class="bg-slate-800 active:bg-slate-700 text-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition border border-slate-700">
                 <i id="sync-icon" class="fa-solid fa-cloud-arrow-down text-xs text-sky-400"></i>
             </button>
+            <button type="button" onclick="openReportModal()" title="รายงานสรุปรายสัปดาห์/รายเดือน" class="bg-slate-800 active:bg-slate-700 text-slate-200 text-xs px-2.5 py-2 rounded-full font-medium transition flex items-center gap-1 border border-slate-700">
+                <i class="fa-solid fa-chart-pie text-emerald-400"></i> <span>สรุปผล</span>
+            </button>
             <button type="button" onclick="openCalendarModal()" class="bg-slate-800 active:bg-slate-700 text-slate-200 text-xs px-2.5 py-2 rounded-full font-medium transition flex items-center gap-1 border border-slate-700">
                 <i class="fa-solid fa-calendar-days text-amber-400"></i> <span id="current-date-badge">วันนี้</span>
             </button>
@@ -163,7 +166,7 @@
         <!-- Meals Container -->
         <div id="meals-container" class="space-y-4"></div>
 
-        <!-- Water & Weight Tracker Card (สุขภาพเพิ่มเติม) -->
+        <!-- Water & Weight Tracker Card -->
         <section class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3.5">
             <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
                 <div class="flex items-center space-x-2">
@@ -211,7 +214,6 @@
                         <span class="text-[10px] text-slate-400 shrink-0" id="goal-weight-diff">เป้า - kg</span>
                     </div>
                 </div>
-                <!-- กราฟแนวโน้มน้ำหนัก 7 วัน -->
                 <div id="weight-trend-container" class="pt-1 border-t border-slate-800/60"></div>
             </div>
         </section>
@@ -330,79 +332,77 @@
                     </div>
                 </div>
 
+                <!-- โปรตีน -->
+                <div>
+                    <label class="block text-[11px] font-medium text-emerald-400 mb-1">โปรตีน (g)</label>
+                    <input type="number" step="0.1" id="food-protein" placeholder="0" 
+                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                        oninput="updateBaseNutritionFromInputs()">
+                </div>
+
+                <!-- แถวที่ 1: คาร์บ | น้ำตาล | ไฟเบอร์ -->
                 <div class="grid grid-cols-3 gap-2">
-                   <!-- โปรตีน (เต็มแถวเด่นๆ) -->
                     <div>
-                        <label class="block text-[11px] font-medium text-emerald-400 mb-1">โปรตีน (g)</label>
-                        <input type="number" step="0.1" id="food-protein" placeholder="0" 
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">คาร์บ (g)</label>
+                        <input type="number" step="0.1" id="food-carbs" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                             oninput="updateBaseNutritionFromInputs()">
                     </div>
-    
-                    <!-- แถวที่ 1: คาร์บ | น้ำตาล | ไฟเบอร์ -->
-                    <div class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[11px] font-medium text-slate-300 mb-1">คาร์บ (g)</label>
-                            <input type="number" step="0.1" id="food-carbs" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-pink-400 mb-1">น้ำตาล (g)</label>
-                            <input type="number" step="0.1" id="food-sugar" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-teal-400 mb-1">ไฟเบอร์ (g)</label>
-                            <input type="number" step="0.1" id="food-fiber" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-pink-400 mb-1">น้ำตาล (g)</label>
+                        <input type="number" step="0.1" id="food-sugar" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
-    
-                    <!-- แถวที่ 2: ไขมันรวม | ไขมันอิ่มตัว | ไขมันทรานส์ -->
-                    <div class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[11px] font-medium text-slate-300 mb-1">ไขมันรวม (g)</label>
-                            <input type="number" step="0.1" id="food-fat" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-orange-300 mb-1">ไขมันอิ่มตัว (g)</label>
-                            <input type="number" step="0.1" id="food-satfat" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-red-400 mb-1">ไขมันทรานส์ (g)</label>
-                            <input type="number" step="0.1" id="food-transfat" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-teal-400 mb-1">ไฟเบอร์ (g)</label>
+                        <input type="number" step="0.1" id="food-fiber" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
-    
-                    <!-- แถวที่ 3: โซเดียม | โพแทสเซียม | คอเลสเตอรอล -->
-                    <div class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[11px] font-medium text-amber-400 mb-1">โซเดียม (mg)</label>
-                            <input type="number" id="food-sodium" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-lime-400 mb-1">โพแทสเซียม (mg)</label>
-                            <input type="number" id="food-potassium" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-rose-400 mb-1">คอเลสเตอรอล (mg)</label>
-                            <input type="number" id="food-cholesterol" placeholder="0" 
-                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                oninput="updateBaseNutritionFromInputs()">
-                        </div>
+                </div>
+
+                <!-- แถวที่ 2: ไขมันรวม | ไขมันอิ่มตัว | ไขมันทรานส์ -->
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">ไขมันรวม (g)</label>
+                        <input type="number" step="0.1" id="food-fat" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-orange-300 mb-1">ไขมันอิ่มตัว (g)</label>
+                        <input type="number" step="0.1" id="food-satfat" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-red-400 mb-1">ไขมันทรานส์ (g)</label>
+                        <input type="number" step="0.1" id="food-transfat" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
+                    </div>
+                </div>
+
+                <!-- แถวที่ 3: โซเดียม | โพแทสเซียม | คอเลสเตอรอล -->
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-medium text-amber-400 mb-1">โซเดียม (mg)</label>
+                        <input type="number" id="food-sodium" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-lime-400 mb-1">โพแทสเซียม (mg)</label>
+                        <input type="number" id="food-potassium" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-rose-400 mb-1">คอเลสเตอรอล (mg)</label>
+                        <input type="number" id="food-cholesterol" placeholder="0" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            oninput="updateBaseNutritionFromInputs()">
                     </div>
                 </div>
 
@@ -625,6 +625,33 @@
         </div>
     </div>
 
-    <script src="script.js?v=18"></script>
+    <!-- Weekly & Monthly Report Modal -->
+    <div id="report-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 w-full max-w-md rounded-3xl border border-slate-800 p-4 space-y-3.5 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-emerald-400"></i> รายงานสรุปสุขภาพ & โภชนาการ
+                </h3>
+                <button onclick="closeReportModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- ปุ่มสลับ รายสัปดาห์ (7 วัน) / รายเดือน (30 วัน) -->
+            <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button type="button" id="report-tab-7" onclick="switchReportPeriod(7)" class="py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white">
+                    รายสัปดาห์ (7 วัน)
+                </button>
+                <button type="button" id="report-tab-30" onclick="switchReportPeriod(30)" class="py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white">
+                    รายเดือน (30 วัน)
+                </button>
+            </div>
+
+            <!-- พื้นที่แสดงผลรายงาน -->
+            <div id="report-content-container" class="space-y-3.5"></div>
+        </div>
+    </div>
+
+    <script src="script.js?v=19"></script>
 </body>
 </html>
