@@ -278,9 +278,14 @@
             <!-- Workout List -->
             <div id="workouts-list" class="space-y-1"></div>
 
-            <button type="button" onclick="openWorkoutModal()" class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 text-slate-300 text-xs font-medium py-2 rounded-xl transition flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-plus text-orange-400"></i> เพิ่มการออกกำลังกาย
-            </button>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="openWorkoutCourseModal()" class="bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/50 text-indigo-300 text-xs font-semibold py-2 rounded-xl transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-dumbbell text-amber-400"></i> คอร์สเวท & ตารางฝึก
+                </button>
+                <button type="button" onclick="openWorkoutModal()" class="bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 text-slate-300 text-xs font-medium py-2 rounded-xl transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-plus text-orange-400"></i> บันทึกกิจกรรมเอง
+                </button>
+            </div>
         </section>
 
         <!-- Smart Nutrition Coach Container -->
@@ -765,6 +770,67 @@
         </div>
     </div>
 
-    <script src="script.js?v=23"></script>
+    <!-- Home Workout Course & Planner Modal -->
+    <div id="course-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 w-full max-w-md rounded-3xl border border-slate-800 p-4 space-y-3.5 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-dumbbell text-amber-400"></i> คอร์สเวทเทรนนิ่งที่บ้าน (ไม่ใช้เครื่อง)
+                </h3>
+                <button onclick="closeWorkoutCourseModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- สเต็ปที่ 1: ถามอุปกรณ์ที่มี & จำนวนวันที่สะดวก -->
+            <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-2.5">
+                <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-question"></i> 1. ตอนนี้คุณมีอุปกรณ์อะไรบ้าง? (เลือกได้หลายข้อ)
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 text-xs" id="equipment-checkbox-group">
+                    <label class="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 cursor-pointer">
+                        <input type="checkbox" value="bodyweight" checked disabled class="accent-indigo-500">
+                        <span class="text-slate-200">มือเปล่า (Bodyweight)</span>
+                    </label>
+                    <label class="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 cursor-pointer">
+                        <input type="checkbox" id="eq-chair" value="chair" checked onchange="saveCourseConfig()" class="accent-indigo-500">
+                        <span class="text-slate-200">เก้าอี้ / ขอบโต๊ะ</span>
+                    </label>
+                    <label class="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 cursor-pointer">
+                        <input type="checkbox" id="eq-band" value="band" onchange="saveCourseConfig()" class="accent-indigo-500">
+                        <span class="text-slate-200">ยางยืดแรงต้าน</span>
+                    </label>
+                    <label class="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 cursor-pointer">
+                        <input type="checkbox" id="eq-dumbbell" value="dumbbell" onchange="saveCourseConfig()" class="accent-indigo-500">
+                        <span class="text-slate-200">ดัมเบล / ขวดน้ำ</span>
+                    </label>
+                </div>
+
+                <div class="pt-1">
+                    <label class="block text-[11px] font-semibold text-sky-300 mb-1">2. เลือกรูปแบบตารางวันออก & วันพัก</label>
+                    <select id="course-schedule-select" onchange="saveCourseConfig()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <option value="3days">เวท 3 วัน (จ. / พ. / ศ.) + คาร์ดิโอ 2 วัน + พัก 2 วัน</option>
+                        <option value="4days">เวท 4 วัน (จ. / อ. / พฤ. / ศ. แยกบน-ล่าง) + พัก 3 วัน</option>
+                        <option value="5days">เวท 5 วัน (จ.–ศ. แยกส่วน) + พักเสาร์-อาทิตย์</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ปุ่มสลับดู: ตารางฝึกวันนี้ vs คลังท่าเวททั้งหมด -->
+            <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button type="button" id="course-tab-today" onclick="switchCourseTab('today')" class="py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white">
+                    ตารางวันออก & วันพัก
+                </button>
+                <button type="button" id="course-tab-library" onclick="switchCourseTab('library')" class="py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white">
+                    คลังท่าทั้งหมด (ไม่ใช้เครื่อง)
+                </button>
+            </div>
+
+            <!-- พื้นที่แสดงผลคอร์สและท่าฝึก -->
+            <div id="course-content-container" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <script src="script.js?v=24"></script>
 </body>
 </html>
