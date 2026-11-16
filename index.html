@@ -67,17 +67,29 @@
             <div id="weekly-chart-container" class="pt-2"></div>
         </section>
 
-        <!-- Date Indicator & Navigation -->
-        <div class="flex justify-between items-center bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-slate-800 shadow-sm">
-            <button onclick="changeDay(-1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
-                <i class="fa-solid fa-chevron-left text-xs"></i>
-            </button>
-            <div id="display-date" class="text-sm font-semibold text-slate-200 text-center">
-                กำลังโหลดวันที่...
+        <!-- Date Indicator & Navigation + Future Planner -->
+        <div class="bg-slate-900/80 px-4 py-2.5 rounded-2xl border border-slate-800 shadow-sm space-y-2">
+            <div class="flex justify-between items-center">
+                <button onclick="changeDay(-1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <div class="text-center">
+                    <div id="display-date" class="text-sm font-semibold text-slate-200">
+                        กำลังโหลดวันที่...
+                    </div>
+                    <span id="future-plan-badge" class="hidden text-[10px] text-sky-400 font-medium">
+                        <i class="fa-regular fa-calendar-check mr-0.5"></i> โหมดวางแผนล่วงหน้า (วันจริงลบ/แก้รายการที่ไม่ได้ทานได้)
+                    </span>
+                </div>
+                <button onclick="changeDay(1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
             </div>
-            <button onclick="changeDay(1)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-            </button>
+            <div id="clone-day-bar" class="hidden pt-1.5 border-t border-slate-800/70 flex justify-end">
+                <button type="button" onclick="cloneCurrentDayToTomorrow()" class="text-[11px] bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 px-3 py-1 rounded-lg border border-indigo-700/50 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-share-from-square"></i> คัดลอกแผนทั้งวันนี้ไปวันถัดไป
+                </button>
+            </div>
         </div>
 
         <!-- Summary Card -->
@@ -88,7 +100,12 @@
                     <div class="text-3xl font-extrabold text-white mt-0.5" id="calories-remaining">0 <span class="text-sm font-normal text-slate-400">kcal</span></div>
                 </div>
                 <div class="text-right">
-                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">โปรตีนวันนี้</span>
+                    <div class="flex items-center justify-end gap-1.5">
+                        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">โปรตีนวันนี้</span>
+                        <button type="button" onclick="copyDailySummaryText()" title="คัดลอกสรุปวันนี้ไปวางส่งแชท" class="bg-slate-800/90 hover:bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded-lg border border-slate-700 transition">
+                            <i class="fa-regular fa-copy"></i> แชร์สรุป
+                        </button>
+                    </div>
                     <div class="text-lg font-bold text-emerald-400 mt-0.5" id="protein-summary">0.0 / <span class="text-xs font-normal text-slate-400">96-128 g</span></div>
                 </div>
             </div>
@@ -320,6 +337,29 @@
                     <datalist id="food-catalog-list"></datalist>
                 </div>
 
+                <!-- กล่องแนบและแสดงรูปภาพอ้างอิงของเมนู -->
+                <div class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-2.5 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-medium text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-regular fa-image text-sky-400"></i> รูปอ้างอิงเมนู (ไว้เทียบปริมาณครั้งหน้า)
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="triggerFoodPhotoUpload()" class="bg-slate-800 hover:bg-slate-700 text-sky-300 text-[11px] px-2.5 py-1 rounded-lg border border-slate-700 transition">
+                                <i class="fa-solid fa-camera mr-1"></i> เลือก/ถ่ายรูป
+                            </button>
+                            <button type="button" id="remove-food-photo-btn" onclick="removeFoodPhoto()" class="hidden bg-rose-950/80 hover:bg-rose-900 text-rose-300 text-[11px] px-2 py-1 rounded-lg border border-rose-800/50 transition">
+                                ลบรูป
+                            </button>
+                        </div>
+                    </div>
+                    <input type="file" id="food-photo-input" accept="image/*" class="hidden" onchange="handleFoodPhotoSelected(event)">
+                    
+                    <div id="food-photo-preview-wrap" class="hidden relative">
+                        <img id="food-photo-preview" src="" alt="รูปอาหาร" class="w-full max-h-44 object-contain rounded-xl bg-black/50 border border-slate-800">
+                        <span id="food-photo-status" class="text-[10px] text-slate-400 block text-center mt-1"></span>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">จำนวน (ตัวคูณ)</label>
@@ -477,7 +517,7 @@
         </div>
     </div>
 
-    <!-- Settings Modal (Goals + Catalog Manager + GitHub Sync + Gemini AI) -->
+    <!-- Settings Modal (Programs + BMR/TDEE + Catalog + GitHub + Export CSV + Gemini) -->
     <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 w-full max-w-md rounded-3xl border border-slate-800 p-5 space-y-4 max-h-[92vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -496,7 +536,6 @@
                         <i class="fa-solid fa-bullseye"></i> เลือกโปรแกรม & เป้าหมายส่วนตัว
                     </div>
 
-                    <!-- Dropdown เลือกโปรแกรมสำเร็จรูป -->
                     <div>
                         <label class="block text-[11px] text-amber-300 font-medium mb-1">เลือกโปรแกรมสำเร็จรูป (ปรับค่าอัตโนมัติ)</label>
                         <select id="goal-preset-select" onchange="applyGoalPreset(this.value)"
@@ -508,9 +547,7 @@
                             <option value="lean_bulk">🏋️ เพิ่มน้ำหนัก & สร้างกล้ามเนื้อ (2,300 kcal | C 50%)</option>
                             <option value="custom">✏️ กำหนดตัวเลขเองทั้งหมด (Custom)</option>
                         </select>
-                        <p id="preset-desc-label" class="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                            เน้นโปรตีนเพื่อรักษามวลกล้ามเนื้อขณะลดไขมัน
-                        </p>
+                        <p id="preset-desc-label" class="text-[10px] text-slate-400 mt-1 leading-relaxed"></p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-800/80">
@@ -553,13 +590,62 @@
                     </div>
                 </div>
 
-                <!-- 2. Food Catalog Manager Button -->
-                <button type="button" onclick="openCatalogManagerModal()" class="w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-300 text-xs font-semibold py-2.5 px-3 rounded-2xl flex justify-between items-center transition">
-                    <span><i class="fa-solid fa-utensils mr-1.5"></i> จัดการฐานข้อมูลเมนูที่บันทึกไว้ (<span id="catalog-count-badge">0</span>)</span>
-                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
-                </button>
+                <!-- 2. BMR & TDEE Calculator Section -->
+                <details class="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800">
+                    <summary class="text-xs font-semibold text-purple-400 flex items-center justify-between cursor-pointer select-none">
+                        <span><i class="fa-solid fa-calculator mr-1.5"></i> คำนวณ BMR & TDEE ตามน้ำหนักตัว</span>
+                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </summary>
+                    <div class="pt-3 mt-2.5 border-t border-slate-800 space-y-2.5">
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">เพศ</label>
+                                <select id="bmr-gender" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
+                                    <option value="male">ชาย</option>
+                                    <option value="female">หญิง</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">อายุ (ปี)</label>
+                                <input type="number" id="bmr-age" value="28" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">ส่วนสูง (cm)</label>
+                                <input type="number" id="bmr-height" value="170" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">น้ำหนักปัจจุบัน (kg)</label>
+                                <input type="number" step="0.1" id="bmr-weight" placeholder="65" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">ระดับกิจกรรม</label>
+                                <select id="bmr-activity" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
+                                    <option value="1.2">นั่งทำงาน (x1.2)</option>
+                                    <option value="1.375" selected>ออกกำลัง 1-3 วัน (x1.375)</option>
+                                    <option value="1.55">ออกกำลัง 3-5 วัน (x1.55)</option>
+                                    <option value="1.725">ออกกำลังหนัก (x1.725)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="bmr-result-box" class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-[11px] flex justify-between items-center gap-2">
+                            <div class="text-slate-300">กรอกข้อมูลเพื่อคำนวณ</div>
+                        </div>
+                    </div>
+                </details>
 
-                <!-- 3. GitHub Sync Section -->
+                <!-- 3. Food Catalog Manager & CSV Export -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="openCatalogManagerModal()" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-300 text-xs font-semibold py-2.5 px-3 rounded-2xl flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-utensils"></i> คลังเมนู (<span id="catalog-count-badge">0</span>)
+                    </button>
+                    <button type="button" onclick="exportHistoryToCSV()" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-emerald-300 text-xs font-semibold py-2.5 px-3 rounded-2xl flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-file-csv"></i> Export Excel
+                    </button>
+                </div>
+
+                <!-- 4. GitHub Sync Section -->
                 <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2.5">
                     <div class="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
                         <i class="fa-brands fa-github"></i> ซิงก์ข้ามเครื่อง (fittracker-db/db.json)
@@ -579,7 +665,7 @@
                     </div>
                 </div>
 
-                <!-- 4. Gemini AI Section -->
+                <!-- 5. Gemini AI Section -->
                 <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
                     <div class="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Gemini AI (สำหรับปุ่มถ่ายรูปอาหาร)
@@ -666,7 +752,6 @@
                 </button>
             </div>
 
-            <!-- ปุ่มสลับ รายสัปดาห์ (7 วัน) / รายเดือน (30 วัน) -->
             <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
                 <button type="button" id="report-tab-7" onclick="switchReportPeriod(7)" class="py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white">
                     รายสัปดาห์ (7 วัน)
@@ -676,11 +761,10 @@
                 </button>
             </div>
 
-            <!-- พื้นที่แสดงผลรายงาน -->
             <div id="report-content-container" class="space-y-3.5"></div>
         </div>
     </div>
 
-    <script src="script.js?v=21"></script>
+    <script src="script.js?v=23"></script>
 </body>
 </html>
