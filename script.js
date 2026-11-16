@@ -3166,5 +3166,114 @@ function renderWorkoutCourseContent() {
     `;
 }
 
+// เก็บแมปชื่อท่า -> พาธรูปบน GitHub (ซิงก์ร่วมกับ db.json ได้)
+let exercisePhotosMap = JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}');
+let activeExerciseNameForPhoto = '';
+
+function openExercisePhotoModal(exName) {
+    activeExerciseNameForPhoto = exName;
+    document.getElementById('ex-photo-title').innerText = exName;
+    document.getElementById('exercise-photo-modal').classList.remove('hidden');
+    loadExercisePhoto(exName);
+}
+
+function closeExercisePhotoModal() {
+    document.getElementById('exercise-photo-modal').classList.add('hidden');
+}
+
+function triggerExercisePhotoUpload() {
+    const input = document.getElementById('ex-photo-input');
+    input.value = '';
+    input.click();
+}
+
+async function loadExercisePhoto(exName) {
+    const box = document.getElementById('ex-photo-display-box');
+    const status = document.getElementById('ex-photo-status');
+    const photoPath = exercisePhotosMap[exName];
+
+    if (!photoPath) {
+        box.innerHTML = `<div class="text-center p-6 space-y-1"><i class="fa-regular fa-image text-2xl text-slate-600"></i><div class="text-xs text-slate-400">ยังไม่มีรูปตัวอย่าง กดปุ่มด้านล่างเพื่อใส่รูปที่เจนไว้ได้เลย</div></div>`;
+        status.innerText = "";
+        return;
+    }
+
+    if (photoBlobCache[photoPath]) {
+        box.innerHTML = `<img src="${photoBlobCache[photoPath]}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
+        status.innerText = "โหลดจากแคชแล้ว";
+        return;
+    }
+
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        status.innerText = "กรุณาใส่ GitHub Token เพื่อโหลดรูป";
+        return;
+    }
+
+    box.innerHTML = `<div class="text-xs text-sky-400 py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังโหลดรูปตัวอย่าง...</div>`;
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${photoPath}`;
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const dataUrl = `data:image/jpeg;base64,${data.content.replace(/\s/g, '')}`;
+        photoBlobCache[photoPath] = dataUrl;
+        box.innerHTML = `<img src="${dataUrl}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
+        status.innerText = "ซิงก์จาก Cloud แล้ว";
+    } catch (e) {
+        box.innerHTML = `<div class="text-xs text-rose-400 py-6">ไม่พบไฟล์รูปบน Cloud</div>`;
+    }
+}
+
+async function handleExercisePhotoSelected(event) {
+    const file = event.target.files[0];
+    if (!file || !activeExerciseNameForPhoto) return;
+
+    const status = document.getElementById('ex-photo-status');
+    const box = document.getElementById('ex-photo-display-box');
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอัปโหลดรูป...';
+
+    // ย่อที่ความกว้าง 900px เพื่อให้อ่านตัวหนังสือสเต็ปในรูปได้คมชัด
+    const base64 = await resizeImageToBase64(file, 900);
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        alert("กรุณาเชื่อมต่อ GitHub Token ในหน้าตั้งค่า (⚙️) ก่อนอัปโหลดรูปครับ");
+        return;
+    }
+
+    const fileName = `exercises/ex_${Date.now()}.jpg`;
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${fileName}`;
+
+    try {
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Upload exercise guide ${activeExerciseNameForPhoto}`,
+                content: base64
+            })
+        });
+        if (!res.ok) throw new Error("Upload failed");
+
+        const dataUrl = `data:image/jpeg;base64,${base64}`;
+        photoBlobCache[fileName] = dataUrl;
+        exercisePhotosMap[activeExerciseNameForPhoto] = fileName;
+        localStorage.setItem('fitTracker_ex_photos', JSON.stringify(exercisePhotosMap));
+
+        box.innerHTML = `<img src="${dataUrl}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
+        status.innerText = "บันทึกขึ้น Cloud เรียบร้อย!";
+        renderWorkoutCourseContent();
+        await pushToGitHub(false);
+    } catch (err) {
+        status.innerText = "อัปโหลดไม่สำเร็จ";
+    }
+}
+
 // Initialize on load
 window.onload = initApp;
