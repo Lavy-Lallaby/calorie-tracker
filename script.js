@@ -2830,5 +2830,341 @@ function renderHealthReport(daysCount) {
     `;
 }
 
+// ==========================================
+// Home Workout Course & Non-Machine Exercise Library
+// ==========================================
+let courseConfig = Object.assign(
+    { equipment: ['bodyweight', 'chair'], schedule: '3days' },
+    JSON.parse(localStorage.getItem('fitTracker_course') || '{}')
+);
+let currentCourseTab = 'today';
+
+// คลังท่าเวทเทรนนิ่งทั้งหมดแบบ "ไม่ใช้เครื่อง" แยกตามกลุ่มกล้ามเนื้อและอุปกรณ์
+const nonMachineExercises = [
+    // ขาและสะโพก (Legs & Glutes)
+    { name: "Bodyweight Squat (สควอท)", muscle: "ขา & ก้น", eq: "bodyweight", reps: "15 ครั้ง × 3 เซต", tip: "ย่อก้นไปด้านหลัง หลังตรง เข่าไม่เลยปลายเท้ามากเกินไป" },
+    { name: "Reverse Lunges (ก้าวถอยหลังย่อเข่า)", muscle: "ขา & ก้น", eq: "bodyweight", reps: "ข้างละ 10-12 ครั้ง × 3 เซต", tip: "ก้าวถอยหลังช่วยเซฟหัวเข่าได้ดีกว่าก้าวไปข้างหน้า" },
+    { name: "Glute Bridge (นอนยกสะโพก)", muscle: "ขา & ก้น", eq: "bodyweight", reps: "15 ครั้ง × 3 เซต", tip: "ดันส้นเท้าขึ้น บีบก้นค้างไว้ 1-2 วินาทีจังหวะบนสุด" },
+    { name: "Wall Sit (นั่งพิงกำแพง)", muscle: "ขา & ก้น", eq: "bodyweight", reps: "ค้างไว้ 30-45 วินาที × 3 เซต", tip: "พิงหลังแนบกำแพง งอเข่า 90 องศา เกร็งหน้าขา" },
+    { name: "Calf Raises (ยืนเขย่งน่อง)", muscle: "ขา & ก้น", eq: "bodyweight", reps: "20 ครั้ง × 3 เซต", tip: "เขย่งขึ้นให้สุดแล้วค่อยๆ ผ่อนส้นเท้าลงช้าๆ" },
+    { name: "Bulgarian Split Squat (พาดขาหลังกับเก้าอี้)", muscle: "ขา & ก้น", eq: "chair", reps: "ข้างละ 10 ครั้ง × 3 เซต", tip: "วางหลังเท้าข้างหนึ่งบนเก้าอี้ ย่อตัวลงเน้นต้นขาและก้นเต็มๆ" },
+    { name: "Band Squat (สควอทต้านยางยืด)", muscle: "ขา & ก้น", eq: "band", reps: "15 ครั้ง × 3 เซต", tip: "เหยียบยางยืดไว้แล้วคล้องไหล่ เพิ่มแรงต้านตอนดันตัวขึ้น" },
+    { name: "Dumbbell Goblet Squat (ถือดัมเบลสควอท)", muscle: "ขา & ก้น", eq: "dumbbell", reps: "12-15 ครั้ง × 3 เซต", tip: "ถือดัมเบล/ขวดน้ำชิดอก ย่อตัวลงลึก หลังตรง" },
+
+    // หน้าอก (Chest)
+    { name: "Standard Push-ups (วิดพื้นมาตรฐาน)", muscle: "หน้าอก", eq: "bodyweight", reps: "10-15 ครั้ง × 3 เซต", tip: "ลำตัวตรงเป็นเส้นเดียว กางศอกทำมุม 45 องศากับลำตัว" },
+    { name: "Wide Push-ups (วิดพื้นกางแขนกว้าง)", muscle: "หน้าอก", eq: "bodyweight", reps: "10-12 ครั้ง × 3 เซต", tip: "วางมือกว้างกว่าหัวไหล่ เน้นกล้ามเนื้อหน้าอกด้านนอก" },
+    { name: "Incline Push-ups (วิดพื้นกับขอบโต๊ะ/เก้าอี้)", muscle: "หน้าอก", eq: "chair", reps: "12-15 ครั้ง × 3 เซต", tip: "วางมือบนขอบโต๊ะที่มั่นคง เหมาะสำหรับเริ่มต้นหรือวอร์มอก" },
+    { name: "Decline Push-ups (พาดเท้าบนเก้าอี้วิดพื้น)", muscle: "หน้าอก", eq: "chair", reps: "8-12 ครั้ง × 3 เซต", tip: "วางเท้าบนเก้าอี้ มือยันพื้น เน้นหน้าอกส่วนบนและหัวไหล่" },
+    { name: "Band Chest Press (ดันยางยืดอ้อมหลัง)", muscle: "หน้าอก", eq: "band", reps: "15 ครั้ง × 3 เซต", tip: "คล้องยางยืดอ้อมใต้รักแร้ด้านหลัง แล้วดันแขนไปข้างหน้า" },
+    { name: "Dumbbell Floor Press (นอนพื้นดันดัมเบล)", muscle: "หน้าอก", eq: "dumbbell", reps: "12 ครั้ง × 3 เซต", tip: "นอนหงายชันเข่า ดันดัมเบลขึ้นตรงๆ เหนืออก" },
+
+    // แผ่นหลัง (Back)
+    { name: "Superman Hold (นอนคว่ำยกอก-ขา)", muscle: "แผ่นหลัง", eq: "bodyweight", reps: "12-15 ครั้ง × 3 เซต", tip: "ยกอกและต้นขาขึ้นพร้อมกัน เกร็งหลังส่วนล่างค้าง 2 วินาที" },
+    { name: "Reverse Snow Angels (วาดแขนบีบสะบัก)", muscle: "แผ่นหลัง", eq: "bodyweight", reps: "12 ครั้ง × 3 เซต", tip: "นอนคว่ำ ยกอกลอยเล็กน้อย วาดแขนจากข้างตัวไปเหนือหัว" },
+    { name: "Table / Inverted Row (ดึงตัวใต้โต๊ะ)", muscle: "แผ่นหลัง", eq: "chair", reps: "8-12 ครั้ง × 3 เซต", tip: "นอนใต้โต๊ะที่แข็งแรง จับขอบโต๊ะแล้วดึงอกขึ้นหาโต๊ะ" },
+    { name: "Seated Band Row (นั่งดึงยางยืดที่ฝ่าเท้า)", muscle: "แผ่นหลัง", eq: "band", reps: "15 ครั้ง × 3 เซต", tip: "นั่งเหยียดขา คล้องยางยืดที่ฝ่าเท้า ดึงศอกไปด้านหลังบีบสะบัก" },
+    { name: "Band Pull-Aparts (ดึงยางยืดกางออกระดับอก)", muscle: "แผ่นหลัง", eq: "band", reps: "15 ครั้ง × 3 เซต", tip: "เหยียดแขนตรงระดับอก ดึงกางออกจนยางยืดแตะหน้าอก" },
+    { name: "Dumbbell One-Arm Row (ดึงดัมเบลข้างลำตัว)", muscle: "แผ่นหลัง", eq: "dumbbell", reps: "ข้างละ 12 ครั้ง × 3 เซต", tip: "ยันมือกับเก้าอี้ ดึงดัมเบลขึ้นข้างเอว บีบสะบัก" },
+
+    // หัวไหล่ & แขน (Shoulders & Arms)
+    { name: "Pike Push-ups (วิดพื้นโด่งก้นเน้นไหล่)", muscle: "ไหล่ & แขน", eq: "bodyweight", reps: "8-12 ครั้ง × 3 เซต", tip: "โด่งสะโพกเป็นรูปตัว V คว่ำ งอศอกลดศีรษะลงหาพื้น" },
+    { name: "Diamond Push-ups (วิดพื้นมือชิดเน้นหลังแขน)", muscle: "ไหล่ & แขน", eq: "bodyweight", reps: "8-10 ครั้ง × 3 เซต", tip: "วางมือชิดกันเป็นรูปเพชร เน้นกล้ามเนื้อหลังแขนและอกใน" },
+    { name: "Chair Dips (ดิปหลังแขนกับเก้าอี้)", muscle: "ไหล่ & แขน", eq: "chair", reps: "10-15 ครั้ง × 3 เซต", tip: "หันหลังให้เก้าอี้ ใช้มือยันขอบแล้วย่อตัวงอศอกลง-ดันขึ้น" },
+    { name: "Band Lateral Raises (กางแขนยางยืดไหล่ข้าง)", muscle: "ไหล่ & แขน", eq: "band", reps: "15 ครั้ง × 3 เซต", tip: "เหยียบกลางยางยืด กางแขนออกด้านข้างระดับหัวไหล่" },
+    { name: "Band Bicep Curls (พับแขนยางยืดหน้าแขน)", muscle: "ไหล่ & แขน", eq: "band", reps: "15 ครั้ง × 3 เซต", tip: "ล็อกข้อศอกแนบข้างลำตัว พับแขนดึงยางยืดขึ้นหาไหล่" },
+    { name: "Dumbbell Shoulder Press & Curls", muscle: "ไหล่ & แขน", eq: "dumbbell", reps: "12 ครั้ง × 3 เซต", tip: "ดันดัมเบลเหนือศีรษะสลับกับพับแขนเล่นหน้าแขน" },
+
+    // แกนกลางลำตัว (Core & Abs)
+    { name: "Forearm Plank (แพลงก์ตั้งศอก)", muscle: "หน้าท้อง & แกนกลาง", eq: "bodyweight", reps: "ค้างไว้ 30-60 วินาที × 3 เซต", tip: "เกร็งหน้าท้องและก้น อย่าให้หลังแอ่นหรือก้นโด่ง" },
+    { name: "Dead Bug (นอนหงายสลับแขน-ขา)", muscle: "หน้าท้อง & แกนกลาง", eq: "bodyweight", reps: "12-16 ครั้ง × 3 เซต", tip: "กดหลังส่วนล่างให้ติดพื้นตลอดเวลาขณะเหยียดแขน-ขา" },
+    { name: "Mountain Climbers (วิ่งปีนเขากับพื้น)", muscle: "หน้าท้อง & แกนกลาง", eq: "bodyweight", reps: "30 วินาที × 3 เซต", tip: "ตั้งท่าวิดพื้น แทงเข่าสลับซ้าย-ขวาเร็วๆ ได้ทั้งท้องและคาร์ดิโอ" },
+    { name: "Russian Twist (นั่งบิดลำตัวซ้าย-ขวา)", muscle: "หน้าท้อง & แกนกลาง", eq: "bodyweight", reps: "20 ครั้ง × 3 เซต", tip: "เอนหลัง 45 องศา บิดไหล่ซ้าย-ขวาเน้นกล้ามเนื้อข้างเอว" }
+];
+
+function openWorkoutCourseModal() {
+    document.getElementById('eq-chair').checked = courseConfig.equipment.includes('chair');
+    document.getElementById('eq-band').checked = courseConfig.equipment.includes('band');
+    document.getElementById('eq-dumbbell').checked = courseConfig.equipment.includes('dumbbell');
+    document.getElementById('course-schedule-select').value = courseConfig.schedule || '3days';
+
+    switchCourseTab('today');
+    document.getElementById('course-modal').classList.remove('hidden');
+}
+
+function closeWorkoutCourseModal() {
+    document.getElementById('course-modal').classList.add('hidden');
+}
+
+function saveCourseConfig() {
+    let eq = ['bodyweight'];
+    if (document.getElementById('eq-chair').checked) eq.push('chair');
+    if (document.getElementById('eq-band').checked) eq.push('band');
+    if (document.getElementById('eq-dumbbell').checked) eq.push('dumbbell');
+
+    courseConfig = {
+        equipment: eq,
+        schedule: document.getElementById('course-schedule-select').value
+    };
+    localStorage.setItem('fitTracker_course', JSON.stringify(courseConfig));
+    renderWorkoutCourseContent();
+}
+
+function switchCourseTab(tab) {
+    currentCourseTab = tab;
+    const tToday = document.getElementById('course-tab-today');
+    const tLib = document.getElementById('course-tab-library');
+
+    if (tab === 'today') {
+        tToday.className = "py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white";
+        tLib.className = "py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white";
+    } else {
+        tLib.className = "py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white";
+        tToday.className = "py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white";
+    }
+    renderWorkoutCourseContent();
+}
+
+function logCourseWorkoutToToday(title, duration, calories) {
+    const dayData = getDayData(currentDateKey);
+    dayData.workouts.push({
+        type: title,
+        duration: duration,
+        calories: calories
+    });
+    closeWorkoutCourseModal();
+    saveDataAndSync();
+    alert(`บันทึก "${title}" (-${calories} kcal) ลงในรายการออกกำลังกายของวันที่ ${currentDateKey} เรียบร้อยแล้ว!`);
+}
+
+function renderWorkoutCourseContent() {
+    const container = document.getElementById('course-content-container');
+    if (!container) return;
+
+    const availableEq = courseConfig.equipment || ['bodyweight'];
+    const filteredExercises = nonMachineExercises.filter(ex => availableEq.includes(ex.eq));
+
+    // แท็บ 2: คลังท่าเวทเทรนนิ่งทั้งหมดที่ไม่ใช้เครื่อง (ตามอุปกรณ์ที่เลือก)
+    if (currentCourseTab === 'library') {
+        const groups = ["ขา & ก้น", "หน้าอก", "แผ่นหลัง", "ไหล่ & แขน", "หน้าท้อง & แกนกลาง"];
+        const eqLabels = { bodyweight: "มือเปล่า", chair: "เก้าอี้/โต๊ะ", band: "ยางยืด", dumbbell: "ดัมเบล" };
+
+        container.innerHTML = `
+            <div class="text-[11px] text-slate-400 px-1">
+                พบทั้งหมด <b class="text-white">${filteredExercises.length} ท่า</b> ที่เหมาะกับอุปกรณ์ที่คุณเลือก (ไม่ใช้เครื่องเล่นฟิตเนส)
+            </div>
+            ${groups.map(g => {
+                const list = filteredExercises.filter(ex => ex.muscle === g);
+                if (list.length === 0) return '';
+                return `
+                    <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                        <div class="text-xs font-bold text-indigo-400">${g} (${list.length} ท่า)</div>
+                        <div class="space-y-1.5">
+                            ${list.map(ex => `
+                                <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <span class="font-semibold text-white">${ex.name}</span>
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 shrink-0">${eqLabels[ex.eq]}</span>
+                                    </div>
+                                    <div class="text-[10px] text-emerald-400 font-medium mt-0.5">${ex.reps}</div>
+                                    <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        `;
+        return;
+    }
+
+    // แท็บ 1: ตารางวันออก & วันพัก + คอร์สประจำวันที่กำลังเปิดดู
+    const parts = currentDateKey.split('-');
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayOfWeek = dateObj.getDay(); // 0=อา, 1=จ, 2=อ, 3=พ, 4=พฤ, 5=ศ, 6=ส
+    const dayNamesShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+
+    const schedules = {
+        '3days': [
+            { day: 1, type: 'weight', label: 'เวททั่วร่าง A', focus: 'Full Body' },
+            { day: 2, type: 'cardio', label: 'เดินเร็ว/คาร์ดิโอ', focus: 'Cardio' },
+            { day: 3, type: 'weight', label: 'เวททั่วร่าง B', focus: 'Full Body' },
+            { day: 4, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' },
+            { day: 5, type: 'weight', label: 'เวททั่วร่าง C', focus: 'Full Body' },
+            { day: 6, type: 'cardio', label: 'เดิน/กิจกรรมเบา', focus: 'Cardio' },
+            { day: 0, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' }
+        ],
+        '4days': [
+            { day: 1, type: 'weight', label: 'ช่วงบน (อก/หลัง/แขน)', focus: 'Upper' },
+            { day: 2, type: 'weight', label: 'ช่วงล่าง (ขา/ก้น/ท้อง)', focus: 'Lower' },
+            { day: 3, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' },
+            { day: 4, type: 'weight', label: 'ช่วงบน (ไหล่/หลัง/อก)', focus: 'Upper' },
+            { day: 5, type: 'weight', label: 'ช่วงล่าง & แกนกลาง', focus: 'Lower' },
+            { day: 6, type: 'cardio', label: 'เดินเร็ว 30-40 นาที', focus: 'Cardio' },
+            { day: 0, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' }
+        ],
+        '5days': [
+            { day: 1, type: 'weight', label: 'อก & หลังแขน', focus: 'Push' },
+            { day: 2, type: 'weight', label: 'หลัง & หน้าแขน', focus: 'Pull' },
+            { day: 3, type: 'weight', label: 'ขา & สะโพก', focus: 'Legs' },
+            { day: 4, type: 'weight', label: 'หัวไหล่ & ท้อง', focus: 'ShouldersCore' },
+            { day: 5, type: 'weight', label: 'เวททั่วร่าง + เบิร์น', focus: 'FullBurn' },
+            { day: 6, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' },
+            { day: 0, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' }
+        ]
+    };
+
+    const activePlan = schedules[courseConfig.schedule] || schedules['3days'];
+    const todayPlan = activePlan.find(p => p.day === dayOfWeek);
+
+    // แถบแสดงตารางทั้ง 7 วัน (จ. - อา.)
+    const orderedWeek = [1, 2, 3, 4, 5, 6, 0].map(dIdx => activePlan.find(p => p.day === dIdx));
+    const weekStripHtml = `
+        <div class="grid grid-cols-7 gap-1 text-center">
+            ${orderedWeek.map(p => {
+                const isToday = p.day === dayOfWeek;
+                let badgeColor = 'bg-slate-900 text-slate-400 border-slate-800';
+                let icon = '🛌';
+                if (p.type === 'weight') {
+                    badgeColor = 'bg-indigo-950/80 text-indigo-300 border-indigo-700/50';
+                    icon = '💪';
+                } else if (p.type === 'cardio') {
+                    badgeColor = 'bg-orange-950/70 text-orange-300 border-orange-700/50';
+                    icon = '🏃';
+                }
+                const ring = isToday ? 'ring-2 ring-amber-400' : '';
+                return `
+                    <div class="p-1.5 rounded-xl border ${badgeColor} ${ring}">
+                        <div class="text-[10px] font-bold">${dayNamesShort[p.day]}</div>
+                        <div class="text-xs my-0.5">${icon}</div>
+                        <div class="text-[8px] leading-tight">${p.type === 'weight' ? 'เวท' : (p.type === 'cardio' ? 'คาร์ดิโอ' : 'พัก')}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    // คัดท่าฝึกตามโปรแกรมของวันนั้น
+    let routineHtml = '';
+    if (todayPlan.type === 'rest') {
+        routineHtml = `
+            <div class="bg-emerald-950/30 border border-emerald-800/40 rounded-2xl p-4 text-center space-y-2">
+                <div class="text-2xl">🛌</div>
+                <div class="text-sm font-bold text-emerald-300">วันนี้คือ "วันพักฟื้นกล้ามเนื้อ (Rest Day)"</div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    กล้ามเนื้อจะเติบโตและซ่อมแซมตัวเองในวันที่พัก ควรทานโปรตีนให้ถึงเป้า ดื่มน้ำให้เพียงพอ และนอนหลับ 7-8 ชั่วโมง (เดินเบาๆ 4,000-6,000 ก้าวได้ตามปกติครับ)
+                </p>
+            </div>
+        `;
+    } else if (todayPlan.type === 'cardio') {
+        routineHtml = `
+            <div class="bg-orange-950/30 border border-orange-800/40 rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm font-bold text-orange-300">🏃 คอร์สคาร์ดิโอ & เผาผลาญไขมัน</div>
+                    <span class="text-[10px] bg-orange-950 text-orange-300 px-2 py-0.5 rounded-full border border-orange-700/50">30-40 นาที</span>
+                </div>
+                <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><b>ตัวเลือกที่ 1:</b> เดินเร็วต่อเนื่อง 35–40 นาที (หรือเก็บให้ครบ 8,000–10,000 ก้าว)</li>
+                    <li><b>ตัวเลือกที่ 2:</b> วิ่งจ๊อกกิ้งเบาๆ หรือปั่นจักรยาน 30 นาที</li>
+                    <li><b>ตัวเลือกที่ 3 (ทำในห้อง):</b> เดินย่ำอยู่กับที่สลับ Mountain Climbers 20 นาที</li>
+                </ul>
+                <button type="button" onclick="logCourseWorkoutToToday('คอร์สเดินเร็ว/คาร์ดิโอตามตาราง', 35, 190)" class="w-full bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold py-2.5 rounded-xl transition">
+                    <i class="fa-solid fa-check mr-1"></i> บันทึกจบคาร์ดิโอวันนี้ (-190 kcal)
+                </button>
+            </div>
+        `;
+    } else {
+        // เลือกท่าตาม Focus ของวัน (Upper / Lower / Push / Pull / Legs / Full Body)
+        const pickByMuscle = (muscle, count) => {
+            const list = filteredExercises.filter(e => e.muscle === muscle);
+            // ให้ความสำคัญกับอุปกรณ์เสริมที่ผู้ใช้ติ๊กเลือกก่อน (เช่น ยางยืด/ดัมเบล) แล้วตามด้วยมือเปล่า
+            const prioritized = [
+                ...list.filter(e => e.eq !== 'bodyweight'),
+                ...list.filter(e => e.eq === 'bodyweight')
+            ];
+            return prioritized.slice(0, count);
+        };
+
+        let selectedRoutine = [];
+        if (todayPlan.focus === 'Upper') {
+            selectedRoutine = [
+                ...pickByMuscle('หน้าอก', 2),
+                ...pickByMuscle('แผ่นหลัง', 2),
+                ...pickByMuscle('ไหล่ & แขน', 2)
+            ];
+        } else if (todayPlan.focus === 'Lower') {
+            selectedRoutine = [
+                ...pickByMuscle('ขา & ก้น', 3),
+                ...pickByMuscle('หน้าท้อง & แกนกลาง', 2)
+            ];
+        } else if (todayPlan.focus === 'Push') {
+            selectedRoutine = [
+                ...pickByMuscle('หน้าอก', 3),
+                ...pickByMuscle('ไหล่ & แขน', 2)
+            ];
+        } else if (todayPlan.focus === 'Pull') {
+            selectedRoutine = [
+                ...pickByMuscle('แผ่นหลัง', 3),
+                ...pickByMuscle('ไหล่ & แขน', 2)
+            ];
+        } else if (todayPlan.focus === 'Legs') {
+            selectedRoutine = [
+                ...pickByMuscle('ขา & ก้น', 4),
+                ...pickByMuscle('หน้าท้อง & แกนกลาง', 1)
+            ];
+        } else if (todayPlan.focus === 'ShouldersCore') {
+            selectedRoutine = [
+                ...pickByMuscle('ไหล่ & แขน', 3),
+                ...pickByMuscle('หน้าท้อง & แกนกลาง', 3)
+            ];
+        } else {
+            // Full Body
+            selectedRoutine = [
+                ...pickByMuscle('ขา & ก้น', 2),
+                ...pickByMuscle('หน้าอก', 1),
+                ...pickByMuscle('แผ่นหลัง', 1),
+                ...pickByMuscle('ไหล่ & แขน', 1),
+                ...pickByMuscle('หน้าท้อง & แกนกลาง', 1)
+            ];
+        }
+
+        routineHtml = `
+            <div class="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-3 space-y-2.5">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-[10px] text-indigo-400 font-semibold block">โปรแกรมวันนี้: ${todayPlan.label}</span>
+                        <h4 class="text-xs font-bold text-white">ตารางท่าฝึก (${selectedRoutine.length} ท่า • พักระหว่างเซต 60 วิ)</h4>
+                    </div>
+                    <span class="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-700/50">~35 นาที</span>
+                </div>
+
+                <div class="space-y-1.5">
+                    ${selectedRoutine.map((ex, idx) => `
+                        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-xs">
+                            <div class="flex justify-between items-start gap-2">
+                                <span class="font-semibold text-white"><span class="text-amber-400 mr-1">${idx + 1}.</span>${ex.name}</span>
+                                <span class="text-[10px] text-emerald-400 font-semibold shrink-0">${ex.reps}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label}', 35, 210)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-xl transition shadow-lg shadow-indigo-600/20">
+                    <i class="fa-solid fa-check mr-1"></i> บันทึกจบคอร์สเวทวันนี้ (-210 kcal)
+                </button>
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="space-y-1.5">
+            <div class="text-[11px] font-semibold text-slate-300">ตารางสัปดาห์ (กรอบสีทอง = วันที่กำลังเปิดดู)</div>
+            ${weekStripHtml}
+        </div>
+        ${routineHtml}
+    `;
+}
+
 // Initialize on load
 window.onload = initApp;
