@@ -30,7 +30,7 @@ function formatDisplayDate(dateKey) {
 }
 
 // ==========================================
-// State Management & Flexible Goals
+// State Management, Programs & Flexible Goals
 // ==========================================
 let currentDateKey = getFormattedDateKey(new Date());
 let currentScanMode = 'label';
@@ -38,6 +38,10 @@ let html5QrCode = null;
 let baseNutrition = null;
 let activeMacroTip = null;
 let currentReportDays = 7;
+
+let pendingFoodPhotoBase64 = null;
+let currentFoodPhotoPath = null;
+let photoBlobCache = {};
 
 let calendarViewYear = new Date().getFullYear();
 let calendarViewMonth = new Date().getMonth();
@@ -284,6 +288,122 @@ function saveDataAndSync() {
 }
 
 // ==========================================
+// Food Photo Reference Helpers (GitHub images/ folder)
+// ==========================================
+function triggerFoodPhotoUpload() {
+    const input = document.getElementById('food-photo-input');
+    input.value = '';
+    input.click();
+}
+
+async function handleFoodPhotoSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    await setPreviewFromFile(file);
+}
+
+async function setPreviewFromFile(file) {
+    const base64 = await resizeImageToBase64(file, 500);
+    pendingFoodPhotoBase64 = base64;
+    currentFoodPhotoPath = null;
+
+    const previewImg = document.getElementById('food-photo-preview');
+    const previewWrap = document.getElementById('food-photo-preview-wrap');
+    const removeBtn = document.getElementById('remove-food-photo-btn');
+    const statusEl = document.getElementById('food-photo-status');
+
+    previewImg.src = `data:image/jpeg;base64,${base64}`;
+    previewWrap.classList.remove('hidden');
+    removeBtn.classList.remove('hidden');
+    statusEl.innerText = "พร้อมอัปโหลดขึ้น Cloud เมื่อกดบันทึก";
+}
+
+function removeFoodPhoto() {
+    pendingFoodPhotoBase64 = null;
+    currentFoodPhotoPath = null;
+    document.getElementById('food-photo-preview').src = '';
+    document.getElementById('food-photo-preview-wrap').classList.add('hidden');
+    document.getElementById('remove-food-photo-btn').classList.add('hidden');
+}
+
+async function loadFoodPhotoPreview(photoPath) {
+    const previewImg = document.getElementById('food-photo-preview');
+    const previewWrap = document.getElementById('food-photo-preview-wrap');
+    const removeBtn = document.getElementById('remove-food-photo-btn');
+    const statusEl = document.getElementById('food-photo-status');
+
+    if (!photoPath) {
+        removeFoodPhoto();
+        return;
+    }
+
+    currentFoodPhotoPath = photoPath;
+    pendingFoodPhotoBase64 = null;
+    previewWrap.classList.remove('hidden');
+    removeBtn.classList.remove('hidden');
+
+    if (photoBlobCache[photoPath]) {
+        previewImg.src = photoBlobCache[photoPath];
+        statusEl.innerText = "รูปอ้างอิงที่บันทึกไว้";
+        return;
+    }
+
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        statusEl.innerText = "ต้องเชื่อมต่อ GitHub Token เพื่อโหลดรูปจาก Cloud";
+        return;
+    }
+
+    statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังโหลดรูปอ้างอิง...';
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${photoPath}`;
+        const res = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
+        });
+        if (!res.ok) throw new Error("ไม่พบไฟล์รูป");
+        const data = await res.json();
+        const dataUrl = `data:image/jpeg;base64,${data.content.replace(/\s/g, '')}`;
+        photoBlobCache[photoPath] = dataUrl;
+        previewImg.src = dataUrl;
+        statusEl.innerText = "รูปอ้างอิงที่บันทึกไว้";
+    } catch (e) {
+        statusEl.innerText = "ไม่สามารถโหลดรูปได้";
+    }
+}
+
+async function uploadPhotoToGitHub(base64Content) {
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) return null;
+
+    const fileName = `images/food_${Date.now()}.jpg`;
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${fileName}`;
+
+    try {
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Upload food photo ${fileName}`,
+                content: base64Content
+            })
+        });
+        if (!res.ok) throw new Error("Upload image failed");
+        photoBlobCache[fileName] = `data:image/jpeg;base64,${base64Content}`;
+        return fileName;
+    } catch (err) {
+        console.error(err);
+        return null;
+    }
+}
+
+// ==========================================
 // Core App Initialization & UI Rendering
 // ==========================================
 function renderUIOnly() {
@@ -306,6 +426,26 @@ function renderDateDisplay() {
     document.getElementById('display-date').innerText = formatDisplayDate(currentDateKey);
     const todayKey = getFormattedDateKey(new Date());
     document.getElementById('current-date-badge').innerText = (currentDateKey === todayKey) ? "วันนี้" : currentDateKey;
+
+    const futureBadge = document.getElementById('future-plan-badge');
+    if (futureBadge) {
+        if (currentDateKey > todayKey) {
+            futureBadge.classList.remove('hidden');
+        } else {
+            futureBadge.classList.add('hidden');
+        }
+    }
+
+    const cloneBar = document.getElementById('clone-day-bar');
+    if (cloneBar) {
+        const dayData = getDayData(currentDateKey);
+        const hasAnyFood = Object.values(dayData.meals).some(list => list.length > 0);
+        if (hasAnyFood) {
+            cloneBar.classList.remove('hidden');
+        } else {
+            cloneBar.classList.add('hidden');
+        }
+    }
 }
 
 function changeDay(direction) {
@@ -322,6 +462,33 @@ function getPreviousDateKey(dateKey) {
     let d = new Date(parts[0], parts[1] - 1, parts[2]);
     d.setDate(d.getDate() - 1);
     return getFormattedDateKey(d);
+}
+
+function getNextDateKey(dateKey) {
+    const parts = dateKey.split('-');
+    let d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setDate(d.getDate() + 1);
+    return getFormattedDateKey(d);
+}
+
+function cloneCurrentDayToTomorrow() {
+    const dayData = getDayData(currentDateKey);
+    const totalItems = Object.values(dayData.meals).reduce((sum, list) => sum + list.length, 0);
+    if (totalItems === 0) return;
+
+    const nextKey = getNextDateKey(currentDateKey);
+    if (!confirm(`ต้องการคัดลอกรายการอาหารทั้ง ${totalItems} รายการของวันนี้ ไปวางเป็นแผนล่วงหน้าในวันที่ ${formatDisplayDate(nextKey)} ใช่ไหม?`)) {
+        return;
+    }
+
+    const nextDayData = getDayData(nextKey);
+    mealTypes.forEach(type => {
+        const cloned = JSON.parse(JSON.stringify(dayData.meals[type] || []));
+        nextDayData.meals[type].push(...cloned);
+    });
+
+    currentDateKey = nextKey;
+    saveDataAndSync();
 }
 
 function getDayData(dateKey) {
@@ -542,7 +709,7 @@ function selectChartDay(dateKey) {
 }
 
 // ==========================================
-// Meals Rendering & Copy Yesterday Feature
+// Meals Rendering, Copy Yesterday & Save Meal Combo
 // ==========================================
 function copyMealFromYesterday(mealType) {
     const yesterdayKey = getPreviousDateKey(currentDateKey);
@@ -560,6 +727,48 @@ function copyMealFromYesterday(mealType) {
     saveDataAndSync();
 }
 
+function saveMealAsCombo(mealType) {
+    const dayData = getDayData(currentDateKey);
+    const items = dayData.meals[mealType] || [];
+    if (items.length < 2) {
+        alert("ต้องมีรายการอาหารอย่างน้อย 2 อย่างในมื้อนี้ถึงจะรวมเป็นเซตได้ครับ");
+        return;
+    }
+
+    const defaultName = `เซต${mealType} (${items.map(i => i.name.split('(')[0].trim()).join(' + ')})`;
+    const comboName = prompt("ตั้งชื่อเซตอาหารรวมชุด (จะถูกบันทึกเข้าคลังเมนูเพื่อกดเลือกครั้งหน้า):", defaultName);
+    if (!comboName || !comboName.trim()) return;
+
+    const sumField = (field) => items.reduce((s, i) => s + Number(i[field] || 0), 0);
+    const round1 = (v) => Math.round(v * 10) / 10;
+
+    const comboItem = {
+        name: comboName.trim(),
+        photo: items.find(i => i.photo)?.photo || null,
+        calories: Math.round(sumField('calories')),
+        protein: round1(sumField('protein')),
+        carbs: round1(sumField('carbs')),
+        sugar: round1(sumField('sugar')),
+        fiber: round1(sumField('fiber')),
+        fat: round1(sumField('fat')),
+        satFat: round1(sumField('satFat')),
+        transFat: round1(sumField('transFat')),
+        sodium: Math.round(sumField('sodium')),
+        potassium: Math.round(sumField('potassium')),
+        cholesterol: Math.round(sumField('cholesterol'))
+    };
+
+    const existingIdx = foodCatalog.findIndex(f => f.name.toLowerCase() === comboItem.name.toLowerCase());
+    if (existingIdx === -1) {
+        foodCatalog.push(comboItem);
+    } else {
+        foodCatalog[existingIdx] = comboItem;
+    }
+
+    saveDataAndSync();
+    alert(`บันทึก "${comboItem.name}" (${comboItem.calories} kcal, โปรตีน ${comboItem.protein}g) เข้าคลังเมนูเรียบร้อยแล้ว!`);
+}
+
 function renderMeals() {
     const container = document.getElementById('meals-container');
     container.innerHTML = '';
@@ -575,8 +784,14 @@ function renderMeals() {
 
         const hasYesterday = yesterdayData && yesterdayData.meals && (yesterdayData.meals[mealType] || []).length > 0;
         const copyBtnHtml = hasYesterday
-            ? `<button type="button" onclick="copyMealFromYesterday('${mealType}')" title="ดึงรายการมื้อนี้จากเมื่อวาน" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
-                   <i class="fa-regular fa-copy mr-0.5"></i> คัดลอกเมื่อวาน
+            ? `<button type="button" onclick="copyMealFromYesterday('${mealType}')" title="ดึงรายการมื้อนี้จากเมื่อวาน" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
+                   <i class="fa-regular fa-copy"></i> เมื่อวาน
+               </button>`
+            : '';
+
+        const comboBtnHtml = items.length >= 2
+            ? `<button type="button" onclick="saveMealAsCombo('${mealType}')" title="มัดรวมรายการในมื้อนี้เป็นเซตเดียวเข้าคลัง" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-teal-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
+                   <i class="fa-solid fa-layer-group"></i> รวมเซต
                </button>`
             : '';
 
@@ -586,6 +801,7 @@ function renderMeals() {
             <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
                 <div>
                     <span class="text-white font-medium">${item.name}</span>
+                    ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[11px] ml-1" title="มีรูปอ้างอิง (กดรูปดินสอเพื่อดู)"></i>` : ''}
                     <span class="text-xs text-slate-400 ml-1.5">${qtyDisplay}</span>
                 </div>
                 <div class="flex items-center space-x-3">
@@ -605,11 +821,12 @@ function renderMeals() {
         const card = document.createElement('div');
         card.className = "bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3";
         card.innerHTML = `
-            <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5 gap-2">
-                <div class="flex items-center space-x-2">
+            <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5 gap-1.5">
+                <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
                     <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
                     <h4 class="font-semibold text-white text-sm">${mealType}</h4>
                     ${copyBtnHtml}
+                    ${comboBtnHtml}
                 </div>
                 <div class="text-xs text-slate-400 font-medium shrink-0">
                     ${totalCal} kcal | P ${totalProt.toFixed(1)}g
@@ -624,6 +841,146 @@ function renderMeals() {
         `;
         container.appendChild(card);
     });
+}
+
+// ==========================================
+// Copy Daily Summary Text for Chat/LINE
+// ==========================================
+function copyDailySummaryText() {
+    const dayData = getDayData(currentDateKey);
+    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSugar = 0, totalSodium = 0;
+
+    Object.values(dayData.meals).forEach(mealList => {
+        mealList.forEach(item => {
+            totalCal += Number(item.calories || 0);
+            totalProt += Number(item.protein || 0);
+            totalCarbs += Number(item.carbs || 0);
+            totalFat += Number(item.fat || 0);
+            totalSugar += Number(item.sugar || 0);
+            totalSodium += Number(item.sodium || 0);
+        });
+    });
+
+    const { totalBurn } = getTotalBurned(dayData);
+    const adj = getCalorieAdjustment(currentDateKey);
+    const protMin = Number(userGoals.proteinMin) || 96;
+
+    const text = [
+        `📊 สรุป FitTracker (${formatDisplayDate(currentDateKey)})`,
+        `🔥 พลังงาน: ${totalCal} / ${adj.safeTarget} kcal (เผาผลาญ ${totalBurn} kcal)`,
+        `🥩 โปรตีน: ${totalProt.toFixed(1)} / ${protMin}g | คาร์บ: ${totalCarbs.toFixed(1)}g | ไขมัน: ${totalFat.toFixed(1)}g`,
+        `🍬 น้ำตาล: ${totalSugar.toFixed(1)}g | 🧂 โซเดียม: ${Math.round(totalSodium)}mg`,
+        `💧 น้ำดื่ม: ${dayData.water || 0} ml | 👟 ก้าวเดิน: ${(dayData.steps || 0).toLocaleString()} ก้าว` + (dayData.weight ? ` | ⚖️ นน.: ${dayData.weight} kg` : '')
+    ].join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("คัดลอกข้อความสรุปประจำวันเรียบร้อยแล้ว! สามารถนำไปวางส่งในแชทได้ทันทีครับ");
+        }).catch(() => {
+            prompt("คัดลอกข้อความด้านล่างนี้:", text);
+        });
+    } else {
+        prompt("คัดลอกข้อความด้านล่างนี้:", text);
+    }
+}
+
+// ==========================================
+// Export All History to CSV (Excel)
+// ==========================================
+function exportHistoryToCSV() {
+    const sortedKeys = Object.keys(allMealsHistory).sort();
+    if (sortedKeys.length === 0) {
+        alert("ยังไม่มีข้อมูลสำหรับส่งออกครับ");
+        return;
+    }
+
+    const headers = [
+        "วันที่", "แคลอรีรวม(kcal)", "เผาผลาญ(kcal)", "โปรตีน(g)", "คาร์บ(g)",
+        "น้ำตาล(g)", "ไฟเบอร์(g)", "ไขมันรวม(g)", "ไขมันอิ่มตัว(g)", "ไขมันทรานส์(g)",
+        "โซเดียม(mg)", "โพแทสเซียม(mg)", "คอเลสเตอรอล(mg)", "น้ำดื่ม(ml)", "ก้าวเดิน", "น้ำหนัก(kg)"
+    ];
+
+    let rows = [headers.join(",")];
+
+    sortedKeys.forEach(key => {
+        const d = allMealsHistory[key];
+        if (!d) return;
+        let cal = 0, prot = 0, carbs = 0, sugar = 0, fiber = 0, fat = 0, satFat = 0, transFat = 0, sodium = 0, potas = 0, chol = 0;
+
+        if (d.meals) {
+            Object.values(d.meals).forEach(list => {
+                list.forEach(item => {
+                    cal += Number(item.calories || 0);
+                    prot += Number(item.protein || 0);
+                    carbs += Number(item.carbs || 0);
+                    sugar += Number(item.sugar || 0);
+                    fiber += Number(item.fiber || 0);
+                    fat += Number(item.fat || 0);
+                    satFat += Number(item.satFat || 0);
+                    transFat += Number(item.transFat || 0);
+                    sodium += Number(item.sodium || 0);
+                    potas += Number(item.potassium || 0);
+                    chol += Number(item.cholesterol || 0);
+                });
+            });
+        }
+        const { totalBurn } = getTotalBurned(d);
+        rows.push([
+            key, cal, totalBurn, prot.toFixed(1), carbs.toFixed(1),
+            sugar.toFixed(1), fiber.toFixed(1), fat.toFixed(1), satFat.toFixed(1), transFat.toFixed(1),
+            Math.round(sodium), Math.round(potas), Math.round(chol),
+            d.water || 0, d.steps || 0, d.weight || ""
+        ].join(","));
+    });
+
+    const csvContent = "\uFEFF" + rows.join("\n"); // ใส่ BOM ให้ Excel อ่านภาษาไทยไม่เพี้ยน
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `FitTracker_Export_${getFormattedDateKey(new Date())}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// ==========================================
+// BMR & TDEE Calculator
+// ==========================================
+function calculateBMRandTDEE() {
+    const gender = document.getElementById('bmr-gender').value;
+    const age = Number(document.getElementById('bmr-age').value) || 28;
+    const height = Number(document.getElementById('bmr-height').value) || 170;
+    const weight = Number(document.getElementById('bmr-weight').value);
+    const activity = Number(document.getElementById('bmr-activity').value) || 1.375;
+    const box = document.getElementById('bmr-result-box');
+
+    if (!weight || weight <= 0) {
+        box.innerHTML = `<div class="text-slate-400">กรอกน้ำหนักปัจจุบันเพื่อคำนวณค่าพลังงาน</div>`;
+        return;
+    }
+
+    // Mifflin-St Jeor Equation
+    const bmr = Math.round((10 * weight) + (6.25 * height) - (5 * age) + (gender === 'male' ? 5 : -161));
+    const tdee = Math.round(bmr * activity);
+    const cutCal = Math.max(1200, tdee - 450);
+
+    box.innerHTML = `
+        <div>
+            <div class="text-slate-300">BMR: <b class="text-white">${bmr.toLocaleString()}</b> | TDEE: <b class="text-sky-400">${tdee.toLocaleString()}</b> kcal</div>
+            <div class="text-emerald-400 mt-0.5">แนะนำสำหรับลดไขมัน: <b>${cutCal.toLocaleString()} kcal/วัน</b></div>
+        </div>
+        <button type="button" onclick="applyCalculatedCalories(${cutCal})" class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shrink-0 transition">
+            ใช้ค่านี้
+        </button>
+    `;
+}
+
+function applyCalculatedCalories(cal) {
+    document.getElementById('goal-cal-input').value = cal;
+    document.getElementById('goal-min-cal-input').value = Math.max(1200, cal - 300);
+    markPresetCustom();
 }
 
 // ==========================================
@@ -875,7 +1232,6 @@ function renderSummary() {
     const statusEl = document.getElementById('calorie-status');
     const rolloverBox = document.getElementById('rollover-alert-box');
 
-    // รวบรวมรายการที่วันนี้กินเกิน (เพื่อบอกโควตาวันพรุ่งนี้)
     const todayTotalsMap = {
         carbs: totalCarbs, sugar: totalSugar, fat: totalFat,
         satFat: totalSatFat, transFat: totalTransFat, sodium: totalSodium, cholesterol: totalChol
@@ -893,7 +1249,6 @@ function renderSummary() {
         }
     });
 
-    // รวบรวมรายการที่เมื่อวานกินเกิน (เพื่อบอกโควตาวันนี้ที่ถูกหักลดลง)
     let todayCapsFromYesterday = [];
     Object.keys(macroAdj).forEach(k => {
         const m = macroAdj[k];
@@ -1039,38 +1394,54 @@ function hideMacroTip() {
 }
 
 // ==========================================
-// Smart Nutrition Coach (1-Click Add + อิงโควตาชดเชย)
+// Smart Nutrition Coach (รวมเมนูจาก db.json + กรองสารอาหาร + สุ่มเปลี่ยนได้)
 // ==========================================
 const coachProteinMenus = [
     { name: "ไข่ขาวต้ม (3 ฟอง)", calories: 50, protein: 11, carbs: 1, sugar: 0, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 165, potassium: 160, cholesterol: 0, note: "โปรตีนล้วน แคลต่ำมาก ไร้ไขมัน" },
-    { name: "เวย์โปรตีนไอโซเลต (1 สกู๊ป)", calories: 120, protein: 25, carbs: 2, sugar: 1, fiber: 0, fat: 1, satFat: 0.5, transFat: 0, sodium: 80, potassium: 150, cholesterol: 15, note: "ดูดซึมไว เติมโปรตีนได้เยอะในแคลน้อย" },
+    { name: "เวย์โปรตีนไอโซเลต (1 สกู๊ป)", calories: 120, protein: 25, carbs: 2, sugar: 1, fiber: 0, fat: 1, satFat: 0.5, transFat: 0, sodium: 80, potassium: 150, cholesterol: 15, note: "ดูดซึมไว โซเดียมต่ำมาก" },
     { name: "อกไก่นุ่มเซเว่น (1 ชิ้น)", calories: 130, protein: 23, carbs: 2, sugar: 1, fiber: 0, fat: 3, satFat: 0.8, transFat: 0, sodium: 390, potassium: 220, cholesterol: 65, note: "หาซื้อง่าย อิ่มท้องนาน" },
     { name: "ทูน่าในน้ำแร่ (1 กระป๋อง)", calories: 110, protein: 24, carbs: 0, sugar: 0, fiber: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 320, potassium: 210, cholesterol: 45, note: "ไขมันต่ำมาก ยำหรือกินกับสลัดได้" },
-    { name: "กรีกโยเกิร์ต 0% (1 ถ้วย)", calories: 90, protein: 15, carbs: 6, sugar: 5, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 55, potassium: 190, cholesterol: 5, note: "ช่วยเรื่องขับถ่ายและลดอยากของหวาน" },
-    { name: "นมถั่วเหลืองโปรตีนสูง (1 ขวด)", calories: 180, protein: 28, carbs: 6, sugar: 2, fiber: 2, fat: 4.5, satFat: 0.5, transFat: 0, sodium: 150, potassium: 350, cholesterol: 0, note: "ดื่มง่าย โปรตีนแน่น" },
+    { name: "กรีกโยเกิร์ต 0% (1 ถ้วย)", calories: 90, protein: 15, carbs: 6, sugar: 5, fiber: 0, fat: 0, satFat: 0, transFat: 0, sodium: 55, potassium: 190, cholesterol: 5, note: "โซเดียมต่ำ ช่วยระบบขับถ่าย" },
+    { name: "นมถั่วเหลืองโปรตีนสูง (1 ขวด)", calories: 180, protein: 28, carbs: 6, sugar: 2, fiber: 2, fat: 4.5, satFat: 0.5, transFat: 0, sodium: 150, potassium: 350, cholesterol: 0, note: "ดื่มง่าย โปรตีนแน่น โพแทสเซียมสูง" },
     { name: "ปลานิล/ปลาทับทิมนึ่ง (1 ตัว)", calories: 220, protein: 35, carbs: 0, sugar: 0, fiber: 0, fat: 8, satFat: 2, transFat: 0, sodium: 110, potassium: 450, cholesterol: 95, note: "ย่อยง่าย เหมาะเป็นมื้อเย็น" },
-    { name: "ไข่ต้มทั้งฟอง (2 ฟอง)", calories: 150, protein: 12, carbs: 1, sugar: 1, fiber: 0, fat: 10, satFat: 3.2, transFat: 0, sodium: 140, potassium: 126, cholesterol: 372, note: "ประหยัด อิ่มนาน" }
+    { name: "ไข่ต้มทั้งฟอง (2 ฟอง)", calories: 150, protein: 12, carbs: 1, sugar: 1, fiber: 0, fat: 10, satFat: 3.2, transFat: 0, sodium: 140, potassium: 126, cholesterol: 372, note: "ประหยัด อิ่มนาน" },
+    { name: "สันในไก่ย่างเกลือพริกไทย (100g)", calories: 140, protein: 26, carbs: 0, sugar: 0, fiber: 0, fat: 3, satFat: 0.8, transFat: 0, sodium: 180, potassium: 280, cholesterol: 65, note: "นุ่มกว่าอกไก่ โปรตีนสูง" },
+    { name: "เต้าหู้ขาวอ่อนนึ่งซีอิ๊ว (1 หลอด)", calories: 115, protein: 12, carbs: 4, sugar: 1, fiber: 1, fat: 6, satFat: 0.9, transFat: 0, sodium: 210, potassium: 180, cholesterol: 0, note: "โปรตีนพืช ย่อยง่ายมากตอนเย็น" },
+    { name: "กุ้งต้ม/ลวก (10 ตัวกลาง)", calories: 95, protein: 20, carbs: 0, sugar: 0, fiber: 0, fat: 1, satFat: 0.2, transFat: 0, sodium: 190, potassium: 220, cholesterol: 150, note: "แคลน้อยมาก โปรตีนเน้นๆ" },
+    { name: "นมโปรตีนสูงรสจืด (1 ขวด 350ml)", calories: 190, protein: 27, carbs: 10, sugar: 8, fiber: 0, fat: 4.5, satFat: 2.5, transFat: 0, sodium: 170, potassium: 420, cholesterol: 15, note: "หาซื้อได้ตามร้านสะดวกซื้อ" },
+    { name: "ถั่วแระญี่ปุ่นต้ม (1 ถ้วยเล็ก)", calories: 120, protein: 11, carbs: 9, sugar: 2, fiber: 5, fat: 5, satFat: 0.6, transFat: 0, sodium: 90, potassium: 430, cholesterol: 0, note: "ได้ทั้งโปรตีน ไฟเบอร์ และโพแทสเซียม" },
+    { name: "ไข่ตุ๋นทรงเครื่อง (1 ถ้วย)", calories: 135, protein: 13, carbs: 3, sugar: 1, fiber: 0, fat: 8, satFat: 2.2, transFat: 0, sodium: 280, potassium: 140, cholesterol: 210, note: "อุ่นร้อน อิ่มสบายท้อง" },
+    { name: "ยำอกไก่ฉีกสมุนไพร (1 จาน)", calories: 185, protein: 28, carbs: 8, sugar: 3, fiber: 2, fat: 4, satFat: 1, transFat: 0, sodium: 350, potassium: 340, cholesterol: 60, note: "รสจัดจ้าน แก้เบื่ออาหารคลีน" }
 ];
 
-function quickAddRecommendedFood(idx) {
-    const item = coachProteinMenus[idx];
+let coachShuffleSeed = 0;
+let currentCoachPool = [];
+
+function shuffleCoachSuggestions() {
+    coachShuffleSeed++;
+    renderNutritionCoach();
+}
+
+function quickAddRecommendedFood(poolIdx) {
+    const item = currentCoachPool[poolIdx];
     if (!item) return;
 
     const dayData = getDayData(currentDateKey);
     dayData.meals["มื้อว่าง/อื่นๆ"].push({
         name: item.name,
         qty: 1,
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        sugar: item.sugar,
-        fiber: item.fiber,
-        fat: item.fat,
-        satFat: item.satFat,
-        transFat: item.transFat,
-        sodium: item.sodium,
-        potassium: item.potassium,
-        cholesterol: item.cholesterol
+        photo: item.photo || null,
+        calories: Number(item.calories || 0),
+        protein: Number(item.protein || 0),
+        carbs: Number(item.carbs || 0),
+        sugar: Number(item.sugar || 0),
+        fiber: Number(item.fiber || 0),
+        fat: Number(item.fat || 0),
+        satFat: Number(item.satFat || 0),
+        transFat: Number(item.transFat || 0),
+        sodium: Number(item.sodium || 0),
+        potassium: Number(item.potassium || 0),
+        cholesterol: Number(item.cholesterol || 0)
     });
     saveDataAndSync();
 }
@@ -1080,13 +1451,17 @@ function renderNutritionCoach() {
     if (!container) return;
 
     const dayData = getDayData(currentDateKey);
-    let totalCal = 0, totalProt = 0, totalSugar = 0, totalSatFat = 0, totalTransFat = 0, totalSodium = 0, totalChol = 0;
+    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalSugar = 0, totalFiber = 0;
+    let totalFat = 0, totalSatFat = 0, totalTransFat = 0, totalSodium = 0, totalChol = 0;
 
     Object.values(dayData.meals).forEach(mealList => {
         mealList.forEach(item => {
             totalCal += Number(item.calories || 0);
             totalProt += Number(item.protein || 0);
+            totalCarbs += Number(item.carbs || 0);
             totalSugar += Number(item.sugar || 0);
+            totalFiber += Number(item.fiber || 0);
+            totalFat += Number(item.fat || 0);
             totalSatFat += Number(item.satFat || 0);
             totalTransFat += Number(item.transFat || 0);
             totalSodium += Number(item.sodium || 0);
@@ -1097,53 +1472,118 @@ function renderNutritionCoach() {
     const { totalBurn } = getTotalBurned(dayData);
     const adj = getCalorieAdjustment(currentDateKey);
     const macroAdj = getNutrientAdjustments(currentDateKey);
+
     const minProt = Number(userGoals.proteinMin) || 96;
     const maxProt = Number(userGoals.proteinMax) || 128;
-
     const remCal = (adj.safeTarget + totalBurn) - totalCal;
     const remProt = Math.max(0, minProt - totalProt);
 
     let warnings = [];
+    const highSodiumMode = totalSodium > macroAdj.sodium.adjustedMax * 0.8;
+    const highCholMode = totalChol > macroAdj.cholesterol.adjustedMax * 0.8;
+    const lowCarbMode = totalCarbs > macroAdj.carbs.adjustedMax * 0.85;
+
     if (totalSodium > macroAdj.sodium.adjustedMax) {
-        warnings.push(`โซเดียมเกินโควตาแล้ว (${Math.round(totalSodium)}/${macroAdj.sodium.adjustedMax} mg) <b>ควรงด</b> ซดน้ำซุป อาหารแปรรูป บะหมี่กึ่งสำเร็จรูป และของหมักดอง`);
+        warnings.push(`โซเดียมเกินโควตาแล้ว (${Math.round(totalSodium)}/${macroAdj.sodium.adjustedMax} mg) <b>ควรงด</b> ซดน้ำซุป อาหารแปรรูป บะหมี่กึ่งสำเร็จรูป และควรดื่มน้ำเปล่าเพิ่ม`);
+    } else if (highSodiumMode) {
+        warnings.push(`โซเดียมใกล้เต็มโควตา (${Math.round(totalSodium)}/${macroAdj.sodium.adjustedMax} mg) มื้อถัดไป <b>ควรเลี่ยง</b> อาหารปรุงรสจัดและซอสจิ้ม`);
     }
+
     if (totalSugar > macroAdj.sugar.adjustedMax) {
-        warnings.push(`น้ำตาลเกินโควตา (${totalSugar.toFixed(1)}/${macroAdj.sugar.adjustedMax} g) <b>ควรเลี่ยง</b> ชานม น้ำอัดลม ขนมหวาน และผลไม้รสหวานจัด`);
+        warnings.push(`น้ำตาลเกินโควตา (${totalSugar.toFixed(1)}/${macroAdj.sugar.adjustedMax} g) <b>ควรงด</b> ชานม น้ำอัดลม ขนมหวาน และผลไม้รสหวานจัด`);
     }
+
     if (totalSatFat > macroAdj.satFat.adjustedMax || totalTransFat > macroAdj.transFat.adjustedMax) {
         warnings.push(`ไขมันอิ่มตัว/ทรานส์เกินเกณฑ์ <b>ควรเลี่ยง</b> ของทอด เบเกอรี่ ครีมเทียม กะทิ และเนื้อสัตว์ติดมัน`);
     }
+
     if (totalChol > macroAdj.cholesterol.adjustedMax) {
-        warnings.push(`คอเลสเตอรอลเกินโควตา (${Math.round(totalChol)}/${macroAdj.cholesterol.adjustedMax} mg) <b>ควรเลี่ยง</b> ไข่แดง เครื่องในสัตว์ (เลือกกินเฉพาะไข่ขาวแทน)`);
+        warnings.push(`คอเลสเตอรอลเกินโควตา (${Math.round(totalChol)}/${macroAdj.cholesterol.adjustedMax} mg) <b>ควรเลี่ยง</b> ไข่แดงและเครื่องในสัตว์`);
     }
+
+    if (totalFiber < 10 && totalCal > 800) {
+        warnings.push(`วันนี้ยังได้ไฟเบอร์น้อย (${totalFiber.toFixed(1)}/25 g) <b>ควรเพิ่ม</b> ผักใบเขียวหรือถั่วแระในมื้อถัดไปเพื่อช่วยให้อิ่มนาน`);
+    }
+
     if (remCal < 150 && remCal >= 0) {
         warnings.push(`แคลอรีเหลือน้อย (${remCal} kcal) <b>ควรงด</b> ของทานเล่นที่มีแป้งและไขมันสูง`);
     } else if (remCal < 0) {
-        warnings.push(`ทานเกินโควตาไปแล้ว ${Math.abs(remCal)} kcal <b>ควรงดมื้อดึก</b> หรือเดินเพิ่มอีกนิดเพื่อชดเชย`);
+        warnings.push(`ทานเกินโควตาไปแล้ว ${Math.abs(remCal)} kcal <b>ควรงดมื้อดึก</b> หรือเดินเพิ่ม ~${Math.round(Math.abs(remCal) / 0.04).toLocaleString()} ก้าวเพื่อชดเชย`);
     }
 
     if (warnings.length === 0) {
-        warnings.push(`ค่าโซเดียม น้ำตาล และไขมันยังอยู่ในเกณฑ์ดี <b>เลี่ยง</b> ของทอดและน้ำหวานเพื่อรักษาสมดุลต่อ`);
+        const hour = new Date().getHours();
+        if (hour < 12) {
+            warnings.push(`เริ่มต้นวันได้ดี! ช่วงเช้าเน้นโปรตีนให้อิ่มท้อง จะช่วยลดความอยากของหวานช่วงบ่ายได้`);
+        } else if (hour < 17) {
+            warnings.push(`ค่าโซเดียม น้ำตาล และไขมันยังอยู่ในเกณฑ์ดี ช่วงบ่ายระวังเครื่องดื่มหวานและขนมจุกจิก`);
+        } else {
+            warnings.push(`คุมสารอาหารได้ดีตลอดวัน มื้อเย็นเน้นโปรตีนย่อยง่ายกับผัก เพื่อการนอนหลับและฟื้นฟูกล้ามเนื้อ`);
+        }
     }
 
     let protHtml = "";
     if (remProt <= 0) {
         protHtml = `<div class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-circle-check mr-1"></i> ยินดีด้วย! วันนี้คุณทานโปรตีนถึงเป้าหมาย (${totalProt.toFixed(1)}g) เรียบร้อยแล้ว</div>`;
     } else {
-        let suitableWithIdx = coachProteinMenus
-            .map((m, originalIdx) => ({ ...m, originalIdx }))
-            .filter(m => m.calories <= Math.max(remCal, 130))
-            .slice(0, 3);
+        const userHighProtMenus = (foodCatalog || [])
+            .filter(f => Number(f.protein || 0) >= 10 && Number(f.calories || 0) > 0)
+            .map(f => ({
+                ...f,
+                isUserMenu: true,
+                note: `เมนูจากคลังของคุณ (C:${f.carbs || 0}g | F:${f.fat || 0}g | Na:${f.sodium || 0}mg)`
+            }));
+
+        const systemMenus = coachProteinMenus
+            .filter(sys => !userHighProtMenus.some(u => u.name.toLowerCase() === sys.name.toLowerCase()))
+            .map(sys => ({ ...sys, isUserMenu: false }));
+
+        currentCoachPool = [...userHighProtMenus, ...systemMenus];
+
+        let pool = currentCoachPool
+            .map((m, poolIdx) => ({ ...m, poolIdx }))
+            .filter(m => Number(m.calories) <= Math.max(remCal, 130))
+            .filter(m => !(highSodiumMode && Number(m.sodium || 0) > 250))
+            .filter(m => !(highCholMode && Number(m.cholesterol || 0) > 100))
+            .filter(m => !(lowCarbMode && Number(m.carbs || 0) > 6));
+
+        if (pool.length < 3) {
+            pool = currentCoachPool
+                .map((m, poolIdx) => ({ ...m, poolIdx }))
+                .filter(m => Number(m.calories) <= Math.max(remCal, 150));
+        }
+
+        const dateNum = Number(currentDateKey.replace(/-/g, '')) || 0;
+        const startIdx = (dateNum + coachShuffleSeed * 3) % Math.max(1, pool.length);
+        let rotated = [];
+        for (let i = 0; i < Math.min(3, pool.length); i++) {
+            rotated.push(pool[(startIdx + i) % pool.length]);
+        }
+
+        const filterBadges = [];
+        if (userHighProtMenus.length > 0) filterBadges.push(`รวมเมนูในคลังคุณ (${userHighProtMenus.length})`);
+        if (highSodiumMode) filterBadges.push("คัดโซเดียมต่ำ");
+        if (highCholMode) filterBadges.push("คัดคอเลสเตอรอลต่ำ");
+        if (lowCarbMode) filterBadges.push("คัดคาร์บต่ำ");
 
         protHtml = `
-            <p class="text-xs text-slate-300 mb-2">
-                ยังขาดโปรตีนอีก <span class="text-emerald-400 font-bold">${remProt.toFixed(1)}g</span> (งบพลังงานเหลือ <span class="text-white font-semibold">${Math.max(0, remCal)} kcal</span>) กดเพิ่มเข้ามื้อว่างได้ทันที:
-            </p>
+            <div class="flex justify-between items-center gap-2 mb-2">
+                <p class="text-xs text-slate-300">
+                    ขาดโปรตีน <span class="text-emerald-400 font-bold">${remProt.toFixed(1)}g</span> (งบเหลือ <span class="text-white font-semibold">${Math.max(0, remCal)} kcal</span>)
+                    ${filterBadges.length > 0 ? `<span class="text-[10px] text-amber-300 block">• ${filterBadges.join(' • ')}</span>` : ''}
+                </p>
+                <button type="button" onclick="shuffleCoachSuggestions()" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[10px] px-2.5 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1">
+                    <i class="fa-solid fa-shuffle"></i> สุ่มเมนูอื่น
+                </button>
+            </div>
             <div class="space-y-1.5">
-                ${suitableWithIdx.map(m => `
-                    <div class="flex justify-between items-center bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-800/80 text-xs gap-2">
+                ${rotated.map(m => `
+                    <div class="flex justify-between items-center bg-slate-950/70 px-3 py-2 rounded-xl border ${m.isUserMenu ? 'border-amber-500/30' : 'border-slate-800/80'} text-xs gap-2">
                         <div>
-                            <span class="text-slate-100 font-medium">${m.name}</span>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="text-slate-100 font-medium">${m.name}</span>
+                                ${m.isUserMenu ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-700/50">ในคลังคุณ</span>` : ''}
+                            </div>
                             <span class="text-[10px] text-slate-400 block">${m.note}</span>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -1151,7 +1591,7 @@ function renderNutritionCoach() {
                                 <span class="text-emerald-400 font-bold block">+${m.protein}g P</span>
                                 <span class="text-[10px] text-slate-400">${m.calories} kcal</span>
                             </div>
-                            <button type="button" onclick="quickAddRecommendedFood(${m.originalIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition">
+                            <button type="button" onclick="quickAddRecommendedFood(${m.poolIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition">
                                 + เพิ่ม
                             </button>
                         </div>
@@ -1167,7 +1607,7 @@ function renderNutritionCoach() {
                 <h4 class="font-bold text-white text-sm flex items-center gap-2">
                     <i class="fa-solid fa-lightbulb text-amber-400"></i> คำแนะนำ & เมนูเสริมวันนี้
                 </h4>
-                <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800/50">อัปเดตอัตโนมัติ</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800/50">วิเคราะห์เฉพาะบุคคล</span>
             </div>
 
             <div class="space-y-1">
@@ -1179,7 +1619,7 @@ function renderNutritionCoach() {
 
             <div class="space-y-1.5 pt-2 border-t border-slate-800/60">
                 <div class="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
-                    <i class="fa-solid fa-ban"></i> สิ่งที่ควรเลี่ยงในช่วงที่เหลือของวัน
+                    <i class="fa-solid fa-ban"></i> คำแนะนำ & สิ่งที่ควรเลี่ยงช่วงที่เหลือของวัน
                 </div>
                 <ul class="space-y-1 text-xs text-slate-300 list-disc list-inside">
                     ${warnings.map(w => `<li>${w}</li>`).join('')}
@@ -1261,6 +1701,8 @@ function triggerImageCapture(mode) {
 async function handleImageSelected(event) {
     const file = event.target.files[0];
     if (!file) return;
+
+    await setPreviewFromFile(file);
 
     if (currentScanMode === 'label') {
         await scanLabelOfflineOCR(file);
@@ -1487,16 +1929,56 @@ function fillFormWithNutritionData(item) {
 }
 
 // ==========================================
-// Settings, Goals & Food Catalog Manager
+// Settings, Program Presets, BMR/TDEE & Food Catalog Manager
 // ==========================================
+function applyGoalPreset(presetKey) {
+    const descEl = document.getElementById('preset-desc-label');
+    if (presetKey === 'custom' || !goalPresets[presetKey]) {
+        if (descEl) descEl.innerText = "ปรับแต่งเป้าหมายแคลอรี โปรตีน คาร์บ และไขมันเองตามต้องการ";
+        return;
+    }
+
+    const p = goalPresets[presetKey];
+    document.getElementById('goal-cal-input').value = p.calories;
+    document.getElementById('goal-min-cal-input').value = p.minCalories;
+    document.getElementById('goal-prot-min-input').value = p.proteinMin;
+    document.getElementById('goal-prot-max-input').value = p.proteinMax;
+    document.getElementById('goal-carbs-input').value = p.carbsMax;
+    document.getElementById('goal-fat-input').value = p.fatMax;
+    if (descEl) descEl.innerText = p.desc;
+}
+
+function markPresetCustom() {
+    const sel = document.getElementById('goal-preset-select');
+    const descEl = document.getElementById('preset-desc-label');
+    if (sel) sel.value = 'custom';
+    if (descEl) descEl.innerText = "โหมดกำหนดตัวเลขเอง (Custom)";
+}
+
 function openSettingsModal() {
+    const currentPreset = userGoals.preset || 'fat_loss';
+    document.getElementById('goal-preset-select').value = goalPresets[currentPreset] ? currentPreset : 'custom';
+    const descEl = document.getElementById('preset-desc-label');
+    if (descEl) {
+        descEl.innerText = goalPresets[currentPreset] ? goalPresets[currentPreset].desc : "โหมดกำหนดตัวเลขเอง (Custom)";
+    }
+
     document.getElementById('goal-cal-input').value = userGoals.calories;
     document.getElementById('goal-min-cal-input').value = userGoals.minCalories;
     document.getElementById('goal-prot-min-input').value = userGoals.proteinMin;
     document.getElementById('goal-prot-max-input').value = userGoals.proteinMax;
+    document.getElementById('goal-carbs-input').value = userGoals.carbsMax || 150;
+    document.getElementById('goal-fat-input').value = userGoals.fatMax || 50;
     document.getElementById('goal-steps-input').value = userGoals.steps;
     document.getElementById('goal-water-input').value = userGoals.water;
     document.getElementById('goal-weight-input').value = userGoals.targetWeight || '';
+
+    // ดึงน้ำหนักล่าสุดมาใส่ในช่องคำนวณ BMR อัตโนมัติ
+    const todayData = getDayData(currentDateKey);
+    if (todayData.weight) {
+        document.getElementById('bmr-weight').value = todayData.weight;
+        calculateBMRandTDEE();
+    }
 
     document.getElementById('catalog-count-badge').innerText = foodCatalog.length;
     document.getElementById('github-token-input').value = localStorage.getItem('fitTracker_github_token') || '';
@@ -1510,10 +1992,13 @@ function closeSettingsModal() {
 
 async function saveAllSettings() {
     userGoals = {
+        preset: document.getElementById('goal-preset-select').value || 'custom',
         calories: Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500),
         minCalories: Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200),
         proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
         proteinMax: Math.max(10, Number(document.getElementById('goal-prot-max-input').value) || 128),
+        carbsMax: Math.max(10, Number(document.getElementById('goal-carbs-input').value) || 150),
+        fatMax: Math.max(10, Number(document.getElementById('goal-fat-input').value) || 50),
         steps: Math.max(1000, Number(document.getElementById('goal-steps-input').value) || 10000),
         water: Math.max(500, Number(document.getElementById('goal-water-input').value) || 2000),
         targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
@@ -1542,7 +2027,7 @@ async function saveAllSettings() {
         await pushToGitHub(true);
     } else {
         setSyncStatus('local', 'บันทึกในเครื่อง');
-        alert("บันทึกเป้าหมายและการตั้งค่าเรียบร้อยแล้ว!");
+        alert("บันทึกโปรแกรมและเป้าหมายเรียบร้อยแล้ว!");
     }
 }
 
@@ -1572,7 +2057,10 @@ function renderCatalogManagerList() {
     listEl.innerHTML = filtered.map(item => `
         <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
             <div>
-                <div class="text-xs font-semibold text-white">${item.name}</div>
+                <div class="text-xs font-semibold text-white flex items-center gap-1">
+                    ${item.name}
+                    ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[10px]"></i>` : ''}
+                </div>
                 <div class="text-[10px] text-slate-400 mt-0.5">
                     ${item.calories} kcal | P: <span class="text-emerald-400">${item.protein}g</span> | C: ${item.carbs}g | F: ${item.fat}g
                 </div>
@@ -1639,10 +2127,15 @@ function openFoodModal(mealType, itemIndex = null) {
         document.getElementById('food-potassium').value = item.potassium || '';
         document.getElementById('food-cholesterol').value = item.cholesterol || '';
         setBaseNutritionFromCurrentInputs();
+
+        const catalogMatch = foodCatalog.find(f => f.name.toLowerCase() === (item.name || '').toLowerCase());
+        const photoToLoad = item.photo || (catalogMatch ? catalogMatch.photo : null);
+        loadFoodPhotoPreview(photoToLoad);
     } else {
         document.getElementById('food-form').reset();
         document.getElementById('food-qty').value = 1;
         baseNutrition = null;
+        removeFoodPhoto();
     }
 
     document.getElementById('food-modal').classList.remove('hidden');
@@ -1652,15 +2145,25 @@ function closeFoodModal() {
     document.getElementById('food-modal').classList.add('hidden');
 }
 
-function handleFoodSubmit(e) {
+async function handleFoodSubmit(e) {
     e.preventDefault();
     const mealType = document.getElementById('edit-meal-type').value;
     const itemIndex = document.getElementById('edit-item-index').value;
     const qtyNum = extractMultiplier(document.getElementById('food-qty').value);
 
+    let finalPhotoPath = currentFoodPhotoPath;
+    if (pendingFoodPhotoBase64) {
+        setSyncStatus('syncing', 'กำลังอัปโหลดรูปอาหาร...');
+        const uploadedPath = await uploadPhotoToGitHub(pendingFoodPhotoBase64);
+        if (uploadedPath) {
+            finalPhotoPath = uploadedPath;
+        }
+    }
+
     const newItem = {
         name: document.getElementById('food-name').value,
         qty: qtyNum,
+        photo: finalPhotoPath || null,
         calories: Number(document.getElementById('food-calories').value),
         protein: Number(document.getElementById('food-protein').value || 0),
         carbs: Number(document.getElementById('food-carbs').value || 0),
@@ -1683,6 +2186,7 @@ function handleFoodSubmit(e) {
 
     const unitItem = {
         name: newItem.name,
+        photo: finalPhotoPath || null,
         calories: Math.round(newItem.calories / qtyNum),
         protein: Math.round((newItem.protein / qtyNum) * 10) / 10,
         carbs: Math.round((newItem.carbs / qtyNum) * 10) / 10,
@@ -1695,10 +2199,15 @@ function handleFoodSubmit(e) {
         potassium: Math.round(newItem.potassium / qtyNum),
         cholesterol: Math.round(newItem.cholesterol / qtyNum)
     };
-    if (!foodCatalog.some(f => f.name.toLowerCase() === unitItem.name.toLowerCase())) {
+
+    const existingCatIdx = foodCatalog.findIndex(f => f.name.toLowerCase() === unitItem.name.toLowerCase());
+    if (existingCatIdx === -1) {
         foodCatalog.push(unitItem);
+    } else if (finalPhotoPath) {
+        foodCatalog[existingCatIdx].photo = finalPhotoPath;
     }
 
+    pendingFoodPhotoBase64 = null;
     closeFoodModal();
     saveDataAndSync();
 }
@@ -1732,6 +2241,8 @@ function autofillFoodCatalog(name) {
         document.getElementById('food-potassium').value = found.potassium ?? 0;
         document.getElementById('food-cholesterol').value = found.cholesterol;
         setBaseNutritionFromCurrentInputs();
+
+        loadFoodPhotoPreview(found.photo || null);
     }
 }
 
@@ -1951,7 +2462,7 @@ function jumpToDate(dateKey) {
 }
 
 // ==========================================
-// Weekly & Monthly Report Analytics (7 วัน / 30 วัน)
+// Weekly & Monthly Report Analytics (ตัดวันที่ยังไม่ถึงออก + Macro Ratio Bar)
 // ==========================================
 function openReportModal() {
     currentReportDays = 7;
@@ -1979,100 +2490,14 @@ function switchReportPeriod(days) {
     renderHealthReport(days);
 }
 
-function applyGoalPreset(presetKey) {
-    const descEl = document.getElementById('preset-desc-label');
-    if (presetKey === 'custom' || !goalPresets[presetKey]) {
-        if (descEl) descEl.innerText = "ปรับแต่งเป้าหมายแคลอรี โปรตีน คาร์บ และไขมันเองตามต้องการ";
-        return;
-    }
-
-    const p = goalPresets[presetKey];
-    document.getElementById('goal-cal-input').value = p.calories;
-    document.getElementById('goal-min-cal-input').value = p.minCalories;
-    document.getElementById('goal-prot-min-input').value = p.proteinMin;
-    document.getElementById('goal-prot-max-input').value = p.proteinMax;
-    document.getElementById('goal-carbs-input').value = p.carbsMax;
-    document.getElementById('goal-fat-input').value = p.fatMax;
-    if (descEl) descEl.innerText = p.desc;
-}
-
-function markPresetCustom() {
-    const sel = document.getElementById('goal-preset-select');
-    const descEl = document.getElementById('preset-desc-label');
-    if (sel) sel.value = 'custom';
-    if (descEl) descEl.innerText = "โหมดกำหนดตัวเลขเอง (Custom)";
-}
-
-function openSettingsModal() {
-    const currentPreset = userGoals.preset || 'fat_loss';
-    document.getElementById('goal-preset-select').value = goalPresets[currentPreset] ? currentPreset : 'custom';
-    const descEl = document.getElementById('preset-desc-label');
-    if (descEl) {
-        descEl.innerText = goalPresets[currentPreset] ? goalPresets[currentPreset].desc : "โหมดกำหนดตัวเลขเอง (Custom)";
-    }
-
-    document.getElementById('goal-cal-input').value = userGoals.calories;
-    document.getElementById('goal-min-cal-input').value = userGoals.minCalories;
-    document.getElementById('goal-prot-min-input').value = userGoals.proteinMin;
-    document.getElementById('goal-prot-max-input').value = userGoals.proteinMax;
-    document.getElementById('goal-carbs-input').value = userGoals.carbsMax || 150;
-    document.getElementById('goal-fat-input').value = userGoals.fatMax || 50;
-    document.getElementById('goal-steps-input').value = userGoals.steps;
-    document.getElementById('goal-water-input').value = userGoals.water;
-    document.getElementById('goal-weight-input').value = userGoals.targetWeight || '';
-
-    document.getElementById('catalog-count-badge').innerText = foodCatalog.length;
-    document.getElementById('github-token-input').value = localStorage.getItem('fitTracker_github_token') || '';
-    document.getElementById('gemini-api-key-input').value = localStorage.getItem('fitTracker_gemini_key') || '';
-    document.getElementById('settings-modal').classList.remove('hidden');
-}
-
-async function saveAllSettings() {
-    userGoals = {
-        preset: document.getElementById('goal-preset-select').value || 'custom',
-        calories: Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500),
-        minCalories: Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200),
-        proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
-        proteinMax: Math.max(10, Number(document.getElementById('goal-prot-max-input').value) || 128),
-        carbsMax: Math.max(10, Number(document.getElementById('goal-carbs-input').value) || 150),
-        fatMax: Math.max(10, Number(document.getElementById('goal-fat-input').value) || 50),
-        steps: Math.max(1000, Number(document.getElementById('goal-steps-input').value) || 10000),
-        water: Math.max(500, Number(document.getElementById('goal-water-input').value) || 2000),
-        targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
-    };
-    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
-
-    const ghToken = document.getElementById('github-token-input').value.trim();
-    const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
-
-    if (ghToken) {
-        localStorage.setItem('fitTracker_github_token', ghToken);
-    } else {
-        localStorage.removeItem('fitTracker_github_token');
-    }
-
-    if (geminiKey) {
-        localStorage.setItem('fitTracker_gemini_key', geminiKey);
-    } else {
-        localStorage.removeItem('fitTracker_gemini_key');
-    }
-
-    closeSettingsModal();
-    renderUIOnly();
-
-    if (ghToken) {
-        await pushToGitHub(true);
-    } else {
-        setSyncStatus('local', 'บันทึกในเครื่อง');
-        alert("บันทึกโปรแกรมและเป้าหมายเรียบร้อยแล้ว!");
-    }
-}
-
 function renderHealthReport(daysCount) {
     const container = document.getElementById('report-content-container');
     if (!container) return;
 
-    const parts = currentDateKey.split('-');
+    const todayKey = getFormattedDateKey(new Date());
+    const effectiveEndKey = currentDateKey > todayKey ? todayKey : currentDateKey;
+
+    const parts = effectiveEndKey.split('-');
     const endDate = new Date(parts[0], parts[1] - 1, parts[2]);
 
     const targetCal = Number(userGoals.calories) || 1500;
@@ -2098,6 +2523,10 @@ function renderHealthReport(daysCount) {
         let d = new Date(endDate);
         d.setDate(endDate.getDate() - i);
         let key = getFormattedDateKey(d);
+
+        // ข้ามวันที่ยังไม่ถึง (แผนล่วงหน้าในอนาคต)
+        if (key > todayKey) continue;
+
         let dayObj = allMealsHistory[key];
 
         if (dayObj && dayObj.weight) {
@@ -2174,8 +2603,8 @@ function renderHealthReport(daysCount) {
         container.innerHTML = `
             <div class="bg-slate-950/80 p-6 rounded-2xl border border-slate-800 text-center space-y-2">
                 <i class="fa-solid fa-folder-open text-2xl text-slate-500"></i>
-                <div class="text-sm font-semibold text-slate-300">ยังไม่มีข้อมูลอาหารในช่วง ${daysCount} วันนี้</div>
-                <div class="text-xs text-slate-500">เริ่มบันทึกมื้ออาหารเพื่อให้ระบบวิเคราะห์แนวโน้มสุขภาพของคุณครับ</div>
+                <div class="text-sm font-semibold text-slate-300">ยังไม่มีข้อมูลอาหารที่บันทึกจริงในช่วง ${daysCount} วันนี้</div>
+                <div class="text-xs text-slate-500">ระบบจะไม่นำแผนล่วงหน้าในอนาคตมาคำนวณรวมจนกว่าจะถึงวันนั้นครับ</div>
             </div>
         `;
         return;
@@ -2196,6 +2625,15 @@ function renderHealthReport(daysCount) {
         water: Math.round(sums.water / activeDays),
         steps: Math.round(sums.steps / activeDays)
     };
+
+    // คำนวณสัดส่วน Macro Ratio (%) จากพลังงานจริง
+    const protKcal = sums.prot * 4;
+    const carbsKcal = sums.carbs * 4;
+    const fatKcal = sums.fat * 9;
+    const totalMacroKcal = Math.max(1, protKcal + carbsKcal + fatKcal);
+    const protRatio = Math.round((protKcal / totalMacroKcal) * 100);
+    const carbsRatio = Math.round((carbsKcal / totalMacroKcal) * 100);
+    const fatRatio = Math.max(0, 100 - protRatio - carbsRatio);
 
     const calSuccessRate = Math.round(((calOnTargetDays + calTooLowDays) / activeDays) * 100);
     const protSuccessRate = Math.round((protPassDays / activeDays) * 100);
@@ -2275,7 +2713,7 @@ function renderHealthReport(daysCount) {
     container.innerHTML = `
         <div class="bg-gradient-to-br from-slate-950 to-indigo-950/40 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between gap-3">
             <div>
-                <div class="text-[11px] text-slate-400">ประเมินผลจากข้อมูลที่บันทึก <b>${activeDays} วัน</b> (ในรอบ ${daysCount} วัน)</div>
+                <div class="text-[11px] text-slate-400">ประเมินผลจริง <b>${activeDays} วัน</b> (ไม่รวมแผนอนาคต)</div>
                 <div class="text-xs font-semibold text-white mt-1">${gradeDesc}</div>
                 <div class="flex flex-wrap gap-2 mt-2 text-[10px]">
                     <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50">ตามเป้า: ${calOnTargetDays} วัน</span>
@@ -2286,6 +2724,24 @@ function renderHealthReport(daysCount) {
             <div class="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center shrink-0">
                 <span class="text-[9px] text-slate-400">เกรด</span>
                 <span class="text-2xl font-extrabold ${gradeColor} leading-none">${grade}</span>
+            </div>
+        </div>
+
+        <!-- แถบสัดส่วนพลังงาน Macro Ratio -->
+        <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+                <span class="font-bold text-slate-200"><i class="fa-solid fa-chart-bar text-indigo-400 mr-1.5"></i>สัดส่วนพลังงานจริง (Macro Ratio)</span>
+                <span class="text-[10px] text-slate-400">P : C : F</span>
+            </div>
+            <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden flex">
+                <div style="width: ${protRatio}%" class="bg-emerald-400 h-full" title="โปรตีน ${protRatio}%"></div>
+                <div style="width: ${carbsRatio}%" class="bg-sky-400 h-full" title="คาร์บ ${carbsRatio}%"></div>
+                <div style="width: ${fatRatio}%" class="bg-amber-400 h-full" title="ไขมัน ${fatRatio}%"></div>
+            </div>
+            <div class="flex justify-between text-[11px] font-medium">
+                <span class="text-emerald-400">โปรตีน ${protRatio}%</span>
+                <span class="text-sky-400">คาร์บ ${carbsRatio}%</span>
+                <span class="text-amber-400">ไขมัน ${fatRatio}%</span>
             </div>
         </div>
 
