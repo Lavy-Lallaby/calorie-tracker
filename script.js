@@ -2839,6 +2839,10 @@ let courseConfig = Object.assign(
 );
 let currentCourseTab = 'today';
 
+// เก็บแมปชื่อท่า -> พาธรูปบน GitHub (ซิงก์ร่วมกับ db.json ได้)
+let exercisePhotosMap = JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}');
+let activeExerciseNameForPhoto = '';
+
 // คลังท่าเวทเทรนนิ่งทั้งหมดแบบ "ไม่ใช้เครื่อง" แยกตามกลุ่มกล้ามเนื้อและอุปกรณ์
 const nonMachineExercises = [
     // ขาและสะโพก (Legs & Glutes)
@@ -2960,16 +2964,25 @@ function renderWorkoutCourseContent() {
                     <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
                         <div class="text-xs font-bold text-indigo-400">${g} (${list.length} ท่า)</div>
                         <div class="space-y-1.5">
-                            ${list.map(ex => `
-                                <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 text-xs">
-                                    <div class="flex justify-between items-start gap-2">
-                                        <span class="font-semibold text-white">${ex.name}</span>
-                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 shrink-0">${eqLabels[ex.eq]}</span>
+                            ${list.map(ex => {
+                                const hasPhoto = !!exercisePhotosMap[ex.name];
+                                const safeName = ex.name.replace(/'/g, "\\'");
+                                return `
+                                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                                        <div class="flex justify-between items-start gap-2">
+                                            <span class="font-semibold text-white">${ex.name}</span>
+                                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 shrink-0">${eqLabels[ex.eq]}</span>
+                                        </div>
+                                        <div class="text-[10px] text-emerald-400 font-medium mt-0.5">${ex.reps}</div>
+                                        <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
+                                        <div class="mt-1.5 flex justify-end">
+                                            <button type="button" onclick="openExercisePhotoModal('${safeName}')" class="text-[10px] ${hasPhoto ? 'bg-sky-950 text-sky-300 border-sky-700/50' : 'bg-slate-800 text-slate-300 border-slate-700'} px-2.5 py-1 rounded-lg border transition flex items-center gap-1">
+                                                <i class="fa-regular fa-image"></i> ${hasPhoto ? 'ดูรูปสเต็ปท่า' : '+ ใส่รูปตัวอย่าง'}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="text-[10px] text-emerald-400 font-medium mt-0.5">${ex.reps}</div>
-                                    <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
-                                </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                 `;
@@ -3077,7 +3090,6 @@ function renderWorkoutCourseContent() {
         // เลือกท่าตาม Focus ของวัน (Upper / Lower / Push / Pull / Legs / Full Body)
         const pickByMuscle = (muscle, count) => {
             const list = filteredExercises.filter(e => e.muscle === muscle);
-            // ให้ความสำคัญกับอุปกรณ์เสริมที่ผู้ใช้ติ๊กเลือกก่อน (เช่น ยางยืด/ดัมเบล) แล้วตามด้วยมือเปล่า
             const prioritized = [
                 ...list.filter(e => e.eq !== 'bodyweight'),
                 ...list.filter(e => e.eq === 'bodyweight')
@@ -3139,15 +3151,24 @@ function renderWorkoutCourseContent() {
                 </div>
 
                 <div class="space-y-1.5">
-                    ${selectedRoutine.map((ex, idx) => `
-                        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-xs">
-                            <div class="flex justify-between items-start gap-2">
-                                <span class="font-semibold text-white"><span class="text-amber-400 mr-1">${idx + 1}.</span>${ex.name}</span>
-                                <span class="text-[10px] text-emerald-400 font-semibold shrink-0">${ex.reps}</span>
+                    ${selectedRoutine.map((ex, idx) => {
+                        const hasPhoto = !!exercisePhotosMap[ex.name];
+                        const safeName = ex.name.replace(/'/g, "\\'");
+                        return `
+                            <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-xs">
+                                <div class="flex justify-between items-start gap-2">
+                                    <span class="font-semibold text-white"><span class="text-amber-400 mr-1">${idx + 1}.</span>${ex.name}</span>
+                                    <span class="text-[10px] text-emerald-400 font-semibold shrink-0">${ex.reps}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
+                                <div class="mt-1.5 flex justify-end">
+                                    <button type="button" onclick="openExercisePhotoModal('${safeName}')" class="text-[10px] ${hasPhoto ? 'bg-sky-950 text-sky-300 border-sky-700/50' : 'bg-slate-800 text-slate-300 border-slate-700'} px-2.5 py-1 rounded-lg border transition flex items-center gap-1">
+                                        <i class="fa-regular fa-image"></i> ${hasPhoto ? 'ดูรูปสเต็ปท่า' : '+ ใส่รูปตัวอย่าง'}
+                                    </button>
+                                </div>
                             </div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
 
                 <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label}', 35, 210)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-xl transition shadow-lg shadow-indigo-600/20">
@@ -3165,10 +3186,6 @@ function renderWorkoutCourseContent() {
         ${routineHtml}
     `;
 }
-
-// เก็บแมปชื่อท่า -> พาธรูปบน GitHub (ซิงก์ร่วมกับ db.json ได้)
-let exercisePhotosMap = JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}');
-let activeExerciseNameForPhoto = '';
 
 function openExercisePhotoModal(exName) {
     activeExerciseNameForPhoto = exName;
@@ -3235,7 +3252,6 @@ async function handleExercisePhotoSelected(event) {
     const box = document.getElementById('ex-photo-display-box');
     status.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอัปโหลดรูป...';
 
-    // ย่อที่ความกว้าง 900px เพื่อให้อ่านตัวหนังสือสเต็ปในรูปได้คมชัด
     const base64 = await resizeImageToBase64(file, 900);
     const token = localStorage.getItem('fitTracker_github_token');
     if (!token) {
