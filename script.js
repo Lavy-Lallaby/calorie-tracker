@@ -205,7 +205,10 @@ async function syncFromGitHub(showAlert = false) {
                 userGoals = Object.assign({}, defaultGoals, cloudData.goals);
                 localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
             }
-            if (cloudData.skincareItems) { skincareItems = cloudData.skincareItems; localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems)); }
+            if (cloudData.skincareItems && cloudData.skincareItems.length > 0) {
+                skincareItems = cloudData.skincareItems;
+                localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
+            }
             if (cloudData.skincareLogs) { skincareLogs = cloudData.skincareLogs; localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(skincareLogs)); }
             if (cloudData.skincarePhotosMap) { skincarePhotosMap = cloudData.skincarePhotosMap; localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap)); }
 
@@ -3340,7 +3343,8 @@ const defaultSkincareItems = [
     { id: 'sk_w2', period: 'weekly',  name: '[หน้า] แปะแผ่นมาส์ก Myu-Nique 15-20 นาที ก่อนลง Cica Gel', days: [4, 0] }   // พฤหัสบดี, อาทิตย์
 ];
 
-let skincareItems = JSON.parse(localStorage.getItem('fitTracker_skincare_items') || 'null') || defaultSkincareItems;
+const savedSkincare = JSON.parse(localStorage.getItem('fitTracker_skincare_items') || 'null');
+let skincareItems = (savedSkincare && savedSkincare.length > 0) ? savedSkincare : [...defaultSkincareItems];
 let skincareLogs = JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}');
 
 function openSkincareModal() {
@@ -3407,6 +3411,14 @@ function deleteSkincareItem(itemId) {
     skincareItems = skincareItems.filter(item => item.id !== itemId);
     localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
     renderSkincareContent();
+}
+
+function resetDefaultSkincare() {
+    if (!confirm('โหลดรายการสกินแคร์เริ่มต้นทั้ง 14 ขั้นตอนกลับมาใช่ไหม?')) return;
+    skincareItems = [...defaultSkincareItems];
+    localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
+    renderSkincareContent();
+    if (typeof pushToGitHub === 'function') pushToGitHub(false);
 }
 
 let skincarePhotosMap = JSON.parse(localStorage.getItem('fitTracker_skincare_photos') || '{}');
