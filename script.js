@@ -205,6 +205,10 @@ async function syncFromGitHub(showAlert = false) {
                 userGoals = Object.assign({}, defaultGoals, cloudData.goals);
                 localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
             }
+            if (cloudData.skincareItems) { skincareItems = cloudData.skincareItems; localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems)); }
+            if (cloudData.skincareLogs) { skincareLogs = cloudData.skincareLogs; localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(skincareLogs)); }
+            if (cloudData.skincarePhotosMap) { skincarePhotosMap = cloudData.skincarePhotosMap; localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap)); }
+
             renderUIOnly();
             setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
             if (showAlert) alert("ดึงข้อมูลล่าสุดจาก GitHub เรียบร้อยแล้ว!");
@@ -244,7 +248,10 @@ async function pushToGitHub(showAlert = false) {
             updatedAt: new Date().toISOString(),
             goals: userGoals,
             history: allMealsHistory,
-            catalog: foodCatalog
+            catalog: foodCatalog,
+            skincareItems: skincareItems,
+            skincareLogs: skincareLogs,
+            skincarePhotosMap: skincarePhotosMap,
         };
         const contentBase64 = utf8ToBase64(JSON.stringify(payload, null, 2));
 
