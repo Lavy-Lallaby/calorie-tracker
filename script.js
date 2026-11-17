@@ -3390,6 +3390,113 @@ function deleteSkincareItem(itemId) {
     renderSkincareContent();
 }
 
+let skincarePhotosMap = JSON.parse(localStorage.getItem('fitTracker_skincare_photos') || '{}');
+let activeSkincareIdForPhoto = '';
+
+function openSkincarePhotoModal(itemId, itemName) {
+    activeSkincareIdForPhoto = itemId;
+    document.getElementById('sk-photo-title').innerText = itemName;
+    document.getElementById('skincare-photo-modal').classList.remove('hidden');
+    loadSkincarePhoto(itemId);
+}
+
+function closeSkincarePhotoModal() {
+    document.getElementById('skincare-photo-modal').classList.add('hidden');
+}
+
+function triggerSkincarePhotoUpload() {
+    const input = document.getElementById('sk-photo-input');
+    input.value = '';
+    input.click();
+}
+
+async function loadSkincarePhoto(itemId) {
+    const box = document.getElementById('sk-photo-display-box');
+    const status = document.getElementById('sk-photo-status');
+    const photoPath = skincarePhotosMap[itemId];
+
+    if (!photoPath) {
+        box.innerHTML = `<div class="text-center p-6 space-y-1"><i class="fa-regular fa-image text-2xl text-slate-600"></i><div class="text-xs text-slate-400">ยังไม่มีรูปผลิตภัณฑ์ กดปุ่มด้านล่างเพื่อเพิ่มรูปได้เลย</div></div>`;
+        status.innerText = "";
+        return;
+    }
+
+    if (photoBlobCache[photoPath]) {
+        box.innerHTML = `<img src="${photoBlobCache[photoPath]}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
+        status.innerText = "โหลดจากแคชแล้ว";
+        return;
+    }
+
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        status.innerText = "กรุณาใส่ GitHub Token เพื่อโหลดรูป";
+        return;
+    }
+
+    box.innerHTML = `<div class="text-xs text-pink-400 py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังโหลดรูป...</div>`;
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${photoPath}`;
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const dataUrl = `data:image/jpeg;base64,${data.content.replace(/\s/g, '')}`;
+        photoBlobCache[photoPath] = dataUrl;
+        box.innerHTML = `<img src="${dataUrl}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
+        status.innerText = "ซิงก์จาก Cloud แล้ว";
+    } catch (e) {
+        box.innerHTML = `<div class="text-xs text-rose-400 py-6">ไม่พบไฟล์รูปบน Cloud</div>`;
+    }
+}
+
+async function handleSkincarePhotoSelected(event) {
+    const file = event.target.files[0];
+    if (!file || !activeSkincareIdForPhoto) return;
+
+    const status = document.getElementById('sk-photo-status');
+    const box = document.getElementById('sk-photo-display-box');
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอัปโหลดรูป...';
+
+    const base64 = await resizeImageToBase64(file, 900);
+    const token = localStorage.getItem('fitTracker_github_token');
+    if (!token) {
+        alert("กรุณาเชื่อมต่อ GitHub Token ในหน้าตั้งค่า (⚙️) ก่อนอัปโหลดรูปครับ");
+        return;
+    }
+
+    const fileName = `skincare/sk_${Date.now()}.jpg`;
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${fileName}`;
+
+    try {
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Upload skincare photo ${activeSkincareIdForPhoto}`,
+                content: base64
+            })
+        });
+        if (!res.ok) throw new Error("Upload failed");
+
+        const dataUrl = `data:image/jpeg;base64,${base64}`;
+        photoBlobCache[fileName] = dataUrl;
+        skincarePhotosMap[activeSkincareIdForPhoto] = fileName;
+        localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap));
+
+        box.innerHTML = `<img src="${dataUrl}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
+        status.innerText = "บันทึกขึ้น Cloud เรียบร้อย!";
+        renderSkincareContent();
+        await pushToGitHub(false);
+    } catch (err) {
+        status.innerText = "อัปโหลดไม่สำเร็จ";
+    }
+}
+
 function renderSkincareContent() {
     const alertBox = document.getElementById('skincare-today-alert');
     const listBox = document.getElementById('skincare-list-container');
@@ -3401,7 +3508,6 @@ function renderSkincareContent() {
     const dayNamesShort = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
     const checkedIds = skincareLogs[currentDateKey] || [];
 
-    // เช็กว่าวันนี้ตรงกับวันสครับ / มาส์กหน้าไหม
     const dueWeeklyToday = skincareItems.filter(item => item.period === 'weekly' && item.days.includes(dayOfWeek));
     if (dueWeeklyToday.length > 0) {
         alertBox.innerHTML = `
@@ -3425,18 +3531,27 @@ function renderSkincareContent() {
                 <div class="space-y-1.5">
                     ${items.map(item => {
                         const isChecked = checkedIds.includes(item.id);
+                        const hasPhoto = !!skincarePhotosMap[item.id];
+                        const safeName = item.name.replace(/'/g, "\\'");
                         const dayBadge = item.period === 'weekly'
                             ? `<span class="text-[9px] bg-pink-950 text-pink-300 border border-pink-700/50 px-1.5 py-0.5 rounded ml-1.5">${item.days.map(d => dayNamesShort[d]).join(', ')}</span>`
                             : '';
                         return `
-                            <div class="flex items-center justify-between gap-2 bg-slate-900/90 p-2.5 rounded-xl border ${isChecked ? 'border-emerald-700/50 bg-emerald-950/20' : 'border-slate-800'}">
-                                <label class="flex items-center gap-2.5 cursor-pointer flex-1">
-                                    <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSkincareCheck('${item.id}')" class="w-4 h-4 accent-pink-500 rounded">
-                                    <span class="text-xs ${isChecked ? 'line-through text-slate-500' : 'text-slate-100'}">${item.name}${dayBadge}</span>
-                                </label>
-                                <button type="button" onclick="deleteSkincareItem('${item.id}')" class="text-slate-600 hover:text-rose-400 text-xs px-1">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
+                            <div class="bg-slate-900/90 p-2.5 rounded-xl border ${isChecked ? 'border-emerald-700/50 bg-emerald-950/20' : 'border-slate-800'} space-y-1.5">
+                                <div class="flex items-start justify-between gap-2">
+                                    <label class="flex items-start gap-2.5 cursor-pointer flex-1">
+                                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSkincareCheck('${item.id}')" class="w-4 h-4 mt-0.5 accent-pink-500 rounded shrink-0">
+                                        <span class="text-xs ${isChecked ? 'line-through text-slate-500' : 'text-slate-100'}">${item.name}${dayBadge}</span>
+                                    </label>
+                                    <button type="button" onclick="deleteSkincareItem('${item.id}')" class="text-slate-600 hover:text-rose-400 text-xs px-1 shrink-0">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="button" onclick="openSkincarePhotoModal('${item.id}', '${safeName}')" class="text-[10px] ${hasPhoto ? 'bg-pink-950/80 text-pink-300 border-pink-700/50' : 'bg-slate-800 text-slate-300 border-slate-700'} px-2.5 py-1 rounded-lg border transition flex items-center gap-1">
+                                        <i class="fa-regular fa-image"></i> ${hasPhoto ? 'ดูรูปขวด/สินค้า' : '+ เพิ่มรูปสินค้า'}
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
