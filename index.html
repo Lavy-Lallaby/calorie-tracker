@@ -865,9 +865,14 @@
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-sparkles text-pink-400"></i> ตารางบำรุงผิว & สครับ
                 </h3>
-                <button onclick="closeSkincareModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="resetDefaultSkincare()" title="โหลดรายการสกินแคร์เริ่มต้นทั้งหมด" class="bg-slate-800 hover:bg-slate-700 text-pink-300 border border-slate-700 text-[10px] font-semibold px-2.5 py-1.5 rounded-full transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> โหลดชุดเริ่มต้น
+                    </button>
+                    <button type="button" onclick="closeSkincareModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- แจ้งเตือนกิจกรรมพิเศษประจำวัน (เช่น สครับ / มาส์กหน้า) -->
@@ -931,6 +936,6 @@
         </div>
     </div>
     
-    <script src="script.js?v=28"></script>
+    <script src="script.js?v=29"></script>
 </body>
 </html>
