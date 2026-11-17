@@ -3313,19 +3313,31 @@ async function handleExercisePhotoSelected(event) {
 // Skincare & Body Care Routine Reminder
 // ==========================================
 const defaultSkincareItems = [
-    // ตอนเช้า (ทุกวัน)
-    { id: 'sk1', period: 'morning', name: '[หน้า] ล้างหน้า Senka Collagen In + ทา MizuMi Cica Gel', days: [] },
-    { id: 'sk2', period: 'morning', name: '[หน้า] ทากันแดด MizuMi UV Water Serum (2 ข้อนิ้ว)', days: [] },
-    { id: 'sk3', period: 'morning', name: '[ตัว] อาบน้ำ WATERCOME + ทาเซรั่ม & โลชั่น WATERCOME', days: [] },
-    { id: 'sk4', period: 'morning', name: '[ตัว] ทากันแดด MizuMi UV Cooling Body Serum', days: [] },
+    // ==========================================
+    // ☀️ ตอนเช้า (ทุกวัน)
+    // ==========================================
+    { id: 'sk_m1', period: 'morning', name: '[หน้า] 1. ล้างหน้าด้วย Senka Perfect Whip Collagen In', days: [] },
+    { id: 'sk_m2', period: 'morning', name: '[หน้า] 2. เช็ดผิวทั่วหน้าและลำคอด้วย Elite Care Serum Pad (1 แผ่น)', days: [] },
+    { id: 'sk_m3', period: 'morning', name: '[หน้า] 3. ทา MizuMi Cica Soothing Gel 2 ข้อนิ้ว บริเวณใบหน้าและลำคอ', days: [] },
+    { id: 'sk_m4', period: 'morning', name: '[หน้า] 4. ทากันแดด MizuMi UV Water Serum 2 ข้อนิ้ว ทั่วหน้าและลำคอ', days: [] },
+    { id: 'sk_m5', period: 'morning', name: '[ตัว] 5. อาบน้ำ WATERCOME + ทาเซรั่ม & โลชั่น WATERCOME', days: [] },
+    { id: 'sk_m6', period: 'morning', name: '[ตัว] 6. ทากันแดด MizuMi UV Cooling Body Serum ทั่วผิวกาย', days: [] },
 
-    // ก่อนนอน (ทุกวัน)
-    { id: 'sk5', period: 'night',   name: '[หน้า] ล้างหน้า Senka + โบก MizuMi Cica Soothing Gel', days: [] },
-    { id: 'sk6', period: 'night',   name: '[ตัว] ทา MizuMi B3 AHA Body Booster (งดคืนที่สครับผิว)', days: [] },
-    { id: 'sk7', period: 'night',   name: '[ตัว] ทาโลชั่น WATERCOME ล็อกความชุ่มชื้น', days: [] },
+    // ==========================================
+    // 🌙 ก่อนนอน (ทุกวัน)
+    // ==========================================
+    { id: 'sk_n1', period: 'night',   name: '[หน้า] 1. ล้างหน้าด้วย Senka Perfect Whip Collagen In', days: [] },
+    { id: 'sk_n2', period: 'night',   name: '[หน้า] 2. แปะ Elite Care Serum Pad ทิ้งไว้ 3-5 นาที แล้วเช็ดเบาๆ', days: [] },
+    { id: 'sk_n3', period: 'night',   name: '[หน้า] 3. แปะ Luna Jelly Eye Mask ใต้ตา 10-15 นาที แล้วลอกออก', days: [] },
+    { id: 'sk_n4', period: 'night',   name: '[หน้า] 4. ทา MizuMi Cica Soothing Gel 2 ข้อนิ้ว บริเวณใบหน้าและลำคอ', days: [] },
+    { id: 'sk_n5', period: 'night',   name: '[ตัว] 5. อาบน้ำ WATERCOME + ทา MizuMi B3 AHA (งดคืนที่สครับผิว)', days: [] },
+    { id: 'sk_n6', period: 'night',   name: '[ตัว] 6. ทาโลชั่น WATERCOME ทับทั่วผิวกายเพื่อล็อกความชุ่มชื้น', days: [] },
 
-    // เตือนรายสัปดาห์ (สครับ)
-    { id: 'sk8', period: 'weekly',  name: '[ตัว] สครับขัดผิว WATERCOME (งดทา B3 AHA คืนนี้)', days: [3, 6] } // พุธ, เสาร์
+    // ==========================================
+    // ✨ เตือนรายสัปดาห์ (สครับ & มาส์กหน้า)
+    // ==========================================
+    { id: 'sk_w1', period: 'weekly',  name: '[ตัว] สครับขัดผิว WATERCOME (งดทา MizuMi B3 AHA คืนนี้)', days: [3, 6] }, // พุธ, เสาร์
+    { id: 'sk_w2', period: 'weekly',  name: '[หน้า] แปะแผ่นมาส์ก Myu-Nique 15-20 นาที ก่อนลง Cica Gel', days: [4, 0] }   // พฤหัสบดี, อาทิตย์
 ];
 
 let skincareItems = JSON.parse(localStorage.getItem('fitTracker_skincare_items') || 'null') || defaultSkincareItems;
