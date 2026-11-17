@@ -3528,30 +3528,82 @@ async function handleSkincarePhotoSelected(event) {
     }
 }
 
+function selectSkincareWeekDay(dateStr) {
+    currentDateKey = dateStr;
+    if (typeof renderUIOnly === 'function') renderUIOnly();
+    renderSkincareContent();
+}
+
 function renderSkincareContent() {
+    const weekStrip = document.getElementById('skincare-week-strip');
     const alertBox = document.getElementById('skincare-today-alert');
     const listBox = document.getElementById('skincare-list-container');
     if (!listBox) return;
 
     const parts = currentDateKey.split('-');
-    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-    const dayOfWeek = dateObj.getDay();
-    const dayNamesShort = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+    const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayOfWeek = selectedDate.getDay(); // 0 = อาทิตย์ ... 6 = เสาร์
+    const dayNamesShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+    const dayNamesFull = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
     const checkedIds = skincareLogs[currentDateKey] || [];
 
+    // หาวันอาทิตย์เริ่มต้นของสัปดาห์ที่กำลังเลือก
+    const sundayOfWeek = new Date(selectedDate);
+    sundayOfWeek.setDate(selectedDate.getDate() - dayOfWeek);
+
+    const todayObj = new Date();
+    const todayKey = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
+    // สร้างแถบปฏิทิน อา - ส
+    if (weekStrip) {
+        let stripHtml = `<div class="grid grid-cols-7 gap-1 bg-slate-950/90 p-1.5 rounded-2xl border border-slate-800">`;
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(sundayOfWeek);
+            d.setDate(sundayOfWeek.getDate() + i);
+            const dKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const isSelected = (dKey === currentDateKey);
+            const isToday = (dKey === todayKey);
+            const hasSpecial = skincareItems.some(item => item.period === 'weekly' && item.days.includes(i));
+
+            stripHtml += `
+                <button type="button" onclick="selectSkincareWeekDay('${dKey}')"
+                    class="flex flex-col items-center py-1.5 rounded-xl border transition ${isSelected
+                        ? 'bg-pink-600 border-pink-400 text-white shadow-md shadow-pink-600/20'
+                        : isToday
+                            ? 'bg-slate-900 border-pink-500/40 text-pink-300'
+                            : 'bg-slate-900/60 border-transparent text-slate-400 hover:bg-slate-800'}">
+                    <span class="text-[10px] font-medium">${dayNamesShort[i]}</span>
+                    <span class="text-xs font-bold mt-0.5">${d.getDate()}</span>
+                    <span class="w-1.5 h-1.5 rounded-full mt-1 ${hasSpecial ? (isSelected ? 'bg-white' : 'bg-pink-400') : 'bg-transparent'}"></span>
+                </button>
+            `;
+        }
+        stripHtml += `</div>`;
+        weekStrip.innerHTML = stripHtml;
+    }
+
+    // แสดงสรุปสิ่งที่ต้องทำในวันที่เลือก (เน้นคิวพิเศษ + บำรุงปกติ)
     const dueWeeklyToday = skincareItems.filter(item => item.period === 'weekly' && item.days.includes(dayOfWeek));
     if (dueWeeklyToday.length > 0) {
         alertBox.innerHTML = `
             <div class="bg-pink-950/50 border border-pink-500/40 rounded-2xl p-3 flex items-start gap-2.5">
-                <span class="text-lg">✨</span>
-                <div class="text-xs">
-                    <div class="font-bold text-pink-300">แจ้งเตือนคิวพิเศษวันนี้ (${dayNamesShort[dayOfWeek]})</div>
-                    <div class="text-slate-200 mt-0.5">${dueWeeklyToday.map(i => i.name).join(' • ')}</div>
+                <span class="text-base mt-0.5">✨</span>
+                <div class="text-xs space-y-0.5">
+                    <div class="font-bold text-pink-300">${dayNamesFull[dayOfWeek]}ที่ ${selectedDate.getDate()}: มีคิวพิเศษ!</div>
+                    <div class="text-slate-100">${dueWeeklyToday.map(i => i.name).join('<br>')}</div>
+                    <div class="text-[10px] text-pink-200/70 pt-0.5">+ บำรุงเช้า & ก่อนนอนตามปกติ</div>
                 </div>
             </div>
         `;
     } else {
-        alertBox.innerHTML = '';
+        alertBox.innerHTML = `
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex items-center gap-2.5">
+                <span class="text-sm">🧴</span>
+                <div class="text-xs text-slate-300">
+                    <span class="font-bold text-white">${dayNamesFull[dayOfWeek]}ที่ ${selectedDate.getDate()}:</span> บำรุงเช้า & ก่อนนอนตามตารางปกติ (ไม่มีคิวสครับ/มาส์ก)
+                </div>
+            </div>
+        `;
     }
 
     const renderGroup = (title, icon, items) => {
