@@ -3302,5 +3302,154 @@ async function handleExercisePhotoSelected(event) {
     }
 }
 
+// ==========================================
+// Skincare & Body Care Routine Reminder
+// ==========================================
+const defaultSkincareItems = [
+    // ตอนเช้า (ทุกวัน)
+    { id: 'sk1', period: 'morning', name: '[หน้า] ล้างหน้า Senka Collagen In + ทา MizuMi Cica Gel', days: [] },
+    { id: 'sk2', period: 'morning', name: '[หน้า] ทากันแดด MizuMi UV Water Serum (2 ข้อนิ้ว)', days: [] },
+    { id: 'sk3', period: 'morning', name: '[ตัว] อาบน้ำ WATERCOME + ทาเซรั่ม & โลชั่น WATERCOME', days: [] },
+    { id: 'sk4', period: 'morning', name: '[ตัว] ทากันแดด MizuMi UV Cooling Body Serum', days: [] },
+
+    // ก่อนนอน (ทุกวัน)
+    { id: 'sk5', period: 'night',   name: '[หน้า] ล้างหน้า Senka + โบก MizuMi Cica Soothing Gel', days: [] },
+    { id: 'sk6', period: 'night',   name: '[ตัว] ทา MizuMi B3 AHA Body Booster (งดคืนที่สครับผิว)', days: [] },
+    { id: 'sk7', period: 'night',   name: '[ตัว] ทาโลชั่น WATERCOME ล็อกความชุ่มชื้น', days: [] },
+
+    // เตือนรายสัปดาห์ (สครับ)
+    { id: 'sk8', period: 'weekly',  name: '[ตัว] สครับขัดผิว WATERCOME (งดทา B3 AHA คืนนี้)', days: [3, 6] } // พุธ, เสาร์
+];
+
+let skincareItems = JSON.parse(localStorage.getItem('fitTracker_skincare_items') || 'null') || defaultSkincareItems;
+let skincareLogs = JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}');
+
+function openSkincareModal() {
+    renderSkincareContent();
+    document.getElementById('skincare-modal').classList.remove('hidden');
+}
+
+function closeSkincareModal() {
+    document.getElementById('skincare-modal').classList.add('hidden');
+}
+
+function toggleSkincareDaysSelect() {
+    const period = document.getElementById('skincare-new-period').value;
+    const picker = document.getElementById('skincare-days-picker');
+    if (period === 'weekly') {
+        picker.classList.remove('hidden');
+    } else {
+        picker.classList.add('hidden');
+    }
+}
+
+function toggleSkincareCheck(itemId) {
+    if (!skincareLogs[currentDateKey]) skincareLogs[currentDateKey] = [];
+    const idx = skincareLogs[currentDateKey].indexOf(itemId);
+    if (idx > -1) {
+        skincareLogs[currentDateKey].splice(idx, 1);
+    } else {
+        skincareLogs[currentDateKey].push(itemId);
+    }
+    localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(skincareLogs));
+    renderSkincareContent();
+}
+
+function addSkincareItem() {
+    const period = document.getElementById('skincare-new-period').value;
+    const nameInput = document.getElementById('skincare-new-name');
+    const name = nameInput.value.trim();
+    if (!name) return;
+
+    let days = [];
+    if (period === 'weekly') {
+        document.querySelectorAll('.sk-day-cb:checked').forEach(cb => days.push(parseInt(cb.value)));
+        if (days.length === 0) {
+            alert('กรุณาเลือกวันในสัปดาห์ที่ต้องการให้เตือนอย่างน้อย 1 วันครับ');
+            return;
+        }
+    }
+
+    skincareItems.push({
+        id: 'sk_' + Date.now(),
+        period: period,
+        name: name,
+        days: days
+    });
+    localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
+
+    nameInput.value = '';
+    document.querySelectorAll('.sk-day-cb').forEach(cb => cb.checked = false);
+    renderSkincareContent();
+}
+
+function deleteSkincareItem(itemId) {
+    if (!confirm('ลบรายการนี้ออกจากตารางดูแลผิว?')) return;
+    skincareItems = skincareItems.filter(item => item.id !== itemId);
+    localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
+    renderSkincareContent();
+}
+
+function renderSkincareContent() {
+    const alertBox = document.getElementById('skincare-today-alert');
+    const listBox = document.getElementById('skincare-list-container');
+    if (!listBox) return;
+
+    const parts = currentDateKey.split('-');
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayOfWeek = dateObj.getDay();
+    const dayNamesShort = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+    const checkedIds = skincareLogs[currentDateKey] || [];
+
+    // เช็กว่าวันนี้ตรงกับวันสครับ / มาส์กหน้าไหม
+    const dueWeeklyToday = skincareItems.filter(item => item.period === 'weekly' && item.days.includes(dayOfWeek));
+    if (dueWeeklyToday.length > 0) {
+        alertBox.innerHTML = `
+            <div class="bg-pink-950/50 border border-pink-500/40 rounded-2xl p-3 flex items-start gap-2.5">
+                <span class="text-lg">✨</span>
+                <div class="text-xs">
+                    <div class="font-bold text-pink-300">แจ้งเตือนคิวพิเศษวันนี้ (${dayNamesShort[dayOfWeek]})</div>
+                    <div class="text-slate-200 mt-0.5">${dueWeeklyToday.map(i => i.name).join(' • ')}</div>
+                </div>
+            </div>
+        `;
+    } else {
+        alertBox.innerHTML = '';
+    }
+
+    const renderGroup = (title, icon, items) => {
+        if (items.length === 0) return '';
+        return `
+            <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">${icon} ${title}</div>
+                <div class="space-y-1.5">
+                    ${items.map(item => {
+                        const isChecked = checkedIds.includes(item.id);
+                        const dayBadge = item.period === 'weekly'
+                            ? `<span class="text-[9px] bg-pink-950 text-pink-300 border border-pink-700/50 px-1.5 py-0.5 rounded ml-1.5">${item.days.map(d => dayNamesShort[d]).join(', ')}</span>`
+                            : '';
+                        return `
+                            <div class="flex items-center justify-between gap-2 bg-slate-900/90 p-2.5 rounded-xl border ${isChecked ? 'border-emerald-700/50 bg-emerald-950/20' : 'border-slate-800'}">
+                                <label class="flex items-center gap-2.5 cursor-pointer flex-1">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSkincareCheck('${item.id}')" class="w-4 h-4 accent-pink-500 rounded">
+                                    <span class="text-xs ${isChecked ? 'line-through text-slate-500' : 'text-slate-100'}">${item.name}${dayBadge}</span>
+                                </label>
+                                <button type="button" onclick="deleteSkincareItem('${item.id}')" class="text-slate-600 hover:text-rose-400 text-xs px-1">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    };
+
+    listBox.innerHTML =
+        renderGroup('บำรุงตอนเช้า (ทุกวัน)', '☀️', skincareItems.filter(i => i.period === 'morning')) +
+        renderGroup('บำรุงก่อนนอน (ทุกวัน)', '🌙', skincareItems.filter(i => i.period === 'night')) +
+        renderGroup('ตารางสครับ & มาส์กหน้า (รายสัปดาห์)', '✨', skincareItems.filter(i => i.period === 'weekly'));
+}
+
 // Initialize on load
 window.onload = initApp;
