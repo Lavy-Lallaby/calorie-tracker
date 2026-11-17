@@ -858,6 +858,57 @@
         </div>
     </div>
 
+    <!-- Skincare & Body Routine Modal -->
+    <div id="skincare-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 w-full max-w-md rounded-3xl border border-slate-800 p-4 space-y-3.5 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sparkles text-pink-400"></i> ตารางบำรุงผิว & สครับ
+                </h3>
+                <button onclick="closeSkincareModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- แจ้งเตือนกิจกรรมพิเศษประจำวัน (เช่น สครับ / มาส์กหน้า) -->
+            <div id="skincare-today-alert"></div>
+
+            <!-- รายการเช็กลิสต์ เช้า / ก่อนนอน / สัปดาห์ -->
+            <div id="skincare-list-container" class="space-y-3"></div>
+
+            <!-- ฟอร์มเพิ่มรายการใหม่ -->
+            <div class="bg-slate-950/90 p-3 rounded-2xl border border-slate-800 space-y-2">
+                <div class="text-xs font-bold text-pink-300">+ เพิ่มขั้นตอนการดูแลผิว</div>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <select id="skincare-new-period" onchange="toggleSkincareDaysSelect()" class="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none">
+                        <option value="morning">☀️ ตอนเช้า (ทุกวัน)</option>
+                        <option value="night">🌙 ก่อนนอน (ทุกวัน)</option>
+                        <option value="weekly">✨ เตือนรายสัปดาห์ (สครับ/มาส์ก)</option>
+                    </select>
+                    <input type="text" id="skincare-new-name" placeholder="เช่น ทากันแดด / สครับผิว" class="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none">
+                </div>
+
+                <!-- เลือกวันเตือน (แสดงเฉพาะเมื่อเลือก เตือนรายสัปดาห์) -->
+                <div id="skincare-days-picker" class="hidden pt-1">
+                    <div class="text-[10px] text-slate-400 mb-1">เลือกวันที่ต้องการให้เตือน:</div>
+                    <div class="grid grid-cols-7 gap-1 text-center text-[11px]">
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="1" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">จ</span></label>
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="2" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">อ</span></label>
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="3" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">พ</span></label>
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="4" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">พฤ</span></label>
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="5" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">ศ</span></label>
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="6" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">ส</span></label>
+                        <label class="bg-slate-900 border border-slate-800 rounded-lg py-1 cursor-pointer"><input type="checkbox" value="0" class="sk-day-cb hidden peer"><span class="peer-checked:text-pink-400 peer-checked:font-bold text-slate-400">อา</span></label>
+                    </div>
+                </div>
+
+                <button type="button" onclick="addSkincareItem()" class="w-full bg-pink-600 hover:bg-pink-500 text-white text-xs font-semibold py-2 rounded-xl transition">
+                    เพิ่มลงตาราง
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <script src="script.js?v=27"></script>
 </body>
 </html>
