@@ -3171,9 +3171,20 @@ function renderWorkoutCourseContent() {
                     }).join('')}
                 </div>
 
-                <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label}', 35, 210)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-xl transition shadow-lg shadow-indigo-600/20">
-                    <i class="fa-solid fa-check mr-1"></i> บันทึกจบคอร์สเวทวันนี้ (-210 kcal)
-                </button>
+                <div class="space-y-1.5 pt-1">
+                    <div class="text-[10px] text-slate-400 text-center">เลือกบันทึกตามจำนวนเซตที่เล่นจริงวันนี้:</div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label} (1 เซต)', 12, 70)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-semibold py-2 rounded-xl transition">
+                            1 เซต (-70)
+                        </button>
+                        <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label} (2 เซต)', 24, 140)" class="bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-700/60 text-indigo-200 text-[11px] font-semibold py-2 rounded-xl transition">
+                            2 เซต (-140)
+                        </button>
+                        <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label} (ครบ 3 เซต)', 35, 210)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold py-2 rounded-xl transition">
+                            3 เซต (-210)
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
     }
