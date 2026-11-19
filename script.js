@@ -51,27 +51,32 @@ const goalPresets = {
     fat_loss: {
         label: "ลดไขมัน + รักษากล้ามเนื้อ",
         desc: "แคลอรีติดลบพอดี (1,500 kcal) เน้นโปรตีนสูงเพื่อรักษามวลกล้ามเนื้อขณะลดไขมัน",
-        calories: 1500, minCalories: 1200, proteinMin: 96, proteinMax: 128, carbsMax: 150, fatMax: 50
+        calories: 1500, minCalories: 1200, proteinMin: 96, proteinMax: 128, carbsMax: 150, fatMax: 50, sugarMax: 24, sodiumMax: 2000
+    },
+    fat_sugar_burn: {
+        label: "รีดไขมัน & น้ำตาล (IF 16/8)",
+        desc: "เว้นช่วงกิน 16 ชม. (12:00-20:00 น.) คุมคาร์บ 100g น้ำตาล 20g และตัดแป้งมื้อเย็นเพื่อดึงไขมันสะสมมาใช้ก่อน",
+        calories: 1500, minCalories: 1200, proteinMin: 115, proteinMax: 125, carbsMax: 100, fatMax: 60, sugarMax: 20, sodiumMax: 1900
     },
     high_protein: {
         label: "เน้นโปรตีนสูง ลดคาร์บ",
         desc: "โปรตีนสูงพิเศษ (40%) ลดแป้งและน้ำตาล ช่วยให้อิ่มนานและเร่งเผาผลาญ",
-        calories: 1500, minCalories: 1200, proteinMin: 130, proteinMax: 160, carbsMax: 95, fatMax: 58
+        calories: 1500, minCalories: 1200, proteinMin: 130, proteinMax: 160, carbsMax: 95, fatMax: 58, sugarMax: 24, sodiumMax: 2000
     },
     keto_fat: {
         label: "เน้นไขมันดี ลดแป้ง (Low-Carb / Keto)",
         desc: "จำกัดคาร์บต่ำมาก (ไม่เกิน 35g) เน้นไขมันดีเป็นพลังงานหลักและโปรตีนปานกลาง",
-        calories: 1550, minCalories: 1250, proteinMin: 95, proteinMax: 115, carbsMax: 35, fatMax: 112
+        calories: 1550, minCalories: 1250, proteinMin: 95, proteinMax: 115, carbsMax: 35, fatMax: 112, sugarMax: 15, sodiumMax: 2000
     },
     maintain: {
         label: "รักษาน้ำหนัก & สมดุล",
         desc: "พลังงานสมดุล (1,900 kcal) สัดส่วนโปรตีน คาร์บ และไขมันพอดีสำหรับใช้ชีวิตประจำวัน",
-        calories: 1900, minCalories: 1500, proteinMin: 95, proteinMax: 120, carbsMax: 225, fatMax: 63
+        calories: 1900, minCalories: 1500, proteinMin: 95, proteinMax: 120, carbsMax: 225, fatMax: 63, sugarMax: 30, sodiumMax: 2000
     },
     lean_bulk: {
         label: "เพิ่มน้ำหนัก & สร้างกล้ามเนื้อ",
         desc: "เพิ่มพลังงานส่วนเกินแบบคลีน (2,300 kcal) เน้นโปรตีนและคาร์บเพื่อแรงยกเวทและสร้างกล้ามเนื้อ",
-        calories: 2300, minCalories: 1900, proteinMin: 130, proteinMax: 160, carbsMax: 285, fatMax: 64
+        calories: 2300, minCalories: 1900, proteinMin: 130, proteinMax: 160, carbsMax: 285, fatMax: 64, sugarMax: 35, sodiumMax: 2200
     }
 };
 
@@ -83,6 +88,8 @@ const defaultGoals = {
     proteinMax: 128,
     carbsMax: 150,
     fatMax: 50,
+    sugarMax: 24,
+    sodiumMax: 2000,
     steps: 10000,
     water: 2000,
     targetWeight: null
@@ -419,6 +426,7 @@ async function uploadPhotoToGitHub(base64Content) {
 function renderUIOnly() {
     renderWeeklyChart();
     renderDateDisplay();
+    renderBurnModeCard();
     renderMeals();
     renderWaterAndWeight();
     renderActivity();
@@ -567,14 +575,16 @@ function getNutrientAdjustments(dateKey) {
     const baseTargetCal = Number(userGoals.calories) || 1500;
     const targetCarbs = Number(userGoals.carbsMax) || Math.round((baseTargetCal * 0.50) / 4);
     const targetFat = Number(userGoals.fatMax) || Math.round((baseTargetCal * 0.30) / 9);
+    const targetSugar = Number(userGoals.sugarMax) || 24;
+    const targetSodium = Number(userGoals.sodiumMax) || 2000;
 
     const baseLimits = {
         carbs: { label: "คาร์บ", max: targetCarbs, floor: Math.min(25, Math.round(targetCarbs * 0.6)), unit: "g", dec: 1 },
-        sugar: { label: "น้ำตาล", max: 24, floor: 6, unit: "g", dec: 1 },
+        sugar: { label: "น้ำตาล", max: targetSugar, floor: 6, unit: "g", dec: 1 },
         fat: { label: "ไขมันรวม", max: targetFat, floor: Math.round(targetFat * 0.6), unit: "g", dec: 1 },
         satFat: { label: "ไขมันอิ่มตัว", max: 16, floor: 5, unit: "g", dec: 1 },
         transFat: { label: "ไขมันทรานส์", max: 0, floor: 0, unit: "g", dec: 1 },
-        sodium: { label: "โซเดียม", max: 2000, floor: 1000, unit: "mg", dec: 0 },
+        sodium: { label: "โซเดียม", max: targetSodium, floor: 1000, unit: "mg", dec: 0 },
         cholesterol: { label: "คอเลสเตอรอล", max: 300, floor: 100, unit: "mg", dec: 0 }
     };
 
@@ -3647,6 +3657,212 @@ function renderSkincareContent() {
         renderGroup('บำรุงตอนเช้า (ทุกวัน)', '☀️', skincareItems.filter(i => i.period === 'morning')) +
         renderGroup('บำรุงก่อนนอน (ทุกวัน)', '🌙', skincareItems.filter(i => i.period === 'night')) +
         renderGroup('ตารางสครับ & มาส์กหน้า (รายสัปดาห์)', '✨', skincareItems.filter(i => i.period === 'weekly'));
+}
+
+// ==========================================
+// Fat & Sugar Burn Mode Switcher & 7-Day Plan (7-11 & Market)
+// ==========================================
+let burnPlanSelectedDay = new Date().getDay(); // 0=อา, 1=จ ... 6=ส
+
+const fatBurnWeeklyMeals = [
+    {
+        dayName: "อาทิตย์",
+        lunch: { name: "ก๋วยเตี๋ยวเส้นหมี่น้ำใสลูกชิ้นปลา/อกไก่ (ไม่ซดน้ำ) + ไข่ต้ม 2 ฟอง", calories: 510, protein: 38, carbs: 46, sugar: 3, fiber: 2, fat: 14, satFat: 4, transFat: 0, sodium: 680, potassium: 280, cholesterol: 390 },
+        snack: { name: "นมโปรตีนสูงสูตรไม่เติมน้ำตาล (1 ขวด)", calories: 150, protein: 28, carbs: 8, sugar: 6, fiber: 0, fat: 1, satFat: 0.5, transFat: 0, sodium: 150, potassium: 380, cholesterol: 15 },
+        dinner: { name: "อกไก่นุ่ม 7-11 (2 ชิ้น) + ไข่ต้ม 2 ฟอง + สลัดผักล้วน + น้ำสลัดงาดำคีโต 1.5 ชต.", calories: 490, protein: 55, carbs: 13, sugar: 2, fiber: 4, fat: 23, satFat: 5, transFat: 0, sodium: 550, potassium: 420, cholesterol: 430 }
+    },
+    {
+        dayName: "จันทร์",
+        lunch: { name: "ข้าวกล้อง 1.5 ทัพพี + น้ำพริกทูน่า + ไข่ต้ม 2 ฟอง + ผักต้ม", calories: 560, protein: 42, carbs: 45, sugar: 3, fiber: 5, fat: 16, satFat: 4, transFat: 0, sodium: 620, potassium: 450, cholesterol: 395 },
+        snack: { name: "นมโปรตีนสูงสูตรไม่เติมน้ำตาล (1 ขวด)", calories: 150, protein: 28, carbs: 8, sugar: 6, fiber: 0, fat: 1, satFat: 0.5, transFat: 0, sodium: 150, potassium: 380, cholesterol: 15 },
+        dinner: { name: "อกไก่นุ่ม 7-11 (2 ชิ้น) + สลัดมิกซ์ออร์แกนิค + บ้านพลอยสลัดงาดำคีโต 1.5 ชต.", calories: 360, protein: 47, carbs: 13, sugar: 2, fiber: 4, fat: 13, satFat: 2.5, transFat: 0, sodium: 480, potassium: 390, cholesterol: 95 }
+    },
+    {
+        dayName: "อังคาร",
+        lunch: { name: "เกาเหลาไก่ฉีก/หมูชิ้น (ไม่เจียว) + ข้าวสวย 1 ทัพพี + ไข่ต้ม 1 ฟอง", calories: 520, protein: 38, carbs: 42, sugar: 3, fiber: 3, fat: 18, satFat: 5, transFat: 0, sodium: 780, potassium: 360, cholesterol: 240 },
+        snack: { name: "เฉาก๊วยเนื้อล้วนไม่หวาน + ไซรัปหญ้าหวาน 0 kcal + เมล็ดฟักทองอบ 15g", calories: 115, protein: 5, carbs: 8, sugar: 0, fiber: 3, fat: 7, satFat: 1.2, transFat: 0, sodium: 15, potassium: 140, cholesterol: 0 },
+        dinner: { name: "ปลานิล/ปลาทับทิมนึ่งหรือเผา (เนื้อ ~200g) + ผักลวก + น้ำจิ้มซีฟู้ด", calories: 480, protein: 52, carbs: 8, sugar: 2, fiber: 4, fat: 22, satFat: 5, transFat: 0, sodium: 540, potassium: 620, cholesterol: 135 }
+    },
+    {
+        dayName: "พุธ",
+        lunch: { name: "ข้าวกล้อง 1.5 ทัพพี + อกไก่ผัดพริกแกง (ผัดน้ำ) + ไข่ดาวน้ำ 1 ฟอง", calories: 550, protein: 44, carbs: 46, sugar: 3, fiber: 4, fat: 15, satFat: 3.5, transFat: 0, sodium: 690, potassium: 440, cholesterol: 245 },
+        snack: { name: "นมอัลมอนด์สูตรไม่หวาน 1 กล่อง + ไข่ต้ม 7-11 (2 ฟอง)", calories: 180, protein: 14, carbs: 3, sugar: 1, fiber: 1, fat: 12, satFat: 3.4, transFat: 0, sodium: 260, potassium: 190, cholesterol: 372 },
+        dinner: { name: "ยำทูน่ากระป๋องในน้ำแร่ (1 กป.) + ผักสลัด/แตงกวา/มะเขือเทศ", calories: 380, protein: 46, carbs: 10, sugar: 4, fiber: 4, fat: 14, satFat: 2, transFat: 0, sodium: 520, potassium: 480, cholesterol: 55 }
+    },
+    {
+        dayName: "พฤหัสบดี",
+        lunch: { name: "สุกี้แห้งไก่ (วุ้นเส้นครึ่งห่อ ราดน้ำจิ้มครึ่งถ้วย) + ไข่ต้ม 1 ฟอง", calories: 495, protein: 35, carbs: 46, sugar: 6, fiber: 4, fat: 14, satFat: 3.5, transFat: 0, sodium: 890, potassium: 350, cholesterol: 240 },
+        snack: { name: "ชาเขียว/ชาไทยชงนมอัลมอนด์ไม่หวาน + หญ้าหวาน + ถั่วแระญี่ปุ่น", calories: 160, protein: 12, carbs: 10, sugar: 2, fiber: 5, fat: 8, satFat: 1, transFat: 0, sodium: 180, potassium: 460, cholesterol: 0 },
+        dinner: { name: "สันในไก่ย่าง/อบหม้อทอด 200g + สลัดผักรวม + น้ำสลัดงาดำคีโต 1.5 ชต.", calories: 490, protein: 54, carbs: 10, sugar: 2, fiber: 4, fat: 22, satFat: 4, transFat: 0, sodium: 420, potassium: 510, cholesterol: 120 }
+    },
+    {
+        dayName: "ศุกร์",
+        lunch: { name: "ข้าวกล้อง 1.5 ทัพพี + หมูสันในอบกระเทียม + แตงกวาสด", calories: 540, protein: 40, carbs: 44, sugar: 2, fiber: 4, fat: 18, satFat: 5, transFat: 0, sodium: 610, potassium: 490, cholesterol: 115 },
+        snack: { name: "นมโปรตีนสูงสูตร 0% น้ำตาล 1 ขวด + เฉาก๊วยไม่หวานราดไซรัปคีโต", calories: 185, protein: 28, carbs: 12, sugar: 6, fiber: 2, fat: 1, satFat: 0.5, transFat: 0, sodium: 160, potassium: 390, cholesterol: 15 },
+        dinner: { name: "ไข่ตุ๋นทรงเครื่อง (ไข่ 3 ฟอง + อกไก่สับ 100g) + ผักกาดขาวต้ม", calories: 450, protein: 45, carbs: 7, sugar: 2, fiber: 3, fat: 24, satFat: 6.5, transFat: 0, sodium: 560, potassium: 460, cholesterol: 615 }
+    },
+    {
+        dayName: "เสาร์",
+        lunch: { name: "ข้าวไรซ์เบอร์รี่ 1.5 ทัพพี + แกงจืดเต้าหู้ไข่หมูสับ + ไข่ต้ม 1 ฟอง", calories: 530, protein: 36, carbs: 45, sugar: 3, fiber: 4, fat: 19, satFat: 5.5, transFat: 0, sodium: 720, potassium: 410, cholesterol: 255 },
+        snack: { name: "HEYTEA สูตรน้ำตาลน้อย (ผสมน้ำเปล่า/โซดา) + อกไก่ฉีก 7-11 (1 ซอง)", calories: 175, protein: 22, carbs: 14, sugar: 12, fiber: 0, fat: 2, satFat: 0.5, transFat: 0, sodium: 340, potassium: 190, cholesterol: 45 },
+        dinner: { name: "ปลากะพงลวกจิ้ม / ปลาซาบะย่างซีอิ๊ว (ครึ่งตัว) + ผักสด/ผักลวก", calories: 460, protein: 44, carbs: 6, sugar: 2, fiber: 4, fat: 26, satFat: 6, transFat: 0, sodium: 520, potassium: 540, cholesterol: 110 }
+    }
+];
+
+function switchQuickDietMode(modeKey) {
+    const p = goalPresets[modeKey] || goalPresets.fat_loss;
+    userGoals = Object.assign({}, userGoals, {
+        preset: modeKey,
+        calories: p.calories,
+        minCalories: p.minCalories,
+        proteinMin: p.proteinMin,
+        proteinMax: p.proteinMax,
+        carbsMax: p.carbsMax,
+        fatMax: p.fatMax,
+        sugarMax: p.sugarMax ?? 24,
+        sodiumMax: p.sodiumMax ?? 2000
+    });
+    saveDataAndSync();
+}
+
+function selectBurnPlanDay(dayIdx) {
+    burnPlanSelectedDay = dayIdx;
+    renderBurnModeCard();
+}
+
+function addBurnPlanMeal(dayIdx, mealSlot) {
+    const plan = fatBurnWeeklyMeals[dayIdx];
+    if (!plan || !plan[mealSlot]) return;
+
+    const mealMap = {
+        lunch: "มื้อเที่ยง",
+        snack: "มื้อว่าง/อื่นๆ",
+        dinner: "มื้อเย็น"
+    };
+    const targetMealType = mealMap[mealSlot];
+    const item = plan[mealSlot];
+
+    const dayData = getDayData(currentDateKey);
+    dayData.meals[targetMealType].push({
+        name: item.name,
+        qty: 1,
+        photo: null,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        sugar: item.sugar,
+        fiber: item.fiber,
+        fat: item.fat,
+        satFat: item.satFat,
+        transFat: item.transFat,
+        sodium: item.sodium,
+        potassium: item.potassium,
+        cholesterol: item.cholesterol
+    });
+
+    saveDataAndSync();
+    alert(`เพิ่ม "${item.name}" (${item.calories} kcal) ลงใน "${targetMealType}" เรียบร้อยแล้ว!`);
+}
+
+function renderBurnModeCard() {
+    const container = document.getElementById('burn-mode-card');
+    if (!container) return;
+
+    const isBurnMode = userGoals.preset === 'fat_sugar_burn';
+    const plan = fatBurnWeeklyMeals[burnPlanSelectedDay] || fatBurnWeeklyMeals[1];
+    const dayShortLabels = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
+    container.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+            <div>
+                <span class="text-[10px] text-slate-400 block">โหมดเผาผลาญปัจจุบัน</span>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class="text-xs font-bold ${isBurnMode ? 'text-amber-400' : 'text-emerald-400'}">
+                        ${isBurnMode ? '⚡ รีดไขมัน & น้ำตาล (IF 16/8)' : '⚖️ โหมดลดน้ำหนักปกติ'}
+                    </span>
+                </div>
+            </div>
+
+            <!-- ปุ่มสลับโหมด 1 คลิก -->
+            <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0">
+                <button type="button" onclick="switchQuickDietMode('fat_loss')"
+                    class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${!isBurnMode ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}">
+                    ลดปกติ
+                </button>
+                <button type="button" onclick="switchQuickDietMode('fat_sugar_burn')"
+                    class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${isBurnMode ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}">
+                    ⚡ รีดไขมัน & น้ำตาล
+                </button>
+            </div>
+        </div>
+
+        ${isBurnMode ? `
+            <div class="space-y-2.5 pt-2 border-t border-slate-800/80">
+                <!-- กรอบกติกา IF 16/8 -->
+                <div class="bg-amber-950/35 border border-amber-500/30 rounded-xl p-2.5 text-[11px] space-y-1">
+                    <div class="font-bold text-amber-300 flex items-center justify-between">
+                        <span>⏱️ กิน 12:00 – 20:00 น. (งด 16 ชม.)</span>
+                        <span class="text-[10px] bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-200">C ≤100g | น้ำตาล ≤20g</span>
+                    </div>
+                    <p class="text-slate-300 leading-relaxed">
+                        • ช่วงเช้าถึงเที่ยงดื่มได้เฉพาะ <b>น้ำเปล่า / กาแฟดำ / ชา 0 kcal</b> เพื่อดึงไขมันสะสม<br>
+                        • <b>มื้อเย็นตัดแป้งออกทั้งหมด</b> เน้นโปรตีน + ผักใบเขียว
+                    </p>
+                </div>
+
+                <!-- แถบเลือกวันดูเมนู 7-11 & ตลาด -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-semibold text-slate-300">🍱 ตารางเมนูรีดไขมัน (7-11 & ตลาด)</span>
+                        <span class="text-[10px] text-slate-400">กดปุ่มเพื่อเพิ่มลงมื้อ</span>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1">
+                        ${[1, 2, 3, 4, 5, 6, 0].map(dIdx => `
+                            <button type="button" onclick="selectBurnPlanDay(${dIdx})"
+                                class="py-1 rounded-lg text-[11px] font-semibold transition ${burnPlanSelectedDay === dIdx
+                                    ? 'bg-amber-500 text-slate-950 font-bold'
+                                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'}">
+                                ${dayShortLabels[dIdx]}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <!-- รายการมื้ออาหารของวันที่เลือก -->
+                    <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800 space-y-2 text-[11px]">
+                        <div class="flex justify-between items-start gap-2 border-b border-slate-800/70 pb-1.5">
+                            <div class="flex-1">
+                                <span class="text-amber-400 font-bold block">12:00 เที่ยง (${plan.lunch.calories} kcal | P ${plan.lunch.protein}g)</span>
+                                <span class="text-slate-200">${plan.lunch.name}</span>
+                            </div>
+                            <button type="button" onclick="addBurnPlanMeal(${burnPlanSelectedDay}, 'lunch')" class="shrink-0 bg-slate-800 hover:bg-amber-600 hover:text-white text-amber-300 px-2 py-1 rounded-lg text-[10px] font-semibold transition">
+                                + ใส่เที่ยง
+                            </button>
+                        </div>
+
+                        <div class="flex justify-between items-start gap-2 border-b border-slate-800/70 pb-1.5">
+                            <div class="flex-1">
+                                <span class="text-sky-400 font-bold block">15:30 ว่าง (${plan.snack.calories} kcal | P ${plan.snack.protein}g)</span>
+                                <span class="text-slate-200">${plan.snack.name}</span>
+                            </div>
+                            <button type="button" onclick="addBurnPlanMeal(${burnPlanSelectedDay}, 'snack')" class="shrink-0 bg-slate-800 hover:bg-sky-600 hover:text-white text-sky-300 px-2 py-1 rounded-lg text-[10px] font-semibold transition">
+                                + ใส่ว่าง
+                            </button>
+                        </div>
+
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex-1">
+                                <span class="text-emerald-400 font-bold block">19:00 เย็น ไร้แป้ง (${plan.dinner.calories} kcal | P ${plan.dinner.protein}g)</span>
+                                <span class="text-slate-200">${plan.dinner.name}</span>
+                            </div>
+                            <button type="button" onclick="addBurnPlanMeal(${burnPlanSelectedDay}, 'dinner')" class="shrink-0 bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-300 px-2 py-1 rounded-lg text-[10px] font-semibold transition">
+                                + ใส่เย็น
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ` : ''}
+    `;
 }
 
 // Initialize on load
