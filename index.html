@@ -95,6 +95,9 @@
             </div>
         </div>
 
+        <!-- Fat & Sugar Burn Mode Switcher + 7-Day Meal Plan -->
+        <section id="burn-mode-card" class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm space-y-3"></section>
+
         <!-- Summary Card -->
         <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/60 p-5 rounded-3xl border border-slate-800 shadow-xl space-y-4">
             <div class="flex justify-between items-start">
@@ -634,6 +637,7 @@
                         <select id="goal-preset-select" onchange="applyGoalPreset(this.value)"
                             class="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-2.5 py-2 text-xs text-white font-medium focus:outline-none focus:border-amber-400">
                             <option value="fat_loss">🔥 ลดไขมัน + รักษากล้ามเนื้อ (1,500 kcal | โปรตีนสูง)</option>
+                            <option value="fat_sugar_burn">⚡ รีดไขมัน & น้ำตาล (1,500 kcal | IF 16/8 | ตัดแป้งเย็น)</option>
                             <option value="high_protein">💪 เน้นโปรตีนสูง ลดคาร์บ (1,500 kcal | P 40% / C 25%)</option>
                             <option value="keto_fat">🥑 เน้นไขมันดี ลดแป้ง/คีโต (1,550 kcal | F 65% / C 9%)</option>
                             <option value="maintain">⚖️ รักษาน้ำหนัก & สมดุล (1,900 kcal | C 48% / F 30%)</option>
@@ -939,6 +943,6 @@
         </div>
     </div>
     
-    <script src="script.js?v=32"></script>
+    <script src="script.js?v=33"></script>
 </body>
 </html>
