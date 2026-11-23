@@ -4037,108 +4037,222 @@ function renderBurnModeCard() {
 // ==========================================
 // Smart Body Composition Tracker & Evaluator (วิเคราะห์ไขมัน-กล้ามเนื้อละเอียด)
 // ==========================================
+let bodyCompareMode = 'prev'; // 'prev' = เทียบจากเมื่อวาน/ครั้งก่อน, 'first' = ตั้งแต่วันแรกถึงปัจจุบัน
+
+function switchBodyCompareMode(mode) {
+    bodyCompareMode = mode;
+    renderBodyComposition();
+}
+
 function updateBodyComposition() {
     const dayData = getDayData(currentDateKey);
-    const fatPct = parseFloat(document.getElementById('bc-fat-pct').value);
-    const muscleKg = parseFloat(document.getElementById('bc-muscle-kg').value);
-    const visceral = parseFloat(document.getElementById('bc-visceral').value);
-    const waterPct = parseFloat(document.getElementById('bc-water-pct').value);
+    const getNum = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return null;
+        const v = parseFloat(el.value);
+        return (!isNaN(v) && v > 0) ? v : null;
+    };
 
     dayData.bodyComp = {
-        fatPct: (!isNaN(fatPct) && fatPct > 0) ? fatPct : null,
-        muscleKg: (!isNaN(muscleKg) && muscleKg > 0) ? muscleKg : null,
-        visceral: (!isNaN(visceral) && visceral > 0) ? visceral : null,
-        waterPct: (!isNaN(waterPct) && waterPct > 0) ? waterPct : null
+        fatPct: getNum('bc-fat-pct'),
+        muscleKg: getNum('bc-muscle-kg'),
+        visceral: getNum('bc-visceral'),
+        waterPct: getNum('bc-water-pct'),
+        armL: getNum('bc-arm-l'),
+        armR: getNum('bc-arm-r'),
+        legL: getNum('bc-leg-l'),
+        legR: getNum('bc-leg-r')
     };
 
     saveDataAndSync();
+}
+
+function formatDeltaBadge(cur, base, unit, lowerIsBetter = true) {
+    if (cur === null || cur === undefined || base === null || base === undefined) return '';
+    const diff = Number((cur - base).toFixed(1));
+    if (diff === 0) return `<span class="text-[9px] text-slate-400 ml-1">(คงที่)</span>`;
+
+    const isGood = lowerIsBetter ? (diff < 0) : (diff > 0);
+    const color = isGood ? 'text-emerald-400' : 'text-rose-400';
+    const arrow = diff > 0 ? '▲+' : '▼';
+    return `<span class="text-[9px] font-bold ${color} ml-1">${arrow}${diff}${unit}</span>`;
 }
 
 function renderBodyComposition() {
     const dayData = getDayData(currentDateKey);
     const bc = dayData.bodyComp || {};
 
-    const fatEl = document.getElementById('bc-fat-pct');
-    const muscleEl = document.getElementById('bc-muscle-kg');
-    const visEl = document.getElementById('bc-visceral');
-    const waterEl = document.getElementById('bc-water-pct');
+    const fieldsMap = {
+        'bc-fat-pct': bc.fatPct,
+        'bc-muscle-kg': bc.muscleKg,
+        'bc-visceral': bc.visceral,
+        'bc-water-pct': bc.waterPct,
+        'bc-arm-l': bc.armL,
+        'bc-arm-r': bc.armR,
+        'bc-leg-l': bc.legL,
+        'bc-leg-r': bc.legR
+    };
+
+    Object.entries(fieldsMap).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val ?? '';
+    });
+
     const badgeEl = document.getElementById('body-comp-badge');
     const analysisEl = document.getElementById('body-comp-analysis');
+    const mapBox = document.getElementById('body-human-map-box');
+    if (!analysisEl || !mapBox) return;
 
-    if (!fatEl || !analysisEl) return;
-
-    fatEl.value = bc.fatPct ?? '';
-    muscleEl.value = bc.muscleKg ?? '';
-    visEl.value = bc.visceral ?? '';
-    waterEl.value = bc.waterPct ?? '';
-
-    const hasAny = bc.fatPct || bc.muscleKg || bc.visceral || bc.waterPct;
+    const hasAny = Object.values(fieldsMap).some(v => v !== null && v !== undefined);
     if (!hasAny) {
-        badgeEl.innerText = "กดเพื่อกรอก";
+        if (badgeEl) badgeEl.innerText = "กดเพื่อกรอก";
         analysisEl.classList.add('hidden');
+        mapBox.classList.add('hidden');
         return;
     }
 
-    badgeEl.innerHTML = `<span class="text-emerald-400 font-semibold">${bc.fatPct ? `ไขมัน ${bc.fatPct}%` : 'บันทึกแล้ว'}</span>`;
+    if (badgeEl) {
+        badgeEl.innerHTML = `<span class="text-emerald-400 font-semibold">${bc.fatPct ? `ไขมัน ${bc.fatPct}%` : 'บันทึกแล้ว'}</span>`;
+    }
 
-    // หาข้อมูลครั้งก่อนหน้าเพื่อเปรียบเทียบว่าลดไขมันหรือเสียกล้ามเนื้อ
-    const prevKeys = Object.keys(allMealsHistory)
-        .filter(k => k < currentDateKey && allMealsHistory[k]?.bodyComp && (allMealsHistory[k].bodyComp.fatPct || allMealsHistory[k].bodyComp.muscleKg))
+    // หาวันที่เคยบันทึก BodyComp ก่อนหน้าทั้งหมดเรียงตามวันที่
+    const recordedKeys = Object.keys(allMealsHistory)
+        .filter(k => k < currentDateKey && allMealsHistory[k]?.bodyComp && Object.values(allMealsHistory[k].bodyComp).some(v => v !== null && v !== undefined))
         .sort();
-    const prevKey = prevKeys.length > 0 ? prevKeys[prevKeys.length - 1] : null;
-    const prevData = prevKey ? allMealsHistory[prevKey] : null;
 
-    let lines = [];
+    const prevKey = recordedKeys.length > 0 ? recordedKeys[recordedKeys.length - 1] : null;
+    const firstKey = recordedKeys.length > 0 ? recordedKeys[0] : null;
+
+    const targetCompareKey = (bodyCompareMode === 'first') ? firstKey : prevKey;
+    const baseObj = targetCompareKey ? allMealsHistory[targetCompareKey] : null;
+    const baseBc = baseObj ? (baseObj.bodyComp || {}) : {};
+    const compareTitle = targetCompareKey
+        ? (bodyCompareMode === 'first' ? `เทียบตั้งแต่วันแรก (${targetCompareKey})` : `เทียบจากครั้งก่อน (${targetCompareKey})`)
+        : 'บันทึกครั้งแรก (ยังไม่มีข้อมูลเปรียบเทียบ)';
+
     const weight = Number(dayData.weight) || 0;
+    const baseWeight = baseObj ? (Number(baseObj.weight) || 0) : 0;
 
-    // 1. คำนวณมวลไขมัน (kg) และมวลกล้ามเนื้อล้วน (LBM)
+    // 1. วาดหุ่นคนแบบ Vitruvian / InBody SVG + ป้ายข้อมูล 5 จุด
+    const segCard = (title, val, baseVal, accentClass = 'text-white') => `
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl px-2 py-1.5 text-center">
+            <span class="text-[9px] text-slate-400 block">${title}</span>
+            <span class="text-[11px] font-bold ${accentClass}">
+                ${val !== null && val !== undefined ? `${val}%` : '-'}
+            </span>
+            <div class="leading-none mt-0.5">${formatDeltaBadge(val, baseVal, '%', true)}</div>
+        </div>
+    `;
+
+    mapBox.innerHTML = `
+        <div class="flex items-center justify-between gap-1.5 border-b border-slate-800 pb-2">
+            <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                <i class="fa-solid fa-person"></i> แผนภาพร่างกาย
+            </span>
+            <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px]">
+                <button type="button" onclick="switchBodyCompareMode('prev')"
+                    class="px-2 py-0.5 rounded-md transition ${bodyCompareMode === 'prev' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}">
+                    จากเมื่อวาน
+                </button>
+                <button type="button" onclick="switchBodyCompareMode('first')"
+                    class="px-2 py-0.5 rounded-md transition ${bodyCompareMode === 'first' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}">
+                    ตั้งแต่วันแรก
+                </button>
+            </div>
+        </div>
+
+        <div class="text-[10px] text-center text-slate-400">${compareTitle}</div>
+
+        <!-- โครงสร้าง 3 คอลัมน์: ซ้าย (แขนซ้าย/ขาซ้าย) | กลาง (หุ่นคน SVG) | ขวา (แขนขวา/ขาขวา) -->
+        <div class="grid grid-cols-3 items-center gap-1.5 pt-1">
+            <!-- ฝั่งซ้าย -->
+            <div class="space-y-4">
+                ${segCard('แขนซ้าย', bc.armL, baseBc.armL, 'text-amber-300')}
+                ${segCard('ขาซ้าย', bc.legL, baseBc.legL, 'text-sky-300')}
+            </div>
+
+            <!-- ตรงกลาง: หุ่นคน Vitruvian SVG -->
+            <div class="flex flex-col items-center justify-center relative">
+                <svg viewBox="0 0 120 155" class="w-24 h-32 text-amber-400/80">
+                    <!-- วงกลม Vitruvian -->
+                    <circle cx="60" cy="78" r="56" fill="none" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.45"/>
+                    <!-- ศีรษะ -->
+                    <circle cx="60" cy="24" r="10" fill="#1e293b" stroke="currentColor" stroke-width="1.5"/>
+                    <!-- ลำตัว -->
+                    <path d="M44 40 Q60 36 76 40 L72 84 L48 84 Z" fill="#1e293b" stroke="currentColor" stroke-width="1.5"/>
+                    <!-- แขนกาง 2 ข้าง -->
+                    <path d="M44 42 L14 34 M44 46 L12 52" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                    <path d="M76 42 L106 34 M76 46 L108 52" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                    <!-- ขา 2 ข้าง -->
+                    <path d="M51 84 L44 136 M48 84 L32 132" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+                    <path d="M69 84 L76 136 M72 84 L88 132" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+                    <!-- จุดแกนกลาง (ไขมันช่องท้อง) -->
+                    <circle cx="60" cy="64" r="5" fill="#f43f5e" opacity="0.85"/>
+                </svg>
+                <div class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-0.5 text-center -mt-1">
+                    <span class="text-[9px] text-slate-400">ช่องท้อง: </span>
+                    <span class="text-[10px] font-bold text-rose-400">${bc.visceral ?? '-'}</span>
+                    ${formatDeltaBadge(bc.visceral, baseBc.visceral, '', true)}
+                </div>
+            </div>
+
+            <!-- ฝั่งขวา -->
+            <div class="space-y-4">
+                ${segCard('แขนขวา', bc.armR, baseBc.armR, 'text-amber-300')}
+                ${segCard('ขาขวา', bc.legR, baseBc.legR, 'text-sky-300')}
+            </div>
+        </div>
+
+        <!-- แถบสรุปภาพรวม (น้ำหนัก | ไขมันรวม | กล้ามเนื้อรวม) -->
+        <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/80 text-center">
+            <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">น้ำหนัก</span>
+                <span class="text-xs font-bold text-white">${weight > 0 ? `${weight}kg` : '-'}</span>
+                <div class="leading-none mt-0.5">${weight > 0 && baseWeight > 0 ? formatDeltaBadge(weight, baseWeight, 'kg', true) : ''}</div>
+            </div>
+            <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">ไขมันรวม</span>
+                <span class="text-xs font-bold text-amber-400">${bc.fatPct ? `${bc.fatPct}%` : '-'}</span>
+                <div class="leading-none mt-0.5">${formatDeltaBadge(bc.fatPct, baseBc.fatPct, '%', true)}</div>
+            </div>
+            <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                <span class="text-[9px] text-slate-400 block">กล้ามเนื้อ</span>
+                <span class="text-xs font-bold text-emerald-400">${bc.muscleKg ? `${bc.muscleKg}kg` : '-'}</span>
+                <div class="leading-none mt-0.5">${formatDeltaBadge(bc.muscleKg, baseBc.muscleKg, 'kg', false)}</div>
+            </div>
+        </div>
+    `;
+    mapBox.classList.remove('hidden');
+
+    // 2. สรุปคำแนะนำเชิงลึกด้านล่างหุ่น
+    let lines = [];
     if (weight > 0 && bc.fatPct) {
         const fatMass = (weight * (bc.fatPct / 100)).toFixed(1);
         const lbm = (weight - fatMass).toFixed(1);
         const recProtMin = Math.round(lbm * 1.8);
         const recProtMax = Math.round(lbm * 2.1);
-
-        let fatGrade = bc.fatPct <= 17 ? "ฟิต/ลีนมาก" : (bc.fatPct <= 22 ? "สมส่วนดี" : (bc.fatPct <= 26 ? "เริ่มมีไขมันสะสม" : "ไขมันสูง (ควรรีดต่อ)"));
-        lines.push(`• <b>มวลไขมัน:</b> ${fatMass} kg (${bc.fatPct}% - <span class="text-amber-300">${fatGrade}</span>) | <b>มวลไม่รวมไขมัน:</b> ${lbm} kg`);
-        lines.push(`• <b>โปรตีนแนะนำตามมวลกล้ามเนื้อ:</b> <span class="text-emerald-400 font-bold">${recProtMin}–${recProtMax} g/วัน</span>`);
+        lines.push(`• <b>ไขมันในตัว:</b> ${fatMass} kg | <b>มวลไม่รวมไขมัน (LBM):</b> ${lbm} kg`);
+        lines.push(`• <b>โปรตีนแนะนำตามกล้ามเนื้อจริง:</b> <span class="text-emerald-400 font-bold">${recProtMin}–${recProtMax} g/วัน</span>`);
     }
 
-    // 2. ประเมินไขมันช่องท้อง (Visceral Fat)
-    if (bc.visceral) {
-        const vStatus = bc.visceral <= 9
-            ? `<span class="text-emerald-400">ปกติ (${bc.visceral})</span>`
-            : (bc.visceral <= 14 ? `<span class="text-amber-400">ค่อนข้างสูง (${bc.visceral}) ควรคุมน้ำตาล & คาร์บเย็น</span>` : `<span class="text-rose-400">สูงเกินเกณฑ์ (${bc.visceral})</span>`);
-        lines.push(`• <b>ไขมันช่องท้อง:</b> ${vStatus}`);
-    }
-
-    // 3. ประเมิน % น้ำในร่างกาย
-    if (bc.waterPct) {
-        const wStatus = bc.waterPct < 50
-            ? `<span class="text-amber-300">ค่อนข้างน้อย (${bc.waterPct}%) ควรดื่มน้ำเพิ่ม</span>`
-            : `<span class="text-sky-400">สมดุลดี (${bc.waterPct}%)</span>`;
-        lines.push(`• <b>ระดับน้ำในร่างกาย:</b> ${wStatus}`);
-    }
-
-    // 4. เปรียบเทียบกับครั้งก่อนหน้า (เช็กคุณภาพการลดน้ำหนัก)
-    if (prevData && prevData.bodyComp) {
-        const pBc = prevData.bodyComp;
-        let diffNotes = [];
-        if (bc.fatPct && pBc.fatPct) {
-            const dFat = (bc.fatPct - pBc.fatPct).toFixed(1);
-            diffNotes.push(`ไขมัน ${dFat > 0 ? `+${dFat}%` : `${dFat}%`}`);
-        }
-        if (bc.muscleKg && pBc.muscleKg) {
-            const dMus = (bc.muscleKg - pBc.muscleKg).toFixed(1);
-            diffNotes.push(`กล้ามเนื้อ ${dMus > 0 ? `+${dMus}kg` : `${dMus}kg`}`);
-        }
-        if (diffNotes.length > 0) {
-            const isLossMuscle = bc.muscleKg && pBc.muscleKg && (bc.muscleKg - pBc.muscleKg) < -0.4;
-            lines.push(`• <b>เทียบกับวันที่ ${prevKey}:</b> ${diffNotes.join(' | ')} ${isLossMuscle ? '<span class="text-rose-400">(⚠️ กล้ามเนื้อลด ควรอัดโปรตีนเพิ่ม)</span>' : '<span class="text-emerald-400">(✅ ทิศทางดีมาก)</span>'}`);
+    if (baseObj && baseBc) {
+        const dFat = (bc.fatPct && baseBc.fatPct) ? Number((bc.fatPct - baseBc.fatPct).toFixed(1)) : null;
+        const dMus = (bc.muscleKg && baseBc.muscleKg) ? Number((bc.muscleKg - baseBc.muscleKg).toFixed(1)) : null;
+        if (dFat !== null || dMus !== null) {
+            if (dFat !== null && dFat < 0 && (dMus === null || dMus >= -0.2)) {
+                lines.push(`• <span class="text-emerald-400 font-semibold">ผลลัพธ์ยอดเยี่ยม:</span> ไขมันลดลงจริงโดยที่รักษามวลกล้ามเนื้อไว้ได้ครบ!`);
+            } else if (dMus !== null && dMus < -0.3) {
+                lines.push(`• <span class="text-rose-400 font-semibold">คำเตือน:</span> มวลกล้ามเนื้อลดลง ${Math.abs(dMus)} kg ควรเพิ่มโปรตีนมื้อเย็นและเล่นเวทต้านแรง`);
+            }
         }
     }
 
-    analysisEl.innerHTML = lines.join('<br>');
-    analysisEl.classList.remove('hidden');
+    if (lines.length > 0) {
+        analysisEl.innerHTML = lines.join('<br>');
+        analysisEl.classList.remove('hidden');
+    } else {
+        analysisEl.classList.add('hidden');
+    }
 }
 
 // Initialize on load
