@@ -1159,6 +1159,7 @@ function renderWaterAndWeight() {
     }
 
     renderWeightTrend();
+    renderBodyComposition();
 }
 
 function addWater(ml) {
