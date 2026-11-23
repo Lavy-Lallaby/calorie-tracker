@@ -2428,7 +2428,12 @@ function deleteMealItem(mealType, index) {
 
 function updateCatalogDatalist() {
     const datalist = document.getElementById('food-catalog-list');
-    datalist.innerHTML = foodCatalog.map(f => `<option value="${f.name}">(${f.calories} kcal, โปรตีน ${f.protein}g)</option>`).join('');
+    if (!datalist) return;
+
+    const catalog = Array.isArray(foodCatalog) ? foodCatalog : [];
+    datalist.innerHTML = catalog
+        .map(f => `<option value="${f.name}">(${f.calories} kcal, โปรตีน ${f.protein}g)</option>`)
+        .join('');
 }
 
 function autofillFoodCatalog(name) {
