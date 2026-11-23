@@ -1,9 +1,9 @@
-const CACHE_NAME = 'fittracker-pwa-v47';
+const CACHE_NAME = 'fittracker-pwa-v48';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './course.html',
-  './script.js?v=47',
+  './script.js?v=48',
   './manifest.json',
   './animal.png'
 ];
