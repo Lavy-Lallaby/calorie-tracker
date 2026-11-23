@@ -4529,13 +4529,6 @@ function formatDeltaBadge(cur, base, unit, lowerIsBetter = true) {
     return `<span class="text-[9px] font-bold ${color} ml-1">${arrow}${diff}${unit}</span>`;
 }
 
-const defaultSkincareItems = [
-  { id: 'sk_m1', period: 'morning', name: 'ล้างหน้า (Senka)', days: 'all', note: '' },
-  { id: 'sk_m2', period: 'morning', name: 'กันแดดหน้า + บอดี้บูสเตอร์ (MizuMi)', days: 'all', note: '' },
-  { id: 'sk_e1', period: 'evening', name: 'อาบน้ำ + บำรุงผิวตัว (Watercome)', days: 'all', note: '' },
-  { id: 'sk_e2', period: 'evening', name: 'สครับผิว (เว้นอาทิตย์-จันทร์ติดกัน)', days: [2, 5], note: '' }
-];
-
 function renderBodyComposition() {
   const dayData = getDayData(currentDateKey);
   const weightEl = document.getElementById('current-weight-display');
