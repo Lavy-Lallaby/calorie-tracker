@@ -138,10 +138,14 @@ function utf8ToBase64(str) {
     return btoa(binString);
 }
 
-function base64ToUtf8(base64) {
-    const binString = atob(base64.replace(/\s/g, ''));
-    const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
-    return new TextDecoder().decode(bytes);
+function base64ToUtf8(base64Str) {
+    const clean = (base64Str || '').replace(/\s+/g, '');
+    const binary = atob(clean);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
 }
 
 function setSyncStatus(type, text) {
@@ -174,11 +178,8 @@ function setSyncStatus(type, text) {
 async function syncFromGitHub(showAlert = false) {
     const token = localStorage.getItem('fitTracker_github_token');
     if (!token) {
-        setSyncStatus('local', 'บันทึกในเครื่อง (ยังไม่เชื่อม GitHub)');
-        if (showAlert) {
-            alert("กรุณาใส่ GitHub Token ในหน้าตั้งค่า (⚙️) ก่อนซิงก์ข้อมูลครับ");
-            openSettingsModal();
-        }
+        setSyncStatus('local', 'บันทึกในเครื่อง');
+        if (showAlert) alert("ยังไม่ได้ตั้งค่า GitHub Token ครับ");
         return;
     }
 
@@ -192,44 +193,56 @@ async function syncFromGitHub(showAlert = false) {
             }
         });
 
+        if (res.status === 404) {
+            setSyncStatus('local', 'ยังไม่มีไฟล์ db.json');
+            return;
+        }
         if (!res.ok) {
-            throw new Error(`HTTP ${res.status} - ตรวจสอบ Token หรือสิทธิ์ไฟล์ db.json`);
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.message || `HTTP ${res.status}`);
         }
 
         const data = await res.json();
         currentFileSha = data.sha;
+
         const decodedText = base64ToUtf8(data.content);
-        const cloudData = JSON.parse(decodedText || '{}');
+        const remoteDb = JSON.parse(decodedText);
 
-        if (cloudData.history && Object.keys(cloudData.history).length > 0) {
-            allMealsHistory = cloudData.history;
-            localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-            if (cloudData.catalog && cloudData.catalog.length > 0) {
-                foodCatalog = cloudData.catalog;
-                localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
-            }
-            if (cloudData.goals) {
-                userGoals = Object.assign({}, defaultGoals, cloudData.goals);
-                localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
-            }
-            if (cloudData.skincareItems && cloudData.skincareItems.length > 0) {
-                skincareItems = cloudData.skincareItems;
-                localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
-            }
-            if (cloudData.skincareLogs) { skincareLogs = cloudData.skincareLogs; localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(skincareLogs)); }
-            if (cloudData.skincarePhotosMap) { skincarePhotosMap = cloudData.skincarePhotosMap; localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap)); }
-            if (cloudData.exercisePhotosMap) { exercisePhotosMap = cloudData.exercisePhotosMap; localStorage.setItem('fitTracker_ex_photos', JSON.stringify(exercisePhotosMap)); }
-
-            renderUIOnly();
-            setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
-            if (showAlert) alert("ดึงข้อมูลล่าสุดจาก GitHub เรียบร้อยแล้ว!");
-        } else {
-            await pushToGitHub(false);
-            if (showAlert) alert("อัปโหลดข้อมูลเริ่มต้นขึ้น GitHub เรียบร้อยแล้ว!");
+        if (remoteDb.goals) {
+            userGoals = { ...userGoals, ...remoteDb.goals };
+            localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
         }
+        if (remoteDb.history && typeof remoteDb.history === 'object') {
+            allMealsHistory = remoteDb.history;
+            localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+        }
+        if (Array.isArray(remoteDb.catalog)) {
+            foodCatalog = remoteDb.catalog;
+            localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+        }
+        if (Array.isArray(remoteDb.skincareItems)) {
+            skincareItems = remoteDb.skincareItems;
+            localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
+        }
+        if (remoteDb.skincareLogs && typeof remoteDb.skincareLogs === 'object') {
+            skincareLogs = remoteDb.skincareLogs;
+            localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(skincareLogs));
+        }
+        if (remoteDb.skincarePhotosMap && typeof remoteDb.skincarePhotosMap === 'object') {
+            skincarePhotosMap = remoteDb.skincarePhotosMap;
+            localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap));
+        }
+        if (remoteDb.exercisePhotosMap && typeof remoteDb.exercisePhotosMap === 'object') {
+            exercisePhotosMap = remoteDb.exercisePhotosMap;
+            localStorage.setItem('fitTracker_exercise_photos', JSON.stringify(exercisePhotosMap));
+        }
+
+        renderAllUI();
+        setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
+        if (showAlert) alert("ดึงข้อมูลจาก GitHub สำเร็จแล้ว!");
     } catch (err) {
         console.error(err);
-        setSyncStatus('error', 'ซิงก์ไม่สำเร็จ');
+        setSyncStatus('error', 'ดึงข้อมูลไม่สำเร็จ');
         if (showAlert) alert("ดึงข้อมูลจาก GitHub ไม่สำเร็จ: " + err.message);
     }
 }
