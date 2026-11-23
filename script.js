@@ -678,7 +678,7 @@ function renderWeeklyChart() {
     const container = document.getElementById('weekly-chart-container');
     if (!container) return;
 
-   const selectedGoals = getDayCalorieGoals(currentDateKey);
+    const selectedGoals = getDayCalorieGoals(currentDateKey);
     const targetCal = selectedGoals.max;
     const minCal = selectedGoals.min;
     const parts = currentDateKey.split('-');
@@ -2063,25 +2063,33 @@ function closeSettingsModal() {
 }
 
 async function saveAllSettings() {
+    const selectedPreset = document.getElementById('goal-preset-select').value || 'custom';
+    const presetObj = goalPresets[selectedPreset];
+
     userGoals = {
-        preset: document.getElementById('goal-preset-select').value || 'custom',
+        preset: selectedPreset,
         calories: Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500),
         minCalories: Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200),
         proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
         proteinMax: Math.max(10, Number(document.getElementById('goal-prot-max-input').value) || 128),
         carbsMax: Math.max(10, Number(document.getElementById('goal-carbs-input').value) || 150),
         fatMax: Math.max(10, Number(document.getElementById('goal-fat-input').value) || 50),
+        sugarMax: presetObj ? presetObj.sugarMax : (userGoals.sugarMax || 24),
+        sodiumMax: presetObj ? presetObj.sodiumMax : (userGoals.sodiumMax || 2000),
         steps: Math.max(1000, Number(document.getElementById('goal-steps-input').value) || 10000),
         water: Math.max(500, Number(document.getElementById('goal-water-input').value) || 2000),
         targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
     };
     localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
 
-    const ghToken = document.getElementById('github-token-input').value.trim();
-    const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
+    // ล็อกประวัติ Min-Max ของวันที่กำลังเปิดดูไว้ด้วย
     const currentDayObj = getDayData(currentDateKey);
     currentDayObj.targetMin = userGoals.minCalories;
     currentDayObj.targetMax = userGoals.calories;
+    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+
+    const ghToken = document.getElementById('github-token-input').value.trim();
+    const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
 
     if (ghToken) {
         localStorage.setItem('fitTracker_github_token', ghToken);
@@ -2397,7 +2405,6 @@ function renderCalendarMonth() {
     const daysInMonth = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
     const todayKey = getFormattedDateKey(new Date());
 
-    const targetCal = Number(userGoals.calories) || 1500;
     const protMin = Number(userGoals.proteinMin) || 96;
 
     for (let i = 0; i < firstDayOfWeek; i++) {
@@ -2407,6 +2414,8 @@ function renderCalendarMonth() {
     for (let day = 1; day <= daysInMonth; day++) {
         const key = `${calendarViewYear}-${String(calendarViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const stats = getDayStatsForCalendar(key);
+        const dGoals = getDayCalorieGoals(key);
+        const targetCal = dGoals.max;
         const isSelected = key === calendarSelectedKey;
         const isToday = key === todayKey;
 
@@ -2415,7 +2424,7 @@ function renderCalendarMonth() {
             let calDotClass = 'bg-emerald-400';
             if (stats.totalCal > targetCal + 500) {
                 calDotClass = 'bg-rose-500';
-            } else if (stats.totalCal >= targetCal) {
+            } else if (stats.totalCal > targetCal) {
                 calDotClass = 'bg-orange-400';
             }
 
@@ -2490,7 +2499,7 @@ function renderCalendarDayDetail(dateKey) {
             <div>
                 <div class="text-xs font-bold text-white">${formatDisplayDate(dateKey)}</div>
                 <div class="text-[11px] text-slate-400 mt-0.5">
-                    ทาน <b class="text-white">${stats.totalCal}</b> kcal | เผาผลาญ <b class="text-orange-400">${stats.totalBurn}</b> kcal | น้ำ <b class="text-sky-400">${stats.water}</b> ml
+                    ทาน <b class="text-white">${stats.totalCal}</b> kcal (เป้า ${adj.minFloor}-${adj.safeTarget}) | เผาผลาญ <b class="text-orange-400">${stats.totalBurn}</b> kcal | น้ำ <b class="text-sky-400">${stats.water}</b> ml
                     ${stats.weight ? `| นน. <b class="text-purple-400">${stats.weight}</b> kg` : ''}
                 </div>
             </div>
@@ -2537,7 +2546,7 @@ function jumpToDate(dateKey) {
 }
 
 // ==========================================
-// Weekly & Monthly Report Analytics (ตัดวันที่ยังไม่ถึงออก + Macro Ratio Bar)
+// Weekly & Monthly Report Analytics (ตัดวันที่ยังไม่ถึงออก + Macro Ratio Bar + Min-Max รายวัน)
 // ==========================================
 function openReportModal() {
     currentReportDays = 7;
@@ -2575,8 +2584,6 @@ function renderHealthReport(daysCount) {
     const parts = effectiveEndKey.split('-');
     const endDate = new Date(parts[0], parts[1] - 1, parts[2]);
 
-    const targetCal = Number(userGoals.calories) || 1500;
-    const minCal = Number(userGoals.minCalories) || 1200;
     const protMin = Number(userGoals.proteinMin) || 96;
     const goalWater = Number(userGoals.water) || 2000;
 
@@ -2642,12 +2649,13 @@ function renderHealthReport(daysCount) {
 
         if (dCal > 0) {
             activeDays++;
+            const dGoals = getDayCalorieGoals(key);
             const { totalBurn } = getTotalBurned(dayObj);
-            const effectiveLimit = targetCal + totalBurn;
+            const effectiveLimit = dGoals.max + totalBurn;
 
             if (dCal > effectiveLimit) {
                 calOverDays++;
-            } else if (dCal < minCal) {
+            } else if (dCal < dGoals.min) {
                 calTooLowDays++;
             } else {
                 calOnTargetDays++;
@@ -2723,6 +2731,10 @@ function renderHealthReport(daysCount) {
         grade = 'B'; gradeColor = 'text-sky-400'; gradeDesc = 'อยู่ในเกณฑ์ดี เพิ่มโปรตีนอีกนิดจะสมบูรณ์แบบ';
     }
 
+    const refGoals = getDayCalorieGoals(effectiveEndKey);
+    const minCal = refGoals.min;
+    const targetCal = refGoals.max;
+
     let goodPoints = [];
     let tooLowPoints = [];
     let tooHighPoints = [];
@@ -2788,7 +2800,7 @@ function renderHealthReport(daysCount) {
     container.innerHTML = `
         <div class="bg-gradient-to-br from-slate-950 to-indigo-950/40 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between gap-3">
             <div>
-                <div class="text-[11px] text-slate-400">ประเมินผลจริง <b>${activeDays} วัน</b> (ไม่รวมแผนอนาคต)</div>
+                <div class="text-[11px] text-slate-400">ประเมินผลจริง <b>${activeDays} วัน</b> (คิดตามเป้า Min-Max รายวัน)</div>
                 <div class="text-xs font-semibold text-white mt-1">${gradeDesc}</div>
                 <div class="flex flex-wrap gap-2 mt-2 text-[10px]">
                     <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50">ตามเป้า: ${calOnTargetDays} วัน</span>
@@ -3777,6 +3789,11 @@ function switchQuickDietMode(modeKey) {
         sugarMax: p.sugarMax ?? 24,
         sodiumMax: p.sodiumMax ?? 2000
     });
+
+    const currentDayObj = getDayData(currentDateKey);
+    currentDayObj.targetMin = userGoals.minCalories;
+    currentDayObj.targetMax = userGoals.calories;
+
     saveDataAndSync();
 }
 
