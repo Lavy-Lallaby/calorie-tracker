@@ -716,18 +716,22 @@
                                 <input type="number" id="bmr-height" value="167" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
+                       <div class="grid grid-cols-3 gap-2">
                             <div>
-                                <label class="block text-[10px] text-slate-400 mb-1">น้ำหนักปัจจุบัน (kg)</label>
-                                <input type="number" step="0.1" id="bmr-weight" value="78.7" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                                <label class="block text-[10px] text-slate-400 mb-1">น้ำหนัก (kg)</label>
+                                <input type="number" step="0.1" id="bmr-weight" value="78.1" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-amber-300 mb-1">% ไขมัน (ถ้ามี)</label>
+                                <input type="number" step="0.1" id="bmr-bodyfat" placeholder="เช่น 24.5" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
                             </div>
                             <div>
                                 <label class="block text-[10px] text-slate-400 mb-1">ระดับกิจกรรม</label>
-                                <select id="bmr-activity" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
-                                    <option value="1.2">นั่งทำงาน (x1.2)</option>
-                                    <option value="1.375" selected>ออกกำลัง 1-3 วัน (x1.375)</option>
-                                    <option value="1.55">ออกกำลัง 3-5 วัน (x1.55)</option>
-                                    <option value="1.725">ออกกำลังหนัก (x1.725)</option>
+                                <select id="bmr-activity" oninput="calculateBMRandTDEE()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5 text-xs text-white">
+                                    <option value="1.2">นั่งทำงาน</option>
+                                    <option value="1.375" selected>ออก 1-3 วัน</option>
+                                    <option value="1.55">ออก 3-5 วัน</option>
+                                    <option value="1.725">ออกหนัก</option>
                                 </select>
                             </div>
                         </div>
