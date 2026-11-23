@@ -4008,5 +4008,112 @@ function renderBurnModeCard() {
     `;
 }
 
+// ==========================================
+// Smart Body Composition Tracker & Evaluator (วิเคราะห์ไขมัน-กล้ามเนื้อละเอียด)
+// ==========================================
+function updateBodyComposition() {
+    const dayData = getDayData(currentDateKey);
+    const fatPct = parseFloat(document.getElementById('bc-fat-pct').value);
+    const muscleKg = parseFloat(document.getElementById('bc-muscle-kg').value);
+    const visceral = parseFloat(document.getElementById('bc-visceral').value);
+    const waterPct = parseFloat(document.getElementById('bc-water-pct').value);
+
+    dayData.bodyComp = {
+        fatPct: (!isNaN(fatPct) && fatPct > 0) ? fatPct : null,
+        muscleKg: (!isNaN(muscleKg) && muscleKg > 0) ? muscleKg : null,
+        visceral: (!isNaN(visceral) && visceral > 0) ? visceral : null,
+        waterPct: (!isNaN(waterPct) && waterPct > 0) ? waterPct : null
+    };
+
+    saveDataAndSync();
+}
+
+function renderBodyComposition() {
+    const dayData = getDayData(currentDateKey);
+    const bc = dayData.bodyComp || {};
+
+    const fatEl = document.getElementById('bc-fat-pct');
+    const muscleEl = document.getElementById('bc-muscle-kg');
+    const visEl = document.getElementById('bc-visceral');
+    const waterEl = document.getElementById('bc-water-pct');
+    const badgeEl = document.getElementById('body-comp-badge');
+    const analysisEl = document.getElementById('body-comp-analysis');
+
+    if (!fatEl || !analysisEl) return;
+
+    fatEl.value = bc.fatPct ?? '';
+    muscleEl.value = bc.muscleKg ?? '';
+    visEl.value = bc.visceral ?? '';
+    waterEl.value = bc.waterPct ?? '';
+
+    const hasAny = bc.fatPct || bc.muscleKg || bc.visceral || bc.waterPct;
+    if (!hasAny) {
+        badgeEl.innerText = "กดเพื่อกรอก";
+        analysisEl.classList.add('hidden');
+        return;
+    }
+
+    badgeEl.innerHTML = `<span class="text-emerald-400 font-semibold">${bc.fatPct ? `ไขมัน ${bc.fatPct}%` : 'บันทึกแล้ว'}</span>`;
+
+    // หาข้อมูลครั้งก่อนหน้าเพื่อเปรียบเทียบว่าลดไขมันหรือเสียกล้ามเนื้อ
+    const prevKeys = Object.keys(allMealsHistory)
+        .filter(k => k < currentDateKey && allMealsHistory[k]?.bodyComp && (allMealsHistory[k].bodyComp.fatPct || allMealsHistory[k].bodyComp.muscleKg))
+        .sort();
+    const prevKey = prevKeys.length > 0 ? prevKeys[prevKeys.length - 1] : null;
+    const prevData = prevKey ? allMealsHistory[prevKey] : null;
+
+    let lines = [];
+    const weight = Number(dayData.weight) || 0;
+
+    // 1. คำนวณมวลไขมัน (kg) และมวลกล้ามเนื้อล้วน (LBM)
+    if (weight > 0 && bc.fatPct) {
+        const fatMass = (weight * (bc.fatPct / 100)).toFixed(1);
+        const lbm = (weight - fatMass).toFixed(1);
+        const recProtMin = Math.round(lbm * 1.8);
+        const recProtMax = Math.round(lbm * 2.1);
+
+        let fatGrade = bc.fatPct <= 17 ? "ฟิต/ลีนมาก" : (bc.fatPct <= 22 ? "สมส่วนดี" : (bc.fatPct <= 26 ? "เริ่มมีไขมันสะสม" : "ไขมันสูง (ควรรีดต่อ)"));
+        lines.push(`• <b>มวลไขมัน:</b> ${fatMass} kg (${bc.fatPct}% - <span class="text-amber-300">${fatGrade}</span>) | <b>มวลไม่รวมไขมัน:</b> ${lbm} kg`);
+        lines.push(`• <b>โปรตีนแนะนำตามมวลกล้ามเนื้อ:</b> <span class="text-emerald-400 font-bold">${recProtMin}–${recProtMax} g/วัน</span>`);
+    }
+
+    // 2. ประเมินไขมันช่องท้อง (Visceral Fat)
+    if (bc.visceral) {
+        const vStatus = bc.visceral <= 9
+            ? `<span class="text-emerald-400">ปกติ (${bc.visceral})</span>`
+            : (bc.visceral <= 14 ? `<span class="text-amber-400">ค่อนข้างสูง (${bc.visceral}) ควรคุมน้ำตาล & คาร์บเย็น</span>` : `<span class="text-rose-400">สูงเกินเกณฑ์ (${bc.visceral})</span>`);
+        lines.push(`• <b>ไขมันช่องท้อง:</b> ${vStatus}`);
+    }
+
+    // 3. ประเมิน % น้ำในร่างกาย
+    if (bc.waterPct) {
+        const wStatus = bc.waterPct < 50
+            ? `<span class="text-amber-300">ค่อนข้างน้อย (${bc.waterPct}%) ควรดื่มน้ำเพิ่ม</span>`
+            : `<span class="text-sky-400">สมดุลดี (${bc.waterPct}%)</span>`;
+        lines.push(`• <b>ระดับน้ำในร่างกาย:</b> ${wStatus}`);
+    }
+
+    // 4. เปรียบเทียบกับครั้งก่อนหน้า (เช็กคุณภาพการลดน้ำหนัก)
+    if (prevData && prevData.bodyComp) {
+        const pBc = prevData.bodyComp;
+        let diffNotes = [];
+        if (bc.fatPct && pBc.fatPct) {
+            const dFat = (bc.fatPct - pBc.fatPct).toFixed(1);
+            diffNotes.push(`ไขมัน ${dFat > 0 ? `+${dFat}%` : `${dFat}%`}`);
+        }
+        if (bc.muscleKg && pBc.muscleKg) {
+            const dMus = (bc.muscleKg - pBc.muscleKg).toFixed(1);
+            diffNotes.push(`กล้ามเนื้อ ${dMus > 0 ? `+${dMus}kg` : `${dMus}kg`}`);
+        }
+        if (diffNotes.length > 0) {
+            const isLossMuscle = bc.muscleKg && pBc.muscleKg && (bc.muscleKg - pBc.muscleKg) < -0.4;
+            lines.push(`• <b>เทียบกับวันที่ ${prevKey}:</b> ${diffNotes.join(' | ')} ${isLossMuscle ? '<span class="text-rose-400">(⚠️ กล้ามเนื้อลด ควรอัดโปรตีนเพิ่ม)</span>' : '<span class="text-emerald-400">(✅ ทิศทางดีมาก)</span>'}`);
+        }
+    }
+
+    analysisEl.innerHTML = lines.join('<br>');
+    analysisEl.classList.remove('hidden');
+}
+
 // Initialize on load
 window.onload = initApp;
