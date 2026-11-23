@@ -412,7 +412,7 @@
                     <label class="block text-xs font-medium text-slate-300 mb-1">ชื่ออาหาร (ใส่หน่วยไว้ในชื่อได้เลย เช่น 100g, 1 ฟอง)</label>
                     <input type="text" id="food-name" list="food-catalog-list" required placeholder="เช่น อกไก่ต้ม (100g), ไข่ต้ม (1 ฟอง)" 
                         class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                        oninput="autofillFoodCatalog(this.value)">
+                        onchange="autofillFoodCatalog(this.value)">
                     <datalist id="food-catalog-list"></datalist>
                 </div>
 
@@ -1018,6 +1018,6 @@
         </div>
     </div>
     
-    <script src="script.js?v=38"></script>
+    <script src="script.js?v=40"></script>
 </body>
 </html>
