@@ -456,9 +456,6 @@ async function uploadPhotoToGitHub(base64Content) {
     }
 }
 
-// ==========================================
-// Core App Initialization & UI Rendering
-// ==========================================
 function renderUIOnly() {
   const isDashboardPage = Boolean(
     document.getElementById('meals-container') ||
@@ -468,8 +465,21 @@ function renderUIOnly() {
   );
 
   if (isDashboardPage) {
-    renderDashboard();
+    if (typeof renderDashboard === 'function') {
+      renderDashboard();
+    } else {
+      if (typeof renderDateDisplay === 'function') renderDateDisplay();
+      if (typeof renderWaterAndWeight === 'function') renderWaterAndWeight();
+      if (typeof renderBodyComposition === 'function') renderBodyComposition();
+    }
   }
+}
+
+function renderDashboard() {
+  if (typeof renderDateDisplay === 'function') renderDateDisplay();
+  if (typeof renderWaterAndWeight === 'function') renderWaterAndWeight();
+  if (typeof renderBodyComposition === 'function') renderBodyComposition();
+  if (typeof renderSkincareContent === 'function') renderSkincareContent();
 }
 
 async function initApp() {
