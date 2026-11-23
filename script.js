@@ -477,27 +477,22 @@ async function initApp() {
 }
 
 function renderDateDisplay() {
-    document.getElementById('display-date').innerText = formatDisplayDate(currentDateKey);
-    const todayKey = getFormattedDateKey(new Date());
-    document.getElementById('current-date-badge').innerText = (currentDateKey === todayKey) ? "วันนี้" : currentDateKey;
-
+    const displayDateEl = document.getElementById('display-date');
+    const currentBadgeEl = document.getElementById('current-date-badge');
     const futureBadge = document.getElementById('future-plan-badge');
+
+    // ถ้าไม่มี Element เหล่านี้ (เช่น เปิดจากหน้า course.html) ให้ข้ามการทำงานส่วนนี้ไปเลย
+    if (!displayDateEl || !currentBadgeEl) return;
+
+    displayDateEl.innerText = formatDisplayDate(currentDateKey);
+    const todayKey = getFormattedDateKey(new Date());
+    currentBadgeEl.innerText = (currentDateKey === todayKey) ? 'วันนี้' : currentDateKey;
+
     if (futureBadge) {
         if (currentDateKey > todayKey) {
             futureBadge.classList.remove('hidden');
         } else {
             futureBadge.classList.add('hidden');
-        }
-    }
-
-    const cloneBar = document.getElementById('clone-day-bar');
-    if (cloneBar) {
-        const dayData = getDayData(currentDateKey);
-        const hasAnyFood = Object.values(dayData.meals).some(list => list.length > 0);
-        if (hasAnyFood) {
-            cloneBar.classList.remove('hidden');
-        } else {
-            cloneBar.classList.add('hidden');
         }
     }
 }
