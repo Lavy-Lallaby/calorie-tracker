@@ -626,13 +626,16 @@
                 </div>
             </div>
 
-            <!-- ปุ่มสลับดู: ตารางฝึกวันนี้ vs คลังท่าเวททั้งหมด -->
-            <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                <button type="button" id="course-tab-today" onclick="switchCourseTab('today')" class="py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white">
-                    ตารางวันออก & วันพัก
+            <!-- ปุ่มสลับดู: ตารางฝึกวันนี้ vs เลือกท่าเอง+แผนที่กล้ามเนื้อ vs คลังท่าเวททั้งหมด -->
+            <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button type="button" id="course-tab-today" onclick="switchCourseTab('today')" class="py-1.5 rounded-lg text-[11px] font-semibold transition bg-indigo-600 text-white">
+                    ตารางฝึกวันนี้
                 </button>
-                <button type="button" id="course-tab-library" onclick="switchCourseTab('library')" class="py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white">
-                    คลังท่าทั้งหมด (ไม่ใช้เครื่อง)
+                <button type="button" id="course-tab-custom" onclick="switchCourseTab('custom')" class="py-1.5 rounded-lg text-[11px] font-semibold transition text-slate-400 hover:text-white">
+                    🎯 เลือกท่าเอง & หุ่น
+                </button>
+                <button type="button" id="course-tab-library" onclick="switchCourseTab('library')" class="py-1.5 rounded-lg text-[11px] font-semibold transition text-slate-400 hover:text-white">
+                    คลังท่าทั้งหมด
                 </button>
             </div>
 
@@ -1015,6 +1018,6 @@
         </div>
     </div>
     
-    <script src="script.js?v=37"></script>
+    <script src="script.js?v=38"></script>
 </body>
 </html>
