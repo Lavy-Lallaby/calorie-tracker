@@ -3997,6 +3997,22 @@ const defaultSkincareItems = [
     { id: 'sk_w2', period: 'weekly',  name: '[หน้า] แปะแผ่นมาส์ก Myu-Nique 15-20 นาที ก่อนลง Cica Gel', days: [4, 0] }   // พฤหัสบดี, อาทิตย์
 ];
 
+function isSkincareDueToday(item, dateKey = currentDateKey) {
+  if (!item) return false;
+  if (item.days === 'all' || !Array.isArray(item.days) || item.days.length === 0) {
+    return true;
+  }
+  const d = new Date(`${dateKey}T00:00:00`);
+  return item.days.includes(d.getDay());
+}
+
+function getSkincarePeriodLabel(period) {
+  if (period === 'morning') return 'เช้า';
+  if (period === 'night') return 'ก่อนนอน';
+  if (period === 'weekly') return 'รายสัปดาห์';
+  return period || '';
+}
+
 const savedSkincare = JSON.parse(localStorage.getItem('fitTracker_skincare_items') || 'null');
 let skincareItems = (savedSkincare && savedSkincare.length > 0) ? savedSkincare : [...defaultSkincareItems];
 let skincareLogs = JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}');
@@ -4541,15 +4557,6 @@ function getSkincareList() {
     window.skincareItems = JSON.parse(JSON.stringify(defaultSkincareItems));
   }
   return window.skincareItems;
-}
-
-function isSkincareDueToday(item, dateKey = currentDateKey) {
-  if (!item || item.days === 'all' || !Array.isArray(item.days) || item.days.length === 0) {
-    return true;
-  }
-  const d = new Date(`${dateKey}T00:00:00`);
-  const dayOfWeek = d.getDay(); // 0 = อาทิตย์, 1 = จันทร์, ...
-  return item.days.includes(dayOfWeek);
 }
 
 function renderSkincareContent() {
