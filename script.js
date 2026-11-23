@@ -4173,21 +4173,19 @@ function renderBodyComposition() {
 
             <!-- ตรงกลาง: หุ่นคน Vitruvian SVG -->
             <div class="flex flex-col items-center justify-center relative">
-                <svg viewBox="0 0 120 155" class="w-24 h-32 text-amber-400/80">
-                    <!-- วงกลม Vitruvian -->
-                    <circle cx="60" cy="78" r="56" fill="none" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.45"/>
+                <svg viewBox="0 0 120 155" class="w-24 h-32 text-amber-400/85">
                     <!-- ศีรษะ -->
-                    <circle cx="60" cy="24" r="10" fill="#1e293b" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="60" cy="22" r="11" fill="#1e293b" stroke="currentColor" stroke-width="1.6"/>
                     <!-- ลำตัว -->
-                    <path d="M44 40 Q60 36 76 40 L72 84 L48 84 Z" fill="#1e293b" stroke="currentColor" stroke-width="1.5"/>
-                    <!-- แขนกาง 2 ข้าง -->
-                    <path d="M44 42 L14 34 M44 46 L12 52" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-                    <path d="M76 42 L106 34 M76 46 L108 52" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-                    <!-- ขา 2 ข้าง -->
-                    <path d="M51 84 L44 136 M48 84 L32 132" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-                    <path d="M69 84 L76 136 M72 84 L88 132" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+                    <path d="M43 39 Q60 35 77 39 L72 86 L48 86 Z" fill="#1e293b" stroke="currentColor" stroke-width="1.6"/>
+                    <!-- แขน 2 ข้าง (ซ้าย - ขวา) -->
+                    <path d="M43 42 L16 68" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    <path d="M77 42 L104 68" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    <!-- ขา 2 ข้าง (ซ้าย - ขวา) -->
+                    <path d="M52 86 L44 138" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
+                    <path d="M68 86 L76 138" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
                     <!-- จุดแกนกลาง (ไขมันช่องท้อง) -->
-                    <circle cx="60" cy="64" r="5" fill="#f43f5e" opacity="0.85"/>
+                    <circle cx="60" cy="64" r="5" fill="#f43f5e" opacity="0.9"/>
                 </svg>
                 <div class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-0.5 text-center -mt-1">
                     <span class="text-[9px] text-slate-400">ช่องท้อง: </span>
