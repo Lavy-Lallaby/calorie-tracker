@@ -3100,6 +3100,13 @@ function logCourseWorkoutToToday(title, duration, calories) {
     alert(`บันทึก "${title}" (-${calories} kcal) ลงในรายการออกกำลังกายของวันที่ ${currentDateKey} เรียบร้อยแล้ว!`);
 }
 
+let customFocusOverride = null;
+
+function setCustomWorkoutFocus(focusKey) {
+    customFocusOverride = focusKey;
+    renderWorkoutCourseContent();
+}
+
 function renderWorkoutCourseContent() {
     const container = document.getElementById('course-content-container');
     if (!container) return;
@@ -3150,10 +3157,10 @@ function renderWorkoutCourseContent() {
         return;
     }
 
-    // แท็บ 1: ตารางวันออก & วันพัก + คอร์สประจำวันที่กำลังเปิดดู
+    // แท็บ 1: ตารางวันออก & วันพัก + เลือกเน้นเฉพาะส่วนได้อิสระ
     const parts = currentDateKey.split('-');
     const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-    const dayOfWeek = dateObj.getDay(); // 0=อา, 1=จ, 2=อ, 3=พ, 4=พฤ, 5=ศ, 6=ส
+    const dayOfWeek = dateObj.getDay();
     const dayNamesShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
     const schedules = {
@@ -3187,9 +3194,27 @@ function renderWorkoutCourseContent() {
     };
 
     const activePlan = schedules[courseConfig.schedule] || schedules['3days'];
-    const todayPlan = activePlan.find(p => p.day === dayOfWeek);
+    const basePlan = activePlan.find(p => p.day === dayOfWeek);
 
-    // แถบแสดงตารางทั้ง 7 วัน (จ. - อา.)
+    // ถ้าผู้ใช้กดเลือกเน้นเฉพาะส่วนเอง ให้สลับมาใช้แผนนั้นทันที
+    const focusPresetLabels = {
+        'Legs': 'เน้นขา & สะโพก (Lower)',
+        'ArmsShoulders': 'เน้นแขน & หัวไหล่ (Arms)',
+        'ChestBack': 'เน้นอก & แผ่นหลัง (Torso)',
+        'CoreBurn': 'เน้นหน้าท้อง & เบิร์นไขมัน',
+        'Full Body': 'เวททั่วร่าง (Full Body)'
+    };
+
+    let todayPlan = basePlan;
+    if (customFocusOverride && focusPresetLabels[customFocusOverride]) {
+        todayPlan = {
+            day: dayOfWeek,
+            type: 'weight',
+            label: focusPresetLabels[customFocusOverride],
+            focus: customFocusOverride
+        };
+    }
+
     const orderedWeek = [1, 2, 3, 4, 5, 6, 0].map(dIdx => activePlan.find(p => p.day === dIdx));
     const weekStripHtml = `
         <div class="grid grid-cols-7 gap-1 text-center">
@@ -3216,7 +3241,23 @@ function renderWorkoutCourseContent() {
         </div>
     `;
 
-    // คัดท่าฝึกตามโปรแกรมของวันนั้น
+    // ปุ่มสลับเน้นเฉพาะส่วนของวันนี้
+    const focusSelectorHtml = `
+        <div class="bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800 space-y-1.5">
+            <div class="flex justify-between items-center">
+                <span class="text-[10px] font-semibold text-amber-300">🎯 ปรับจุดเน้นวันนี้ (เลือกเฉพาะส่วนได้):</span>
+                ${customFocusOverride ? `<button type="button" onclick="setCustomWorkoutFocus(null)" class="text-[10px] text-slate-400 hover:text-white underline">รีเซ็ตตามตาราง</button>` : ''}
+            </div>
+            <div class="flex flex-wrap gap-1.5 text-[10px]">
+                <button type="button" onclick="setCustomWorkoutFocus(null)" class="px-2 py-1 rounded-lg border transition ${!customFocusOverride ? 'bg-indigo-600 text-white border-indigo-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">ตามตารางวัน</button>
+                <button type="button" onclick="setCustomWorkoutFocus('Legs')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'Legs' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">🦵 เน้นขา & ก้น</button>
+                <button type="button" onclick="setCustomWorkoutFocus('ArmsShoulders')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'ArmsShoulders' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">💪 เน้นแขน & ไหล่</button>
+                <button type="button" onclick="setCustomWorkoutFocus('ChestBack')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'ChestBack' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">🏋️ เน้นอก & หลัง</button>
+                <button type="button" onclick="setCustomWorkoutFocus('CoreBurn')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'CoreBurn' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">🔥 ท้อง & เบิร์น</button>
+            </div>
+        </div>
+    `;
+
     let routineHtml = '';
     if (todayPlan.type === 'rest') {
         routineHtml = `
@@ -3224,7 +3265,7 @@ function renderWorkoutCourseContent() {
                 <div class="text-2xl">🛌</div>
                 <div class="text-sm font-bold text-emerald-300">วันนี้คือ "วันพักฟื้นกล้ามเนื้อ (Rest Day)"</div>
                 <p class="text-xs text-slate-300 leading-relaxed">
-                    กล้ามเนื้อจะเติบโตและซ่อมแซมตัวเองในวันที่พัก ควรทานโปรตีนให้ถึงเป้า ดื่มน้ำให้เพียงพอ และนอนหลับ 7-8 ชั่วโมง (เดินเบาๆ 4,000-6,000 ก้าวได้ตามปกติครับ)
+                    กล้ามเนื้อจะเติบโตและซ่อมแซมตัวเองในวันที่พัก ควรทานโปรตีนให้ถึงเป้า ดื่มน้ำให้เพียงพอ (หรือกดปุ่มด้านบนหากต้องการฝึกเน้นเฉพาะส่วนวันนี้ครับ)
                 </p>
             </div>
         `;
@@ -3246,7 +3287,6 @@ function renderWorkoutCourseContent() {
             </div>
         `;
     } else {
-        // เลือกท่าตาม Focus ของวัน (Upper / Lower / Push / Pull / Legs / Full Body)
         const pickByMuscle = (muscle, count) => {
             const list = filteredExercises.filter(e => e.muscle === muscle);
             const prioritized = [
@@ -3258,38 +3298,22 @@ function renderWorkoutCourseContent() {
 
         let selectedRoutine = [];
         if (todayPlan.focus === 'Upper') {
-            selectedRoutine = [
-                ...pickByMuscle('หน้าอก', 2),
-                ...pickByMuscle('แผ่นหลัง', 2),
-                ...pickByMuscle('ไหล่ & แขน', 2)
-            ];
-        } else if (todayPlan.focus === 'Lower') {
-            selectedRoutine = [
-                ...pickByMuscle('ขา & ก้น', 3),
-                ...pickByMuscle('หน้าท้อง & แกนกลาง', 2)
-            ];
+            selectedRoutine = [...pickByMuscle('หน้าอก', 2), ...pickByMuscle('แผ่นหลัง', 2), ...pickByMuscle('ไหล่ & แขน', 2)];
+        } else if (todayPlan.focus === 'Lower' || todayPlan.focus === 'Legs') {
+            selectedRoutine = [...pickByMuscle('ขา & ก้น', 4), ...pickByMuscle('หน้าท้อง & แกนกลาง', 1)];
+        } else if (todayPlan.focus === 'ArmsShoulders') {
+            selectedRoutine = [...pickByMuscle('ไหล่ & แขน', 4), ...pickByMuscle('หน้าอก', 1)];
+        } else if (todayPlan.focus === 'ChestBack') {
+            selectedRoutine = [...pickByMuscle('หน้าอก', 3), ...pickByMuscle('แผ่นหลัง', 3)];
+        } else if (todayPlan.focus === 'CoreBurn') {
+            selectedRoutine = [...pickByMuscle('หน้าท้อง & แกนกลาง', 4), ...pickByMuscle('ขา & ก้น', 1)];
         } else if (todayPlan.focus === 'Push') {
-            selectedRoutine = [
-                ...pickByMuscle('หน้าอก', 3),
-                ...pickByMuscle('ไหล่ & แขน', 2)
-            ];
+            selectedRoutine = [...pickByMuscle('หน้าอก', 3), ...pickByMuscle('ไหล่ & แขน', 2)];
         } else if (todayPlan.focus === 'Pull') {
-            selectedRoutine = [
-                ...pickByMuscle('แผ่นหลัง', 3),
-                ...pickByMuscle('ไหล่ & แขน', 2)
-            ];
-        } else if (todayPlan.focus === 'Legs') {
-            selectedRoutine = [
-                ...pickByMuscle('ขา & ก้น', 4),
-                ...pickByMuscle('หน้าท้อง & แกนกลาง', 1)
-            ];
+            selectedRoutine = [...pickByMuscle('แผ่นหลัง', 3), ...pickByMuscle('ไหล่ & แขน', 2)];
         } else if (todayPlan.focus === 'ShouldersCore') {
-            selectedRoutine = [
-                ...pickByMuscle('ไหล่ & แขน', 3),
-                ...pickByMuscle('หน้าท้อง & แกนกลาง', 3)
-            ];
+            selectedRoutine = [...pickByMuscle('ไหล่ & แขน', 3), ...pickByMuscle('หน้าท้อง & แกนกลาง', 3)];
         } else {
-            // Full Body
             selectedRoutine = [
                 ...pickByMuscle('ขา & ก้น', 2),
                 ...pickByMuscle('หน้าอก', 1),
@@ -3353,6 +3377,7 @@ function renderWorkoutCourseContent() {
             <div class="text-[11px] font-semibold text-slate-300">ตารางสัปดาห์ (กรอบสีทอง = วันที่กำลังเปิดดู)</div>
             ${weekStripHtml}
         </div>
+        ${focusSelectorHtml}
         ${routineHtml}
     `;
 }
