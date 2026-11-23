@@ -4001,25 +4001,6 @@ const savedSkincare = JSON.parse(localStorage.getItem('fitTracker_skincare_items
 let skincareItems = (savedSkincare && savedSkincare.length > 0) ? savedSkincare : [...defaultSkincareItems];
 let skincareLogs = JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}');
 
-function openSkincareModal() {
-    renderSkincareContent();
-    document.getElementById('skincare-modal').classList.remove('hidden');
-}
-
-function closeSkincareModal() {
-    document.getElementById('skincare-modal').classList.add('hidden');
-}
-
-function toggleSkincareDaysSelect() {
-    const period = document.getElementById('skincare-new-period').value;
-    const picker = document.getElementById('skincare-days-picker');
-    if (period === 'weekly') {
-        picker.classList.remove('hidden');
-    } else {
-        picker.classList.add('hidden');
-    }
-}
-
 function toggleSkincareCheck(itemId) {
     if (!skincareLogs[currentDateKey]) skincareLogs[currentDateKey] = [];
     const idx = skincareLogs[currentDateKey].indexOf(itemId);
@@ -4035,34 +4016,6 @@ function toggleSkincareCheck(itemId) {
     }
 }
 
-function addSkincareItem() {
-    const period = document.getElementById('skincare-new-period').value;
-    const nameInput = document.getElementById('skincare-new-name');
-    const name = nameInput.value.trim();
-    if (!name) return;
-
-    let days = [];
-    if (period === 'weekly') {
-        document.querySelectorAll('.sk-day-cb:checked').forEach(cb => days.push(parseInt(cb.value)));
-        if (days.length === 0) {
-            alert('กรุณาเลือกวันในสัปดาห์ที่ต้องการให้เตือนอย่างน้อย 1 วันครับ');
-            return;
-        }
-    }
-
-    skincareItems.push({
-        id: 'sk_' + Date.now(),
-        period: period,
-        name: name,
-        days: days
-    });
-    localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
-
-    nameInput.value = '';
-    document.querySelectorAll('.sk-day-cb').forEach(cb => cb.checked = false);
-    renderSkincareContent();
-}
-
 function deleteSkincareItem(itemId) {
     if (!confirm('ลบรายการนี้ออกจากตารางดูแลผิว?')) return;
     skincareItems = skincareItems.filter(item => item.id !== itemId);
@@ -4070,33 +4023,8 @@ function deleteSkincareItem(itemId) {
     renderSkincareContent();
 }
 
-function resetDefaultSkincare() {
-    if (!confirm('โหลดรายการสกินแคร์เริ่มต้นทั้ง 14 ขั้นตอนกลับมาใช่ไหม?')) return;
-    skincareItems = [...defaultSkincareItems];
-    localStorage.setItem('fitTracker_skincare_items', JSON.stringify(skincareItems));
-    renderSkincareContent();
-    if (typeof pushToGitHub === 'function') pushToGitHub(false);
-}
-
 let skincarePhotosMap = JSON.parse(localStorage.getItem('fitTracker_skincare_photos') || '{}');
 let activeSkincareIdForPhoto = '';
-
-function openSkincarePhotoModal(itemId, itemName) {
-    activeSkincareIdForPhoto = itemId;
-    document.getElementById('sk-photo-title').innerText = itemName;
-    document.getElementById('skincare-photo-modal').classList.remove('hidden');
-    loadSkincarePhoto(itemId);
-}
-
-function closeSkincarePhotoModal() {
-    document.getElementById('skincare-photo-modal').classList.add('hidden');
-}
-
-function triggerSkincarePhotoUpload() {
-    const input = document.getElementById('sk-photo-input');
-    input.value = '';
-    input.click();
-}
 
 async function loadSkincarePhoto(itemId) {
     const box = document.getElementById('sk-photo-display-box');
@@ -4135,53 +4063,6 @@ async function loadSkincarePhoto(itemId) {
         status.innerText = "ซิงก์จาก Cloud แล้ว";
     } catch (e) {
         box.innerHTML = `<div class="text-xs text-rose-400 py-6">ไม่พบไฟล์รูปบน Cloud</div>`;
-    }
-}
-
-async function handleSkincarePhotoSelected(event) {
-    const file = event.target.files[0];
-    if (!file || !activeSkincareIdForPhoto) return;
-
-    const status = document.getElementById('sk-photo-status');
-    const box = document.getElementById('sk-photo-display-box');
-    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอัปโหลดรูป...';
-
-    const base64 = await resizeImageToBase64(file, 900);
-    const token = localStorage.getItem('fitTracker_github_token');
-    if (!token) {
-        alert("กรุณาเชื่อมต่อ GitHub Token ในหน้าตั้งค่า (⚙️) ก่อนอัปโหลดรูปครับ");
-        return;
-    }
-
-    const fileName = `skincare/sk_${Date.now()}.jpg`;
-    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${fileName}`;
-
-    try {
-        const res = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: `Upload skincare photo ${activeSkincareIdForPhoto}`,
-                content: base64
-            })
-        });
-        if (!res.ok) throw new Error("Upload failed");
-
-        const dataUrl = `data:image/jpeg;base64,${base64}`;
-        photoBlobCache[fileName] = dataUrl;
-        skincarePhotosMap[activeSkincareIdForPhoto] = fileName;
-        localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap));
-
-        box.innerHTML = `<img src="${dataUrl}" class="w-full max-h-[65vh] object-contain rounded-xl">`;
-        status.innerText = "บันทึกขึ้น Cloud เรียบร้อย!";
-        renderSkincareContent();
-        await pushToGitHub(false);
-    } catch (err) {
-        status.innerText = "อัปโหลดไม่สำเร็จ";
     }
 }
 
@@ -4635,179 +4516,176 @@ function formatDeltaBadge(cur, base, unit, lowerIsBetter = true) {
     return `<span class="text-[9px] font-bold ${color} ml-1">${arrow}${diff}${unit}</span>`;
 }
 
+const defaultSkincareItems = [
+  { id: 'sk_m1', period: 'morning', name: 'ล้างหน้า (Senka)', days: 'all', note: '' },
+  { id: 'sk_m2', period: 'morning', name: 'กันแดดหน้า + บอดี้บูสเตอร์ (MizuMi)', days: 'all', note: '' },
+  { id: 'sk_e1', period: 'evening', name: 'อาบน้ำ + บำรุงผิวตัว (Watercome)', days: 'all', note: '' },
+  { id: 'sk_e2', period: 'evening', name: 'สครับผิว (เว้นอาทิตย์-จันทร์ติดกัน)', days: [2, 5], note: '' }
+];
+
 function renderBodyComposition() {
+  const dayData = getDayData(currentDateKey);
+  const weightEl = document.getElementById('current-weight-display');
+  const waterEl = document.getElementById('current-water-display');
+
+  if (weightEl && dayData.weight !== undefined && dayData.weight !== null) {
+    weightEl.textContent = `${Number(dayData.weight).toFixed(1)} kg`;
+  }
+  if (waterEl) {
+    waterEl.textContent = `${Number(dayData.water || 0)} ml`;
+  }
+}
+
+function getSkincareList() {
+  if (!Array.isArray(window.skincareItems) || window.skincareItems.length === 0) {
+    window.skincareItems = JSON.parse(JSON.stringify(defaultSkincareItems));
+  }
+  return window.skincareItems;
+}
+
+function isSkincareDueToday(item, dateKey = currentDateKey) {
+  if (!item || item.days === 'all' || !Array.isArray(item.days) || item.days.length === 0) {
+    return true;
+  }
+  const d = new Date(`${dateKey}T00:00:00`);
+  const dayOfWeek = d.getDay(); // 0 = อาทิตย์, 1 = จันทร์, ...
+  return item.days.includes(dayOfWeek);
+}
+
+function renderSkincareContent() {
+  const container = document.getElementById('skincare-list-container');
+  if (!container) return;
+
+  const dayData = getDayData(currentDateKey);
+  const doneMap = dayData.skincareDone || {};
+  const list = getSkincareList().filter(item => isSkincareDueToday(item, currentDateKey));
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state">ไม่มีรายการสกินแคร์สำหรับวันนี้</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(item => {
+    const checked = Boolean(doneMap[item.id]);
+    const periodLabel = item.period === 'morning' ? 'เช้า' : 'เย็น';
+    return `
+      <label class="skincare-item ${checked ? 'is-done' : ''}">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleSkincareItemDone('${item.id}', this.checked)">
+        <span class="skincare-period">[${periodLabel}]</span>
+        <span class="skincare-name">${item.name}</span>
+      </label>
+    `;
+  }).join('');
+}
+
+async function toggleSkincareItemDone(itemId, isChecked) {
+  const dayData = getDayData(currentDateKey);
+  if (!dayData.skincareDone || typeof dayData.skincareDone !== 'object') {
+    dayData.skincareDone = {};
+  }
+  dayData.skincareDone[itemId] = Boolean(isChecked);
+  renderSkincareContent();
+  await pushToGitHub(false);
+}
+
+function openSkincareModal() {
+  const modal = document.getElementById('skincare-modal');
+  if (!modal) return;
+  renderSkincareContent();
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+}
+
+function closeSkincareModal() {
+  const modal = document.getElementById('skincare-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+}
+
+function toggleSkincareDaysSelect() {
+  const freqEl = document.getElementById('new-skincare-freq');
+  const daysBox = document.getElementById('skincare-days-picker');
+  if (!freqEl || !daysBox) return;
+  daysBox.style.display = freqEl.value === 'custom' ? 'flex' : 'none';
+}
+
+async function addSkincareItem() {
+  const nameEl = document.getElementById('new-skincare-name');
+  const periodEl = document.getElementById('new-skincare-period');
+  const freqEl = document.getElementById('new-skincare-freq');
+
+  const name = nameEl ? nameEl.value.trim() : '';
+  if (!name) return;
+
+  const period = periodEl ? periodEl.value : 'morning';
+  let days = 'all';
+
+  if (freqEl && freqEl.value === 'custom') {
+    const checkedDays = Array.from(document.querySelectorAll('.skincare-day-checkbox:checked'))
+      .map(el => Number(el.value));
+    if (checkedDays.length > 0) {
+      days = checkedDays;
+    }
+  }
+
+  const list = getSkincareList();
+  list.push({
+    id: `sk_${Date.now()}`,
+    period,
+    name,
+    days,
+    note: ''
+  });
+
+  if (nameEl) nameEl.value = '';
+  renderSkincareContent();
+  await pushToGitHub(false);
+}
+
+async function resetDefaultSkincare() {
+  window.skincareItems = JSON.parse(JSON.stringify(defaultSkincareItems));
+  renderSkincareContent();
+  await pushToGitHub(false);
+}
+
+function openSkincarePhotoModal() {
+  const modal = document.getElementById('skincare-photo-modal');
+  if (!modal) return;
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+}
+
+function closeSkincarePhotoModal() {
+  const modal = document.getElementById('skincare-photo-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+}
+
+function triggerSkincarePhotoUpload() {
+  const input = document.getElementById('skincare-photo-input');
+  if (input) input.click();
+}
+
+async function handleSkincarePhotoSelected(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+
+  const photoUrl = await uploadPhotoToGitHub(file, 'skincare');
+  if (photoUrl) {
     const dayData = getDayData(currentDateKey);
-    const bc = dayData.bodyComp || {};
-
-    const fieldsMap = {
-        'bc-fat-pct': bc.fatPct,
-        'bc-muscle-kg': bc.muscleKg,
-        'bc-visceral': bc.visceral,
-        'bc-water-pct': bc.waterPct,
-        'bc-arm-l': bc.armL,
-        'bc-arm-r': bc.armR,
-        'bc-leg-l': bc.legL,
-        'bc-leg-r': bc.legR
-    };
-
-    Object.entries(fieldsMap).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el) el.value = val ?? '';
+    if (!Array.isArray(dayData.skincarePhotos)) {
+      dayData.skincarePhotos = [];
+    }
+    dayData.skincarePhotos.push({
+      url: photoUrl,
+      date: currentDateKey,
+      createdAt: new Date().toISOString()
     });
-
-    const badgeEl = document.getElementById('body-comp-badge');
-    const analysisEl = document.getElementById('body-comp-analysis');
-    const mapBox = document.getElementById('body-human-map-box');
-    if (!analysisEl || !mapBox) return;
-
-    const hasAny = Object.values(fieldsMap).some(v => v !== null && v !== undefined);
-    if (!hasAny) {
-        if (badgeEl) badgeEl.innerText = "กดเพื่อกรอก";
-        analysisEl.classList.add('hidden');
-        mapBox.classList.add('hidden');
-        return;
-    }
-
-    if (badgeEl) {
-        badgeEl.innerHTML = `<span class="text-emerald-400 font-semibold">${bc.fatPct ? `ไขมัน ${bc.fatPct}%` : 'บันทึกแล้ว'}</span>`;
-    }
-
-    // หาวันที่เคยบันทึก BodyComp ก่อนหน้าทั้งหมดเรียงตามวันที่
-    const recordedKeys = Object.keys(allMealsHistory)
-        .filter(k => k < currentDateKey && allMealsHistory[k]?.bodyComp && Object.values(allMealsHistory[k].bodyComp).some(v => v !== null && v !== undefined))
-        .sort();
-
-    const prevKey = recordedKeys.length > 0 ? recordedKeys[recordedKeys.length - 1] : null;
-    const firstKey = recordedKeys.length > 0 ? recordedKeys[0] : null;
-
-    const targetCompareKey = (bodyCompareMode === 'first') ? firstKey : prevKey;
-    const baseObj = targetCompareKey ? allMealsHistory[targetCompareKey] : null;
-    const baseBc = baseObj ? (baseObj.bodyComp || {}) : {};
-    const compareTitle = targetCompareKey
-        ? (bodyCompareMode === 'first' ? `เทียบตั้งแต่วันแรก (${targetCompareKey})` : `เทียบจากครั้งก่อน (${targetCompareKey})`)
-        : 'บันทึกครั้งแรก (ยังไม่มีข้อมูลเปรียบเทียบ)';
-
-    const weight = Number(dayData.weight) || 0;
-    const baseWeight = baseObj ? (Number(baseObj.weight) || 0) : 0;
-
-    // 1. วาดหุ่นคนแบบ Vitruvian / InBody SVG + ป้ายข้อมูล 5 จุด
-    const segCard = (title, val, baseVal, accentClass = 'text-white') => `
-        <div class="bg-slate-900/95 border border-slate-800 rounded-xl px-2 py-1.5 text-center">
-            <span class="text-[9px] text-slate-400 block">${title}</span>
-            <span class="text-[11px] font-bold ${accentClass}">
-                ${val !== null && val !== undefined ? `${val}%` : '-'}
-            </span>
-            <div class="leading-none mt-0.5">${formatDeltaBadge(val, baseVal, '%', true)}</div>
-        </div>
-    `;
-
-    mapBox.innerHTML = `
-        <div class="flex items-center justify-between gap-1.5 border-b border-slate-800 pb-2">
-            <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1">
-                <i class="fa-solid fa-person"></i> แผนภาพร่างกาย
-            </span>
-            <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px]">
-                <button type="button" onclick="switchBodyCompareMode('prev')"
-                    class="px-2 py-0.5 rounded-md transition ${bodyCompareMode === 'prev' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}">
-                    จากเมื่อวาน
-                </button>
-                <button type="button" onclick="switchBodyCompareMode('first')"
-                    class="px-2 py-0.5 rounded-md transition ${bodyCompareMode === 'first' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}">
-                    ตั้งแต่วันแรก
-                </button>
-            </div>
-        </div>
-
-        <div class="text-[10px] text-center text-slate-400">${compareTitle}</div>
-
-        <!-- โครงสร้าง 3 คอลัมน์: ซ้าย (แขนซ้าย/ขาซ้าย) | กลาง (หุ่นคน SVG) | ขวา (แขนขวา/ขาขวา) -->
-        <div class="grid grid-cols-3 items-center gap-1.5 pt-1">
-            <!-- ฝั่งซ้าย -->
-            <div class="space-y-4">
-                ${segCard('แขนซ้าย', bc.armL, baseBc.armL, 'text-amber-300')}
-                ${segCard('ขาซ้าย', bc.legL, baseBc.legL, 'text-sky-300')}
-            </div>
-
-            <!-- ตรงกลาง: หุ่นคน Vitruvian SVG -->
-            <div class="flex flex-col items-center justify-center relative">
-                <svg viewBox="0 0 120 155" class="w-24 h-32 text-amber-400/85">
-                    <!-- ศีรษะ -->
-                    <circle cx="60" cy="22" r="11" fill="#1e293b" stroke="currentColor" stroke-width="1.6"/>
-                    <!-- ลำตัว -->
-                    <path d="M43 39 Q60 35 77 39 L72 86 L48 86 Z" fill="#1e293b" stroke="currentColor" stroke-width="1.6"/>
-                    <!-- แขน 2 ข้าง (ซ้าย - ขวา) -->
-                    <path d="M43 42 L16 68" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
-                    <path d="M77 42 L104 68" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
-                    <!-- ขา 2 ข้าง (ซ้าย - ขวา) -->
-                    <path d="M52 86 L44 138" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
-                    <path d="M68 86 L76 138" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
-                    <!-- จุดแกนกลาง (ไขมันช่องท้อง) -->
-                    <circle cx="60" cy="64" r="5" fill="#f43f5e" opacity="0.9"/>
-                </svg>
-                <div class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-0.5 text-center -mt-1">
-                    <span class="text-[9px] text-slate-400">ช่องท้อง: </span>
-                    <span class="text-[10px] font-bold text-rose-400">${bc.visceral ?? '-'}</span>
-                    ${formatDeltaBadge(bc.visceral, baseBc.visceral, '', true)}
-                </div>
-            </div>
-
-            <!-- ฝั่งขวา -->
-            <div class="space-y-4">
-                ${segCard('แขนขวา', bc.armR, baseBc.armR, 'text-amber-300')}
-                ${segCard('ขาขวา', bc.legR, baseBc.legR, 'text-sky-300')}
-            </div>
-        </div>
-
-        <!-- แถบสรุปภาพรวม (น้ำหนัก | ไขมันรวม | กล้ามเนื้อรวม) -->
-        <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/80 text-center">
-            <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
-                <span class="text-[9px] text-slate-400 block">น้ำหนัก</span>
-                <span class="text-xs font-bold text-white">${weight > 0 ? `${weight}kg` : '-'}</span>
-                <div class="leading-none mt-0.5">${weight > 0 && baseWeight > 0 ? formatDeltaBadge(weight, baseWeight, 'kg', true) : ''}</div>
-            </div>
-            <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
-                <span class="text-[9px] text-slate-400 block">ไขมันรวม</span>
-                <span class="text-xs font-bold text-amber-400">${bc.fatPct ? `${bc.fatPct}%` : '-'}</span>
-                <div class="leading-none mt-0.5">${formatDeltaBadge(bc.fatPct, baseBc.fatPct, '%', true)}</div>
-            </div>
-            <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
-                <span class="text-[9px] text-slate-400 block">กล้ามเนื้อ</span>
-                <span class="text-xs font-bold text-emerald-400">${bc.muscleKg ? `${bc.muscleKg}kg` : '-'}</span>
-                <div class="leading-none mt-0.5">${formatDeltaBadge(bc.muscleKg, baseBc.muscleKg, 'kg', false)}</div>
-            </div>
-        </div>
-    `;
-    mapBox.classList.remove('hidden');
-
-    // 2. สรุปคำแนะนำเชิงลึกด้านล่างหุ่น
-    let lines = [];
-    if (weight > 0 && bc.fatPct) {
-        const fatMass = (weight * (bc.fatPct / 100)).toFixed(1);
-        const lbm = (weight - fatMass).toFixed(1);
-        const recProtMin = Math.round(lbm * 1.8);
-        const recProtMax = Math.round(lbm * 2.1);
-        lines.push(`• <b>ไขมันในตัว:</b> ${fatMass} kg | <b>มวลไม่รวมไขมัน (LBM):</b> ${lbm} kg`);
-        lines.push(`• <b>โปรตีนแนะนำตามกล้ามเนื้อจริง:</b> <span class="text-emerald-400 font-bold">${recProtMin}–${recProtMax} g/วัน</span>`);
-    }
-
-    if (baseObj && baseBc) {
-        const dFat = (bc.fatPct && baseBc.fatPct) ? Number((bc.fatPct - baseBc.fatPct).toFixed(1)) : null;
-        const dMus = (bc.muscleKg && baseBc.muscleKg) ? Number((bc.muscleKg - baseBc.muscleKg).toFixed(1)) : null;
-        if (dFat !== null || dMus !== null) {
-            if (dFat !== null && dFat < 0 && (dMus === null || dMus >= -0.2)) {
-                lines.push(`• <span class="text-emerald-400 font-semibold">ผลลัพธ์ยอดเยี่ยม:</span> ไขมันลดลงจริงโดยที่รักษามวลกล้ามเนื้อไว้ได้ครบ!`);
-            } else if (dMus !== null && dMus < -0.3) {
-                lines.push(`• <span class="text-rose-400 font-semibold">คำเตือน:</span> มวลกล้ามเนื้อลดลง ${Math.abs(dMus)} kg ควรเพิ่มโปรตีนมื้อเย็นและเล่นเวทต้านแรง`);
-            }
-        }
-    }
-
-    if (lines.length > 0) {
-        analysisEl.innerHTML = lines.join('<br>');
-        analysisEl.classList.remove('hidden');
-    } else {
-        analysisEl.classList.add('hidden');
-    }
+    await pushToGitHub(false);
+  }
+  event.target.value = '';
 }
 
 // Initialize on load
