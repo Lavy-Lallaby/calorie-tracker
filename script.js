@@ -1055,38 +1055,71 @@ function exportHistoryToCSV() {
 // ==========================================
 // BMR & TDEE Calculator
 // ==========================================
+let lastCalcMacros = null;
+
 function calculateBMRandTDEE() {
     const gender = document.getElementById('bmr-gender').value;
-    const age = Number(document.getElementById('bmr-age').value) || 28;
-    const height = Number(document.getElementById('bmr-height').value) || 170;
+    const age = Number(document.getElementById('bmr-age').value) || 27;
+    const height = Number(document.getElementById('bmr-height').value) || 167;
     const weight = Number(document.getElementById('bmr-weight').value);
+    const bodyFatEl = document.getElementById('bmr-bodyfat');
+    const bodyFat = bodyFatEl ? parseFloat(bodyFatEl.value) : NaN;
     const activity = Number(document.getElementById('bmr-activity').value) || 1.375;
     const box = document.getElementById('bmr-result-box');
 
     if (!weight || weight <= 0) {
-        box.innerHTML = `<div class="text-slate-400">กรอกน้ำหนักปัจจุบันเพื่อคำนวณค่าพลังงาน</div>`;
+        box.innerHTML = `<div class="text-slate-400">กรอกน้ำหนักปัจจุบันเพื่อคำนวณค่าพลังงานและสารอาหาร</div>`;
         return;
     }
 
-    // Mifflin-St Jeor Equation
-    const bmr = Math.round((10 * weight) + (6.25 * height) - (5 * age) + (gender === 'male' ? 5 : -161));
+    let bmr = 0;
+    let lbm = weight;
+    let formulaLabel = "Mifflin-St Jeor";
+
+    // ถ้ามีค่า % ไขมันจากเครื่องชั่งอัจฉริยะ ใช้สูตร Katch-McArdle (แม่นยำกว่า)
+    if (!isNaN(bodyFat) && bodyFat > 2 && bodyFat < 65) {
+        lbm = weight * (1 - (bodyFat / 100));
+        bmr = Math.round(370 + (21.6 * lbm));
+        formulaLabel = `Katch-McArdle (กล้ามเนื้อล้วน ${lbm.toFixed(1)} kg)`;
+    } else {
+        bmr = Math.round((10 * weight) + (6.25 * height) - (5 * age) + (gender === 'male' ? 5 : -161));
+    }
+
     const tdee = Math.round(bmr * activity);
-    const cutCal = Math.max(1200, tdee - 450);
+    const cutMax = Math.max(1300, tdee - 500);
+    const cutMin = Math.max(1200, cutMax - 200);
+
+    // คำนวณสัดส่วนสารอาหารตามน้ำหนักตัว / มวลกล้ามเนื้อล้วน
+    const protMin = !isNaN(bodyFat) ? Math.round(lbm * 1.8) : Math.round(weight * 1.35);
+    const protMax = !isNaN(bodyFat) ? Math.round(lbm * 2.1) : Math.round(weight * 1.6);
+    const fatMax = Math.max(40, Math.round((cutMax * 0.30) / 9));
+    const carbsMax = Math.max(60, Math.round((cutMax - (protMin * 4) - (fatMax * 9)) / 4));
+
+    lastCalcMacros = { cutMin, cutMax, protMin, protMax, carbsMax, fatMax };
 
     box.innerHTML = `
-        <div>
+        <div class="space-y-1">
+            <div class="text-[10px] text-purple-300 font-semibold">${formulaLabel}</div>
             <div class="text-slate-300">BMR: <b class="text-white">${bmr.toLocaleString()}</b> | TDEE: <b class="text-sky-400">${tdee.toLocaleString()}</b> kcal</div>
-            <div class="text-emerald-400 mt-0.5">แนะนำสำหรับลดไขมัน: <b>${cutCal.toLocaleString()} kcal/วัน</b></div>
+            <div class="text-emerald-400">เป้าลดไขมัน: <b>${cutMin.toLocaleString()}–${cutMax.toLocaleString()} kcal</b></div>
+            <div class="text-[10px] text-slate-300">
+                P: <b class="text-emerald-300">${protMin}-${protMax}g</b> | C: <b class="text-sky-300">${carbsMax}g</b> | F: <b class="text-amber-300">${fatMax}g</b>
+            </div>
         </div>
-        <button type="button" onclick="applyCalculatedCalories(${cutCal})" class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shrink-0 transition">
-            ใช้ค่านี้
+        <button type="button" onclick="applyCalculatedCalories()" class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-semibold px-2.5 py-2 rounded-lg shrink-0 transition">
+            ใช้ค่านี้ทั้งหมด
         </button>
     `;
 }
 
-function applyCalculatedCalories(cal) {
-    document.getElementById('goal-cal-input').value = cal;
-    document.getElementById('goal-min-cal-input').value = Math.max(1200, cal - 300);
+function applyCalculatedCalories() {
+    if (!lastCalcMacros) return;
+    document.getElementById('goal-cal-input').value = lastCalcMacros.cutMax;
+    document.getElementById('goal-min-cal-input').value = lastCalcMacros.cutMin;
+    document.getElementById('goal-prot-min-input').value = lastCalcMacros.protMin;
+    document.getElementById('goal-prot-max-input').value = lastCalcMacros.protMax;
+    document.getElementById('goal-carbs-input').value = lastCalcMacros.carbsMax;
+    document.getElementById('goal-fat-input').value = lastCalcMacros.fatMax;
     markPresetCustom();
 }
 
