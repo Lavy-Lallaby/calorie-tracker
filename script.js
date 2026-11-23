@@ -3073,19 +3073,638 @@ function saveCourseConfig() {
     renderWorkoutCourseContent();
 }
 
+// แมปกล้ามเนื้อหลักและกล้ามเนื้อรองของแต่ละท่าสำหรับหุ่นจำลอง SVG
+const exerciseMuscleMap = {
+    "Bodyweight Squat (สควอท)": { primary: ["legs", "glutes"], secondary: ["core"], kcal: 14 },
+    "Reverse Lunges (ก้าวถอยหลังย่อเข่า)": { primary: ["legs", "glutes"], secondary: ["core"], kcal: 15 },
+    "Glute Bridge (นอนยกสะโพก)": { primary: ["glutes"], secondary: ["legs", "core"], kcal: 10 },
+    "Wall Sit (นั่งพิงกำแพง)": { primary: ["legs"], secondary: ["glutes", "core"], kcal: 11 },
+    "Calf Raises (ยืนเขย่งน่อง)": { primary: ["legs"], secondary: [], kcal: 8 },
+    "Bulgarian Split Squat (พาดขาหลังกับเก้าอี้)": { primary: ["legs", "glutes"], secondary: ["core"], kcal: 16 },
+    "Band Squat (สควอทต้านยางยืด)": { primary: ["legs", "glutes"], secondary: ["core"], kcal: 15 },
+    "Dumbbell Goblet Squat (ถือดัมเบลสควอท)": { primary: ["legs", "glutes"], secondary: ["core", "arms"], kcal: 16 },
+
+    "Standard Push-ups (วิดพื้นมาตรฐาน)": { primary: ["chest"], secondary: ["shoulders", "arms", "core"], kcal: 12 },
+    "Wide Push-ups (วิดพื้นกางแขนกว้าง)": { primary: ["chest"], secondary: ["shoulders", "arms"], kcal: 12 },
+    "Incline Push-ups (วิดพื้นกับขอบโต๊ะ/เก้าอี้)": { primary: ["chest"], secondary: ["shoulders", "arms"], kcal: 10 },
+    "Decline Push-ups (พาดเท้าบนเก้าอี้วิดพื้น)": { primary: ["chest", "shoulders"], secondary: ["arms", "core"], kcal: 14 },
+    "Band Chest Press (ดันยางยืดอ้อมหลัง)": { primary: ["chest"], secondary: ["shoulders", "arms"], kcal: 11 },
+    "Dumbbell Floor Press (นอนพื้นดันดัมเบล)": { primary: ["chest"], secondary: ["arms", "shoulders"], kcal: 12 },
+
+    "Superman Hold (นอนคว่ำยกอก-ขา)": { primary: ["back"], secondary: ["glutes"], kcal: 9 },
+    "Reverse Snow Angels (วาดแขนบีบสะบัก)": { primary: ["back"], secondary: ["shoulders"], kcal: 9 },
+    "Table / Inverted Row (ดึงตัวใต้โต๊ะ)": { primary: ["back"], secondary: ["arms", "shoulders"], kcal: 14 },
+    "Seated Band Row (นั่งดึงยางยืดที่ฝ่าเท้า)": { primary: ["back"], secondary: ["arms"], kcal: 11 },
+    "Band Pull-Aparts (ดึงยางยืดกางออกระดับอก)": { primary: ["back", "shoulders"], secondary: [], kcal: 9 },
+    "Dumbbell One-Arm Row (ดึงดัมเบลข้างลำตัว)": { primary: ["back"], secondary: ["arms"], kcal: 13 },
+
+    "Pike Push-ups (วิดพื้นโด่งก้นเน้นไหล่)": { primary: ["shoulders"], secondary: ["arms", "chest"], kcal: 12 },
+    "Diamond Push-ups (วิดพื้นมือชิดเน้นหลังแขน)": { primary: ["arms", "chest"], secondary: ["shoulders"], kcal: 13 },
+    "Chair Dips (ดิปหลังแขนกับเก้าอี้)": { primary: ["arms"], secondary: ["shoulders", "chest"], kcal: 11 },
+    "Band Lateral Raises (กางแขนยางยืดไหล่ข้าง)": { primary: ["shoulders"], secondary: [], kcal: 9 },
+    "Band Bicep Curls (พับแขนยางยืดหน้าแขน)": { primary: ["arms"], secondary: [], kcal: 9 },
+    "Dumbbell Shoulder Press & Curls": { primary: ["shoulders", "arms"], secondary: ["core"], kcal: 13 },
+
+    "Forearm Plank (แพลงก์ตั้งศอก)": { primary: ["core"], secondary: ["shoulders"], kcal: 9 },
+    "Dead Bug (นอนหงายสลับแขน-ขา)": { primary: ["core"], secondary: [], kcal: 9 },
+    "Mountain Climbers (วิ่งปีนเขากับพื้น)": { primary: ["core"], secondary: ["legs", "shoulders"], kcal: 15 },
+    "Russian Twist (นั่งบิดลำตัวซ้าย-ขวา)": { primary: ["core"], secondary: [], kcal: 10 }
+};
+
+let customBuilderSelection = JSON.parse(localStorage.getItem('fitTracker_custom_builder') || 'null') || {
+    "Bodyweight Squat (สควอท)": 3,
+    "Standard Push-ups (วิดพื้นมาตรฐาน)": 3,
+    "Glute Bridge (นอนยกสะโพก)": 3,
+    "Forearm Plank (แพลงก์ตั้งศอก)": 3
+};
+let customBuilderFilter = "all";
+let userCustomExercises = JSON.parse(localStorage.getItem('fitTracker_user_exercises') || '[]');
+
 function switchCourseTab(tab) {
     currentCourseTab = tab;
-    const tToday = document.getElementById('course-tab-today');
-    const tLib = document.getElementById('course-tab-library');
-
-    if (tab === 'today') {
-        tToday.className = "py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white";
-        tLib.className = "py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white";
-    } else {
-        tLib.className = "py-1.5 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white";
-        tToday.className = "py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white";
-    }
+    const tabs = ['today', 'custom', 'library'];
+    tabs.forEach(t => {
+        const el = document.getElementById(`course-tab-${t}`);
+        if (!el) return;
+        el.className = (t === tab)
+            ? "py-1.5 rounded-lg text-[11px] font-semibold transition bg-indigo-600 text-white"
+            : "py-1.5 rounded-lg text-[11px] font-semibold transition text-slate-400 hover:text-white";
+    });
     renderWorkoutCourseContent();
+}
+
+function toggleBuilderExercise(exName) {
+    if (customBuilderSelection[exName]) {
+        delete customBuilderSelection[exName];
+    } else {
+        customBuilderSelection[exName] = 3;
+    }
+    localStorage.setItem('fitTracker_custom_builder', JSON.stringify(customBuilderSelection));
+    renderWorkoutCourseContent();
+}
+
+function changeBuilderSets(exName, delta) {
+    const cur = customBuilderSelection[exName] || 3;
+    const next = Math.max(1, Math.min(10, cur + delta));
+    customBuilderSelection[exName] = next;
+    localStorage.setItem('fitTracker_custom_builder', JSON.stringify(customBuilderSelection));
+    renderWorkoutCourseContent();
+}
+
+function setBuilderFilter(cat) {
+    customBuilderFilter = cat;
+    renderWorkoutCourseContent();
+}
+
+function addUserCustomExerciseToBuilder() {
+    const nameEl = document.getElementById('builder-custom-name');
+    const muscleEl = document.getElementById('builder-custom-muscle');
+    const name = (nameEl?.value || '').trim();
+    if (!name) return;
+
+    const muscleCode = muscleEl.value;
+    const muscleGroupLabel = {
+        chest: "หน้าอก", back: "แผ่นหลัง", legs: "ขา & ก้น",
+        shoulders: "ไหล่ & แขน", arms: "ไหล่ & แขน", core: "หน้าท้อง & แกนกลาง"
+    }[muscleCode] || "หน้าท้อง & แกนกลาง";
+
+    userCustomExercises.unshift({
+        name: name,
+        muscle: muscleGroupLabel,
+        eq: "bodyweight",
+        reps: "12-15 ครั้ง × 3 เซต",
+        tip: "ท่าที่เพิ่มเอง",
+        customPrimary: [muscleCode]
+    });
+    localStorage.setItem('fitTracker_user_exercises', JSON.stringify(userCustomExercises));
+
+    customBuilderSelection[name] = 3;
+    localStorage.setItem('fitTracker_custom_builder', JSON.stringify(customBuilderSelection));
+    renderWorkoutCourseContent();
+}
+
+function saveCustomBuilderWorkout() {
+    const selectedNames = Object.keys(customBuilderSelection);
+    if (selectedNames.length === 0) {
+        alert("กรุณาเลือกท่าที่เล่นอย่างน้อย 1 ท่าก่อนบันทึกครับ");
+        return;
+    }
+
+    let totalSets = 0;
+    let totalKcal = 0;
+    selectedNames.forEach(name => {
+        const sets = customBuilderSelection[name] || 3;
+        const meta = exerciseMuscleMap[name] || { kcal: 12 };
+        totalSets += sets;
+        totalKcal += sets * meta.kcal;
+    });
+
+    const estMinutes = Math.max(5, Math.round(totalSets * 1.5));
+    const title = `เวทเลือกท่าเอง (${selectedNames.length} ท่า: ${selectedNames.map(n => n.split('(')[0].trim()).slice(0, 3).join(', ')}${selectedNames.length > 3 ? '...' : ''})`;
+
+    logCourseWorkoutToToday(title, estMinutes, Math.round(totalKcal));
+}
+
+function logCourseWorkoutToToday(title, duration, calories) {
+    const dayData = getDayData(currentDateKey);
+    dayData.workouts.push({
+        type: title,
+        duration: duration,
+        calories: calories
+    });
+    closeWorkoutCourseModal();
+    saveDataAndSync();
+    alert(`บันทึก "${title}" (-${calories} kcal) ลงในรายการออกกำลังกายของวันที่ ${currentDateKey} เรียบร้อยแล้ว!`);
+}
+
+let customFocusOverride = null;
+
+function setCustomWorkoutFocus(focusKey) {
+    customFocusOverride = focusKey;
+    renderWorkoutCourseContent();
+}
+
+function renderWorkoutCourseContent() {
+    const container = document.getElementById('course-content-container');
+    if (!container) return;
+
+    const availableEq = courseConfig.equipment || ['bodyweight'];
+    const filteredExercises = [
+        ...userCustomExercises,
+        ...nonMachineExercises.filter(ex => availableEq.includes(ex.eq))
+    ];
+
+    // ==========================================
+    // แท็บ 2: เลือกท่าเอง + หุ่นจำลองวิเคราะห์จุดกล้ามเนื้อ (SVG Heatmap)
+    // ==========================================
+    if (currentCourseTab === 'custom') {
+        const selectedNames = Object.keys(customBuilderSelection);
+        const primarySet = new Set();
+        const secondarySet = new Set();
+        let totalKcal = 0;
+        let totalSets = 0;
+
+        selectedNames.forEach(name => {
+            const sets = customBuilderSelection[name] || 3;
+            totalSets += sets;
+            const userEx = userCustomExercises.find(u => u.name === name);
+            const meta = exerciseMuscleMap[name] || { primary: userEx?.customPrimary || ["core"], secondary: [], kcal: 12 };
+            totalKcal += sets * meta.kcal;
+            meta.primary.forEach(m => primarySet.add(m));
+            (meta.secondary || []).forEach(m => secondarySet.add(m));
+        });
+
+        const getPartColor = (muscleKey) => {
+            if (primarySet.has(muscleKey)) return "#f43f5e";   // แดงเข้ม = กล้ามเนื้อหลัก
+            if (secondarySet.has(muscleKey)) return "#fbbf24"; // เหลืองส้ม = กล้ามเนื้อรอง
+            return "#2d334a";                                  // เทาเข้ม = ยังไม่โดน
+        };
+
+        const muscleThai = { chest: "อก", back: "หลัง", legs: "ต้นขา", glutes: "ก้น", shoulders: "ไหล่", arms: "แขน", core: "หน้าท้อง" };
+        const primaryListThai = [...primarySet].map(m => muscleThai[m] || m).join(", ");
+        const secondaryListThai = [...secondarySet].filter(m => !primarySet.has(m)).map(m => muscleThai[m] || m).join(", ");
+
+        // วิเคราะห์ความสมดุลซ้าย-ขวา / หน้า-หลัง / บน-ล่าง
+        const hasUpper = primarySet.has("chest") || primarySet.has("back") || primarySet.has("shoulders") || primarySet.has("arms");
+        const hasLower = primarySet.has("legs") || primarySet.has("glutes");
+        const hasCore = primarySet.has("core");
+        let balanceMsg = "เลือกท่าด้านล่างเพื่อดูจุดกล้ามเนื้อที่โดนวันนี้";
+        if (selectedNames.length > 0) {
+            if (primarySet.has("chest") && !primarySet.has("back")) {
+                balanceMsg = "💡 เล่นอกแล้ว แนะนำเพิ่มท่า <b>หลัง (Superman / Row)</b> สัก 1 ท่าเพื่อกันไหล่งุ้ม";
+            } else if (hasUpper && !hasLower) {
+                balanceMsg = "💡 วันนี้เน้นช่วงบน รอบหน้าอย่าลืมเก็บ <b>ขา & ก้น</b> เพื่อเร่งการเผาผลาญนะครับ";
+            } else if (hasLower && !hasUpper) {
+                balanceMsg = "💡 วันนี้เน้นช่วงล่าง เสริม <b>วิดพื้น</b> สัก 2-3 เซตจะได้ครบทั้งตัว";
+            } else if (hasUpper && hasLower && hasCore) {
+                balanceMsg = "✅ <b>สมดุลยอดเยี่ยม!</b> โดนครบทั้งช่วงบน ช่วงล่าง และแกนกลางลำตัว";
+            } else {
+                balanceMsg = "✅ จัดสัดส่วนได้ดี! อย่าลืมเกร็งแกนกลางลำตัวทุกท่า";
+            }
+        }
+
+        const catButtons = [
+            { id: "all", label: "ทั้งหมด" },
+            { id: "ขา & ก้น", label: "ขา/ก้น" },
+            { id: "หน้าอก", label: "อก" },
+            { id: "แผ่นหลัง", label: "หลัง" },
+            { id: "ไหล่ & แขน", label: "ไหล่/แขน" },
+            { id: "หน้าท้อง & แกนกลาง", label: "ท้อง" }
+        ];
+
+        const visibleExercises = filteredExercises.filter(ex => customBuilderFilter === "all" || ex.muscle === customBuilderFilter);
+
+        container.innerHTML = `
+            <!-- กล่องหุ่นจำลองหน้า-หลัง วิเคราะห์จุดกล้ามเนื้อ -->
+            <div class="bg-slate-950/90 border border-indigo-500/30 rounded-2xl p-3 space-y-2.5">
+                <div class="flex justify-between items-center text-[11px]">
+                    <span class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-child-reaching text-rose-400"></i> จุดกล้ามเนื้อที่โดนวันนี้
+                    </span>
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="flex items-center gap-1 text-rose-300"><i class="w-2 h-2 rounded-full bg-rose-500 inline-block"></i>หลัก</span>
+                        <span class="flex items-center gap-1 text-amber-300"><i class="w-2 h-2 rounded-full bg-amber-400 inline-block"></i>รอง</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 items-center gap-2">
+                    <!-- หุ่นด้านหน้า + ด้านหลัง (6 คอลัมน์) -->
+                    <div class="col-span-6 flex justify-center gap-2 bg-slate-900/90 py-2 px-1 rounded-xl border border-slate-800">
+                        <!-- ด้านหน้า -->
+                        <div class="text-center">
+                            <svg viewBox="0 0 100 205" class="w-16 h-32">
+                                <circle cx="50" cy="18" r="10" fill="#262b3d" />
+                                <path d="M35,33 Q50,29 65,33 L69,84 L61,113 L39,113 L31,84 Z" fill="#1b2030" stroke="#333a52" stroke-width="1"/>
+                                <!-- ไหล่ -->
+                                <ellipse cx="29" cy="41" rx="6.5" ry="8.5" fill="${getPartColor('shoulders')}"/>
+                                <ellipse cx="71" cy="41" rx="6.5" ry="8.5" fill="${getPartColor('shoulders')}"/>
+                                <!-- หน้าอก -->
+                                <path d="M36,37 Q50,41 64,37 L62,57 Q50,61 38,57 Z" fill="${getPartColor('chest')}"/>
+                                <!-- หน้าท้อง -->
+                                <rect x="41" y="60" width="18" height="40" rx="4" fill="${getPartColor('core')}"/>
+                                <!-- แขน -->
+                                <rect x="19" y="51" width="7.5" height="35" rx="3.5" fill="${getPartColor('arms')}"/>
+                                <rect x="73.5" y="51" width="7.5" height="35" rx="3.5" fill="${getPartColor('arms')}"/>
+                                <!-- ต้นขาหน้า -->
+                                <path d="M37,115 L49,115 L47,160 L36,160 Z" fill="${getPartColor('legs')}"/>
+                                <path d="M51,115 L63,115 L64,160 L53,160 Z" fill="${getPartColor('legs')}"/>
+                                <!-- น่อง -->
+                                <rect x="37" y="163" width="8.5" height="32" rx="4" fill="#262b3d"/>
+                                <rect x="54.5" y="163" width="8.5" height="32" rx="4" fill="#262b3d"/>
+                            </svg>
+                            <span class="text-[9px] text-slate-400 block">ด้านหน้า</span>
+                        </div>
+                        <!-- ด้านหลัง -->
+                        <div class="text-center">
+                            <svg viewBox="0 0 100 205" class="w-16 h-32">
+                                <circle cx="50" cy="18" r="10" fill="#262b3d" />
+                                <path d="M35,33 Q50,29 65,33 L69,84 L61,113 L39,113 L31,84 Z" fill="#1b2030" stroke="#333a52" stroke-width="1"/>
+                                <!-- แผ่นหลัง -->
+                                <path d="M36,37 L64,37 L59,85 L41,85 Z" fill="${getPartColor('back')}"/>
+                                <!-- หลังแขน -->
+                                <rect x="19" y="51" width="7.5" height="35" rx="3.5" fill="${getPartColor('arms')}"/>
+                                <rect x="73.5" y="51" width="7.5" height="35" rx="3.5" fill="${getPartColor('arms')}"/>
+                                <!-- ก้น -->
+                                <ellipse cx="43" cy="103" rx="8.5" ry="10.5" fill="${getPartColor('glutes')}"/>
+                                <ellipse cx="57" cy="103" rx="8.5" ry="10.5" fill="${getPartColor('glutes')}"/>
+                                <!-- ต้นขาหลัง -->
+                                <path d="M37,116 L49,116 L47,160 L36,160 Z" fill="${getPartColor('legs')}"/>
+                                <path d="M51,116 L63,116 L64,160 L53,160 Z" fill="${getPartColor('legs')}"/>
+                                <rect x="37" y="163" width="8.5" height="32" rx="4" fill="#262b3d"/>
+                                <rect x="54.5" y="163" width="8.5" height="32" rx="4" fill="#262b3d"/>
+                            </svg>
+                            <span class="text-[9px] text-slate-400 block">ด้านหลัง</span>
+                        </div>
+                    </div>
+
+                    <!-- สรุปกล้ามเนื้อ & คำแนะนำบาลานซ์ (6 คอลัมน์) -->
+                    <div class="col-span-6 space-y-1.5 text-[11px]">
+                        <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 space-y-1">
+                            <div><span class="text-slate-400">โดนหลัก:</span> <b class="text-rose-400">${primaryListThai || '-'}</b></div>
+                            ${secondaryListThai ? `<div><span class="text-slate-400">กล้ามเนื้อรอง:</span> <span class="text-amber-300 font-medium">${secondaryListThai}</span></div>` : ''}
+                            <div class="text-[10px] text-orange-300 pt-0.5 border-t border-slate-800/80">
+                                รวม ${selectedNames.length} ท่า (${totalSets} เซต) • <b>-${totalKcal} kcal</b>
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-800 text-[10px] text-slate-300 leading-relaxed">
+                            ${balanceMsg}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ปุ่มกรองส่วนกล้ามเนื้อ -->
+            <div class="flex flex-wrap gap-1">
+                ${catButtons.map(b => `
+                    <button type="button" onclick="setBuilderFilter('${b.id}')"
+                        class="px-2 py-1 rounded-lg text-[10px] font-semibold border transition ${customBuilderFilter === b.id
+                            ? 'bg-indigo-600 text-white border-indigo-400'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'}">
+                        ${b.label}
+                    </button>
+                `).join('')}
+            </div>
+
+            <!-- รายการท่าให้ติ๊กเลือก + ปรับเซต -->
+            <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                ${visibleExercises.map(ex => {
+                    const isChecked = !!customBuilderSelection[ex.name];
+                    const sets = customBuilderSelection[ex.name] || 3;
+                    const safeName = ex.name.replace(/'/g, "\\'");
+                    const meta = exerciseMuscleMap[ex.name] || { primary: ex.customPrimary || ["core"] };
+                    const pText = meta.primary.map(m => muscleThai[m] || m).join(",");
+                    return `
+                        <div class="flex items-center justify-between gap-2 p-2 rounded-xl border transition ${isChecked ? 'bg-indigo-950/40 border-indigo-500/50' : 'bg-slate-950/70 border-slate-800'}">
+                            <label class="flex items-start gap-2 cursor-pointer flex-1 min-w-0">
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleBuilderExercise('${safeName}')" class="w-4 h-4 mt-0.5 accent-indigo-500 rounded shrink-0">
+                                <div class="min-w-0">
+                                    <div class="text-xs font-semibold text-white truncate">${ex.name}</div>
+                                    <div class="text-[10px] text-slate-400">เน้น: <span class="text-rose-400">${pText}</span> • ${ex.reps.split('×')[0].trim()}</div>
+                                </div>
+                            </label>
+                            ${isChecked ? `
+                                <div class="flex items-center gap-1 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-0.5">
+                                    <button type="button" onclick="changeBuilderSets('${safeName}', -1)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">-</button>
+                                    <span class="text-[11px] font-bold text-amber-300 px-1">${sets} เซต</span>
+                                    <button type="button" onclick="changeBuilderSets('${safeName}', 1)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">+</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+
+            <!-- เพิ่มท่าเองด่วน -->
+            <div class="flex gap-1.5 pt-1">
+                <input type="text" id="builder-custom-name" placeholder="+ เพิ่มชื่อท่าเอง..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none">
+                <select id="builder-custom-muscle" class="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-[11px] text-slate-300">
+                    <option value="chest">อก</option>
+                    <option value="back">หลัง</option>
+                    <option value="legs">ขา</option>
+                    <option value="glutes">ก้น</option>
+                    <option value="shoulders">ไหล่</option>
+                    <option value="arms">แขน</option>
+                    <option value="core">ท้อง</option>
+                </select>
+                <button type="button" onclick="addUserCustomExerciseToBuilder()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shrink-0">เพิ่ม</button>
+            </div>
+
+            <!-- ปุ่มบันทึกเซตที่เลือกเอง -->
+            <button type="button" onclick="saveCustomBuilderWorkout()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl shadow-lg shadow-indigo-600/25 transition">
+                <i class="fa-solid fa-check mr-1"></i> บันทึกเวทที่เลือกเอง (${selectedNames.length} ท่า • -${totalKcal} kcal)
+            </button>
+        `;
+        return;
+    }
+
+    // ==========================================
+    // แท็บ 3: คลังท่าเวทเทรนนิ่งทั้งหมดที่ไม่ใช้เครื่อง (ตามอุปกรณ์ที่เลือก)
+    // ==========================================
+    if (currentCourseTab === 'library') {
+        const groups = ["ขา & ก้น", "หน้าอก", "แผ่นหลัง", "ไหล่ & แขน", "หน้าท้อง & แกนกลาง"];
+        const eqLabels = { bodyweight: "มือเปล่า", chair: "เก้าอี้/โต๊ะ", band: "ยางยืด", dumbbell: "ดัมเบล" };
+
+        container.innerHTML = `
+            <div class="text-[11px] text-slate-400 px-1">
+                พบทั้งหมด <b class="text-white">${filteredExercises.length} ท่า</b> ที่เหมาะกับอุปกรณ์ที่คุณเลือก (ไม่ใช้เครื่องเล่นฟิตเนส)
+            </div>
+            ${groups.map(g => {
+                const list = filteredExercises.filter(ex => ex.muscle === g);
+                if (list.length === 0) return '';
+                return `
+                    <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                        <div class="text-xs font-bold text-indigo-400">${g} (${list.length} ท่า)</div>
+                        <div class="space-y-1.5">
+                            ${list.map(ex => {
+                                const hasPhoto = !!exercisePhotosMap[ex.name];
+                                const safeName = ex.name.replace(/'/g, "\\'");
+                                return `
+                                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+                                        <div class="flex justify-between items-start gap-2">
+                                            <span class="font-semibold text-white">${ex.name}</span>
+                                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 shrink-0">${eqLabels[ex.eq] || 'กำหนดเอง'}</span>
+                                        </div>
+                                        <div class="text-[10px] text-emerald-400 font-medium mt-0.5">${ex.reps}</div>
+                                        <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
+                                        <div class="mt-1.5 flex justify-end">
+                                            <button type="button" onclick="openExercisePhotoModal('${safeName}')" class="text-[10px] ${hasPhoto ? 'bg-sky-950 text-sky-300 border-sky-700/50' : 'bg-slate-800 text-slate-300 border-slate-700'} px-2.5 py-1 rounded-lg border transition flex items-center gap-1">
+                                                <i class="fa-regular fa-image"></i> ${hasPhoto ? 'ดูรูปสเต็ปท่า' : '+ ใส่รูปตัวอย่าง'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        `;
+        return;
+    }
+
+    // ==========================================
+    // แท็บ 1: ตารางวันออก & วันพัก + เลือกเน้นเฉพาะส่วนได้อิสระ
+    // ==========================================
+    const parts = currentDateKey.split('-');
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayOfWeek = dateObj.getDay();
+    const dayNamesShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+
+    const schedules = {
+        '3days': [
+            { day: 1, type: 'weight', label: 'เวททั่วร่าง A', focus: 'Full Body' },
+            { day: 2, type: 'cardio', label: 'เดินเร็ว/คาร์ดิโอ', focus: 'Cardio' },
+            { day: 3, type: 'weight', label: 'เวททั่วร่าง B', focus: 'Full Body' },
+            { day: 4, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' },
+            { day: 5, type: 'weight', label: 'เวททั่วร่าง C', focus: 'Full Body' },
+            { day: 6, type: 'cardio', label: 'เดิน/กิจกรรมเบา', focus: 'Cardio' },
+            { day: 0, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' }
+        ],
+        '4days': [
+            { day: 1, type: 'weight', label: 'ช่วงบน (อก/หลัง/แขน)', focus: 'Upper' },
+            { day: 2, type: 'weight', label: 'ช่วงล่าง (ขา/ก้น/ท้อง)', focus: 'Lower' },
+            { day: 3, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' },
+            { day: 4, type: 'weight', label: 'ช่วงบน (ไหล่/หลัง/อก)', focus: 'Upper' },
+            { day: 5, type: 'weight', label: 'ช่วงล่าง & แกนกลาง', focus: 'Lower' },
+            { day: 6, type: 'cardio', label: 'เดินเร็ว 30-40 นาที', focus: 'Cardio' },
+            { day: 0, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' }
+        ],
+        '5days': [
+            { day: 1, type: 'weight', label: 'อก & หลังแขน', focus: 'Push' },
+            { day: 2, type: 'weight', label: 'หลัง & หน้าแขน', focus: 'Pull' },
+            { day: 3, type: 'weight', label: 'ขา & สะโพก', focus: 'Legs' },
+            { day: 4, type: 'weight', label: 'หัวไหล่ & ท้อง', focus: 'ShouldersCore' },
+            { day: 5, type: 'weight', label: 'เวททั่วร่าง + เบิร์น', focus: 'FullBurn' },
+            { day: 6, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' },
+            { day: 0, type: 'rest',   label: 'วันพักฟื้น', focus: 'Rest' }
+        ]
+    };
+
+    const activePlan = schedules[courseConfig.schedule] || schedules['3days'];
+    const basePlan = activePlan.find(p => p.day === dayOfWeek);
+
+    const focusPresetLabels = {
+        'Legs': 'เน้นขา & สะโพก (Lower)',
+        'ArmsShoulders': 'เน้นแขน & หัวไหล่ (Arms)',
+        'ChestBack': 'เน้นอก & แผ่นหลัง (Torso)',
+        'CoreBurn': 'เน้นหน้าท้อง & เบิร์นไขมัน',
+        'Full Body': 'เวททั่วร่าง (Full Body)'
+    };
+
+    let todayPlan = basePlan;
+    if (customFocusOverride && focusPresetLabels[customFocusOverride]) {
+        todayPlan = {
+            day: dayOfWeek,
+            type: 'weight',
+            label: focusPresetLabels[customFocusOverride],
+            focus: customFocusOverride
+        };
+    }
+
+    const orderedWeek = [1, 2, 3, 4, 5, 6, 0].map(dIdx => activePlan.find(p => p.day === dIdx));
+    const weekStripHtml = `
+        <div class="grid grid-cols-7 gap-1 text-center">
+            ${orderedWeek.map(p => {
+                const isToday = p.day === dayOfWeek;
+                let badgeColor = 'bg-slate-900 text-slate-400 border-slate-800';
+                let icon = '🛌';
+                if (p.type === 'weight') {
+                    badgeColor = 'bg-indigo-950/80 text-indigo-300 border-indigo-700/50';
+                    icon = '💪';
+                } else if (p.type === 'cardio') {
+                    badgeColor = 'bg-orange-950/70 text-orange-300 border-orange-700/50';
+                    icon = '🏃';
+                }
+                const ring = isToday ? 'ring-2 ring-amber-400' : '';
+                return `
+                    <div class="p-1.5 rounded-xl border ${badgeColor} ${ring}">
+                        <div class="text-[10px] font-bold">${dayNamesShort[p.day]}</div>
+                        <div class="text-xs my-0.5">${icon}</div>
+                        <div class="text-[8px] leading-tight">${p.type === 'weight' ? 'เวท' : (p.type === 'cardio' ? 'คาร์ดิโอ' : 'พัก')}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    const focusSelectorHtml = `
+        <div class="bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800 space-y-1.5">
+            <div class="flex justify-between items-center">
+                <span class="text-[10px] font-semibold text-amber-300">🎯 ปรับจุดเน้นวันนี้ (เลือกเฉพาะส่วนได้):</span>
+                ${customFocusOverride ? `<button type="button" onclick="setCustomWorkoutFocus(null)" class="text-[10px] text-slate-400 hover:text-white underline">รีเซ็ตตามตาราง</button>` : ''}
+            </div>
+            <div class="flex flex-wrap gap-1.5 text-[10px]">
+                <button type="button" onclick="setCustomWorkoutFocus(null)" class="px-2 py-1 rounded-lg border transition ${!customFocusOverride ? 'bg-indigo-600 text-white border-indigo-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">ตามตารางวัน</button>
+                <button type="button" onclick="setCustomWorkoutFocus('Legs')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'Legs' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">🦵 เน้นขา & ก้น</button>
+                <button type="button" onclick="setCustomWorkoutFocus('ArmsShoulders')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'ArmsShoulders' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">💪 เน้นแขน & ไหล่</button>
+                <button type="button" onclick="setCustomWorkoutFocus('ChestBack')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'ChestBack' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">🏋️ เน้นอก & หลัง</button>
+                <button type="button" onclick="setCustomWorkoutFocus('CoreBurn')" class="px-2 py-1 rounded-lg border transition ${customFocusOverride === 'CoreBurn' ? 'bg-emerald-600 text-white border-emerald-400 font-semibold' : 'bg-slate-900 text-slate-300 border-slate-800'}">🔥 ท้อง & เบิร์น</button>
+            </div>
+        </div>
+    `;
+
+    let routineHtml = '';
+    if (todayPlan.type === 'rest') {
+        routineHtml = `
+            <div class="bg-emerald-950/30 border border-emerald-800/40 rounded-2xl p-4 text-center space-y-2">
+                <div class="text-2xl">🛌</div>
+                <div class="text-sm font-bold text-emerald-300">วันนี้คือ "วันพักฟื้นกล้ามเนื้อ (Rest Day)"</div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    กล้ามเนื้อจะเติบโตและซ่อมแซมตัวเองในวันที่พัก ควรทานโปรตีนให้ถึงเป้า ดื่มน้ำให้เพียงพอ (หรือกดปุ่มด้านบนหากต้องการฝึกเน้นเฉพาะส่วนวันนี้ครับ)
+                </p>
+            </div>
+        `;
+    } else if (todayPlan.type === 'cardio') {
+        routineHtml = `
+            <div class="bg-orange-950/30 border border-orange-800/40 rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm font-bold text-orange-300">🏃 คอร์สคาร์ดิโอ & เผาผลาญไขมัน</div>
+                    <span class="text-[10px] bg-orange-950 text-orange-300 px-2 py-0.5 rounded-full border border-orange-700/50">30-40 นาที</span>
+                </div>
+                <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><b>ตัวเลือกที่ 1:</b> เดินเร็วต่อเนื่อง 35–40 นาที (หรือเก็บให้ครบ 8,000–10,000 ก้าว)</li>
+                    <li><b>ตัวเลือกที่ 2:</b> วิ่งจ๊อกกิ้งเบาๆ หรือปั่นจักรยาน 30 นาที</li>
+                    <li><b>ตัวเลือกที่ 3 (ทำในห้อง):</b> เดินย่ำอยู่กับที่สลับ Mountain Climbers 20 นาที</li>
+                </ul>
+                <button type="button" onclick="logCourseWorkoutToToday('คอร์สเดินเร็ว/คาร์ดิโอตามตาราง', 35, 190)" class="w-full bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold py-2.5 rounded-xl transition">
+                    <i class="fa-solid fa-check mr-1"></i> บันทึกจบคาร์ดิโอวันนี้ (-190 kcal)
+                </button>
+            </div>
+        `;
+    } else {
+        const pickByMuscle = (muscle, count) => {
+            const list = filteredExercises.filter(e => e.muscle === muscle);
+            const prioritized = [
+                ...list.filter(e => e.eq !== 'bodyweight'),
+                ...list.filter(e => e.eq === 'bodyweight')
+            ];
+            return prioritized.slice(0, count);
+        };
+
+        let selectedRoutine = [];
+        if (todayPlan.focus === 'Upper') {
+            selectedRoutine = [...pickByMuscle('หน้าอก', 2), ...pickByMuscle('แผ่นหลัง', 2), ...pickByMuscle('ไหล่ & แขน', 2)];
+        } else if (todayPlan.focus === 'Lower' || todayPlan.focus === 'Legs') {
+            selectedRoutine = [...pickByMuscle('ขา & ก้น', 4), ...pickByMuscle('หน้าท้อง & แกนกลาง', 1)];
+        } else if (todayPlan.focus === 'ArmsShoulders') {
+            selectedRoutine = [...pickByMuscle('ไหล่ & แขน', 4), ...pickByMuscle('หน้าอก', 1)];
+        } else if (todayPlan.focus === 'ChestBack') {
+            selectedRoutine = [...pickByMuscle('หน้าอก', 3), ...pickByMuscle('แผ่นหลัง', 3)];
+        } else if (todayPlan.focus === 'CoreBurn') {
+            selectedRoutine = [...pickByMuscle('หน้าท้อง & แกนกลาง', 4), ...pickByMuscle('ขา & ก้น', 1)];
+        } else if (todayPlan.focus === 'Push') {
+            selectedRoutine = [...pickByMuscle('หน้าอก', 3), ...pickByMuscle('ไหล่ & แขน', 2)];
+        } else if (todayPlan.focus === 'Pull') {
+            selectedRoutine = [...pickByMuscle('แผ่นหลัง', 3), ...pickByMuscle('ไหล่ & แขน', 2)];
+        } else if (todayPlan.focus === 'ShouldersCore') {
+            selectedRoutine = [...pickByMuscle('ไหล่ & แขน', 3), ...pickByMuscle('หน้าท้อง & แกนกลาง', 3)];
+        } else {
+            selectedRoutine = [
+                ...pickByMuscle('ขา & ก้น', 2),
+                ...pickByMuscle('หน้าอก', 1),
+                ...pickByMuscle('แผ่นหลัง', 1),
+                ...pickByMuscle('ไหล่ & แขน', 1),
+                ...pickByMuscle('หน้าท้อง & แกนกลาง', 1)
+            ];
+        }
+
+        routineHtml = `
+            <div class="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-3 space-y-2.5">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-[10px] text-indigo-400 font-semibold block">โปรแกรมวันนี้: ${todayPlan.label}</span>
+                        <h4 class="text-xs font-bold text-white">ตารางท่าฝึก (${selectedRoutine.length} ท่า • พักระหว่างเซต 60 วิ)</h4>
+                    </div>
+                    <span class="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-700/50">~35 นาที</span>
+                </div>
+
+                <div class="space-y-1.5">
+                    ${selectedRoutine.map((ex, idx) => {
+                        const hasPhoto = !!exercisePhotosMap[ex.name];
+                        const safeName = ex.name.replace(/'/g, "\\'");
+                        return `
+                            <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-xs">
+                                <div class="flex justify-between items-start gap-2">
+                                    <span class="font-semibold text-white"><span class="text-amber-400 mr-1">${idx + 1}.</span>${ex.name}</span>
+                                    <span class="text-[10px] text-emerald-400 font-semibold shrink-0">${ex.reps}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${ex.tip}</div>
+                                <div class="mt-1.5 flex justify-end">
+                                    <button type="button" onclick="openExercisePhotoModal('${safeName}')" class="text-[10px] ${hasPhoto ? 'bg-sky-950 text-sky-300 border-sky-700/50' : 'bg-slate-800 text-slate-300 border-slate-700'} px-2.5 py-1 rounded-lg border transition flex items-center gap-1">
+                                        <i class="fa-regular fa-image"></i> ${hasPhoto ? 'ดูรูปสเต็ปท่า' : '+ ใส่รูปตัวอย่าง'}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="space-y-1.5 pt-1">
+                    <div class="text-[10px] text-slate-400 text-center">เลือกบันทึกตามจำนวนเซตที่เล่นจริงวันนี้:</div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label} (1 เซต)', 12, 70)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-semibold py-2 rounded-xl transition">
+                            1 เซต (-70)
+                        </button>
+                        <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label} (2 เซต)', 24, 140)" class="bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-700/60 text-indigo-200 text-[11px] font-semibold py-2 rounded-xl transition">
+                            2 เซต (-140)
+                        </button>
+                        <button type="button" onclick="logCourseWorkoutToToday('คอร์ส${todayPlan.label} (ครบ 3 เซต)', 35, 210)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold py-2 rounded-xl transition">
+                            3 เซต (-210)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="space-y-1.5">
+            <div class="text-[11px] font-semibold text-slate-300">ตารางสัปดาห์ (กรอบสีทอง = วันที่กำลังเปิดดู)</div>
+            ${weekStripHtml}
+        </div>
+        ${focusSelectorHtml}
+        ${routineHtml}
+    `;
 }
 
 function logCourseWorkoutToToday(title, duration, calories) {
