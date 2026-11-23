@@ -1,76 +1,53 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FitTracker — คอร์สเวท &amp; เลือกท่าเอง</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FitTracker - คอร์สเวท & จัดท่าเอง</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" href="animal.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-3 sm:p-5">
-    <div class="max-w-md mx-auto space-y-4">
-        <!-- แถบด้านบนกลับหน้าหลัก -->
-        <div class="flex items-center justify-between">
-            <a href="index.html"
-                class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl inline-flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-arrow-left"></i>
-                <span>กลับหน้าหลัก</span>
-            </a>
-            <span class="text-xs text-slate-400">คลังท่า &amp; จัดเซตเวท</span>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center pb-16">
+    <header class="w-full max-w-md px-4 py-3 flex justify-between items-center bg-slate-900/90 sticky top-0 z-30 border-b border-slate-800">
+        <a href="index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-arrow-left"></i> <span>กลับหน้าหลัก</span>
+        </a>
+        <span class="text-xs font-bold text-white">คอร์สเวท & จัดท่าเอง</span>
+        <span class="w-16"></span>
+    </header>
+
+    <main id="course-page-container" class="w-full max-w-md px-4 pt-4 space-y-3.5">
+        <!-- ดึงคอนเทนต์จากชุดตัวแปรและฟังก์ชันใน script.js เดิม -->
+        <div id="equipment-checkbox-group" class="hidden">
+            <input type="checkbox" id="eq-chair" checked>
+            <input type="checkbox" id="eq-band">
+            <input type="checkbox" id="eq-dumbbell">
+        </div>
+        <select id="course-schedule-select" class="hidden">
+            <option value="3days">3days</option>
+            <option value="4days">4days</option>
+            <option value="5days">5days</option>
+        </select>
+
+        <div class="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+            <button type="button" id="course-tab-today" onclick="switchCourseTab('today')" class="py-1.5 rounded-lg text-[11px] font-semibold bg-indigo-600 text-white">ตารางฝึกวันนี้</button>
+            <button type="button" id="course-tab-custom" onclick="switchCourseTab('custom')" class="py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white">🎯 เลือกท่าเอง & หุ่น</button>
+            <button type="button" id="course-tab-library" onclick="switchCourseTab('library')" class="py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white">คลังท่าทั้งหมด</button>
         </div>
 
-        <!-- กล่องสรุปจุดกล้ามเนื้อที่โดน -->
-        <section id="muscleSummaryCard" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-2 shadow-xl">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xs font-bold text-white"><i class="fa-solid fa-fire text-rose-400 mr-1.5"></i>จุดกล้ามเนื้อที่โดนวันนี้</h2>
-                <span id="builderSummaryBadge" class="text-[11px] font-semibold text-amber-400">0 ท่า (0 เซต) • 0 kcal</span>
-            </div>
-            <p id="builderMuscleText" class="text-xs text-slate-300">ยังไม่ได้เลือกท่า</p>
-        </section>
+        <div id="course-content-container" class="space-y-3"></div>
+    </main>
 
-        <!-- ตัวกรองกลุ่มกล้ามเนื้อ + แท็บท่าที่ใส่เอง -->
-        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-xl">
-            <div id="muscleFilterBar" class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs"></div>
-
-            <!-- รายการท่าให้ติ๊กเลือก + ปรับเซต + ดูวิธีทำ + แก้ไข/ลบท่าที่ใส่เอง -->
-            <div id="exerciseBuilderList" class="space-y-1.5 max-h-96 overflow-y-auto pr-1"></div>
-
-            <!-- เพิ่มท่าใหม่เอง -->
-            <div class="pt-2 border-t border-slate-800 space-y-2">
-                <div class="text-[11px] font-semibold text-slate-400">เพิ่มท่าออกกำลังกายของตัวเอง</div>
-                <div class="flex items-center gap-1.5">
-                    <input id="newCustomExName" type="text" placeholder="+ เพิ่มชื่อท่าเอง..."
-                        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
-                    <select id="newCustomExMuscle"
-                        class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="chest">อก</option>
-                        <option value="back">หลัง</option>
-                        <option value="legs">ขา/ก้น</option>
-                        <option value="shoulders">ไหล่</option>
-                        <option value="arms">แขน</option>
-                        <option value="core">ท้อง</option>
-                    </select>
-                    <button type="button" onclick="addNewCustomExerciseFromUI()"
-                        class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shrink-0">
-                        เพิ่ม
-                    </button>
-                </div>
-                <input id="newCustomExHowTo" type="text" placeholder="วิธีทำ / คำแนะนำสั้นๆ (ไม่บังคับ)"
-                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500" />
-            </div>
-
-            <!-- ปุ่มบันทึกเข้าหน้าหลัก -->
-            <button id="saveBuilderWorkoutBtn" type="button" onclick="saveSelectedWorkoutToLog()"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3 rounded-xl transition shadow-lg">
-                ✓ บันทึกเวทที่เลือกเอง (0 ท่า • 0 kcal)
-            </button>
-        </section>
-    </div>
-
-    <script src="app.js"></script>
+    <script src="script.js?v=44"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            renderWorkoutCourseContent();
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof currentCourseTab !== 'undefined') {
+                currentCourseTab = 'custom';
+                renderWorkoutCourseContent();
+            }
         });
     </script>
 </body>
