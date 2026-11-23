@@ -526,6 +526,50 @@ function getDayData(dateKey) {
     return allMealsHistory[dateKey];
 }
 
+// ==========================================
+// Daily Min-Max Calorie Target Snapshot (เก็บประวัติเป้า Min-Max แยกรายวัน)
+// ==========================================
+function getDayCalorieGoals(dateKey) {
+    const dayObj = allMealsHistory[dateKey];
+    const fallbackMax = Number(userGoals.calories) || 1500;
+    const fallbackMin = Number(userGoals.minCalories) || 1200;
+
+    // 1. ถ้าวันนั้นเคยบันทึกเป้า Min-Max เฉพาะวันไว้แล้ว ให้ใช้ค่านั้นเลย (วันเก่าจะไม่แดง)
+    if (dayObj && dayObj.targetMax !== undefined && dayObj.targetMax !== null) {
+        return {
+            min: Number(dayObj.targetMin ?? fallbackMin),
+            max: Number(dayObj.targetMax)
+        };
+    }
+
+    // 2. สำหรับข้อมูลเก่าในอดีตที่เคยบันทึกอาหารไว้ก่อนมีระบบนี้ ให้ล็อกเป้ามาตรฐานเดิม (1,200 - 1,500)
+    const todayKey = getFormattedDateKey(new Date());
+    if (dateKey < todayKey && dayObj && dayObj.meals && Object.values(dayObj.meals).some(l => l.length > 0)) {
+        return { min: 1200, max: 1500 };
+    }
+
+    // 3. วันปัจจุบันหรือวันในอนาคตที่ยังไม่ล็อกเป้า ให้ดึงจาก userGoals ล่าสุด
+    return { min: fallbackMin, max: fallbackMax };
+}
+
+function editCurrentDayCalorieRange() {
+    const cur = getDayCalorieGoals(currentDateKey);
+    const inputMin = prompt(`กำหนด "แคลอรีขั้นต่ำ (Min)" สำหรับวันที่ ${formatDisplayDate(currentDateKey)}:`, cur.min);
+    if (inputMin === null) return;
+
+    const inputMax = prompt(`กำหนด "แคลอรีสูงสุด (Max)" สำหรับวันที่ ${formatDisplayDate(currentDateKey)}:`, cur.max);
+    if (inputMax === null) return;
+
+    const newMin = Math.max(500, Number(inputMin) || cur.min);
+    const newMax = Math.max(newMin, Number(inputMax) || cur.max);
+
+    const dayData = getDayData(currentDateKey);
+    dayData.targetMin = newMin;
+    dayData.targetMax = newMax;
+
+    saveDataAndSync();
+}
+
 function getTotalBurned(dayData) {
     const stepsCal = Math.round((Number(dayData.steps) || 0) * 0.04);
     const workoutCal = (dayData.workouts || []).reduce((sum, w) => sum + Number(w.calories || 0), 0);
@@ -536,11 +580,13 @@ function getTotalBurned(dayData) {
 // Calorie & Nutrient Rollover Compensation (ชดเชยข้ามวันอัตโนมัติ)
 // ==========================================
 function getCalorieAdjustment(dateKey) {
-    const baseTarget = Number(userGoals.calories) || 1500;
-    const minFloor = Number(userGoals.minCalories) || 1200;
+    const todayGoals = getDayCalorieGoals(dateKey);
+    const baseTarget = todayGoals.max;
+    const minFloor = todayGoals.min;
 
     const yKey = getPreviousDateKey(dateKey);
     const yData = allMealsHistory[yKey];
+    const yGoals = getDayCalorieGoals(yKey);
     let yOver = 0;
 
     if (yData && yData.meals) {
@@ -550,7 +596,7 @@ function getCalorieAdjustment(dateKey) {
         });
         if (yCal > 0) {
             const { totalBurn: yBurn } = getTotalBurned(yData);
-            const yLimit = baseTarget + yBurn;
+            const yLimit = yGoals.max + yBurn;
             if (yCal > yLimit) {
                 yOver = yCal - yLimit;
             }
@@ -564,6 +610,7 @@ function getCalorieAdjustment(dateKey) {
 
     return {
         baseTarget,
+        minFloor,
         yOver,
         safeTarget,
         actualDeducted,
@@ -631,8 +678,9 @@ function renderWeeklyChart() {
     const container = document.getElementById('weekly-chart-container');
     if (!container) return;
 
-    const targetCal = Number(userGoals.calories) || 1500;
-    const minCal = Number(userGoals.minCalories) || 1200;
+   const selectedGoals = getDayCalorieGoals(currentDateKey);
+    const targetCal = selectedGoals.max;
+    const minCal = selectedGoals.min;
     const parts = currentDateKey.split('-');
     const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
@@ -645,6 +693,7 @@ function renderWeeklyChart() {
         d.setDate(baseDate.getDate() - i);
         let key = getFormattedDateKey(d);
         let dayObj = allMealsHistory[key];
+        let dGoals = getDayCalorieGoals(key);
 
         let totalCal = 0;
         let totalBurn = 0;
@@ -659,7 +708,7 @@ function renderWeeklyChart() {
             totalBurn = stepsCal + workoutCal;
         }
 
-        const effectiveLimit = targetCal + totalBurn;
+        const effectiveLimit = dGoals.max + totalBurn;
         if (totalCal > maxVal) maxVal = totalCal;
 
         daysData.push({
@@ -1226,9 +1275,9 @@ function renderSummary() {
 
     const goalLabelEl = document.getElementById('goal-cal-label');
     if (adj.actualDeducted > 0) {
-        goalLabelEl.innerHTML = `<span class="line-through text-slate-500 mr-1">${adj.baseTarget.toLocaleString()}</span><span class="text-amber-400 font-bold">${adj.safeTarget.toLocaleString()}</span>`;
+        goalLabelEl.innerHTML = `<span class="line-through text-slate-500 mr-1">${adj.minFloor.toLocaleString()}-${adj.baseTarget.toLocaleString()}</span><span class="text-amber-400 font-bold">${adj.minFloor.toLocaleString()}-${adj.safeTarget.toLocaleString()}</span>`;
     } else {
-        goalLabelEl.innerText = adj.baseTarget.toLocaleString();
+        goalLabelEl.innerText = `${adj.minFloor.toLocaleString()}-${adj.baseTarget.toLocaleString()}`;
     }
 
     document.getElementById('calories-remaining').innerHTML = `${remaining} <span class="text-sm font-normal text-slate-400">kcal</span>`;
@@ -1296,13 +1345,16 @@ function renderSummary() {
     }
 
     if (remaining < 0) {
-        statusEl.innerText = "เกินเป้าหมาย";
+        statusEl.innerText = "เกินเป้า Max";
         statusEl.className = "px-2.5 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/50 font-medium";
+    } else if (totalCal > 0 && totalCal < adj.minFloor) {
+        statusEl.innerText = `ต่ำกว่าขั้นต่ำ (${adj.minFloor})`;
+        statusEl.className = "px-2.5 py-1 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800/50 font-medium";
     } else if (adj.yOver > 0 || todayCapsFromYesterday.length > 0) {
         statusEl.innerText = "โหมดชดเชยเมื่อวาน";
         statusEl.className = "px-2.5 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-700/50 font-medium";
     } else {
-        statusEl.innerText = "ต่ำกว่าเกณฑ์ / กำลังคุม";
+        statusEl.innerText = "อยู่ในช่วง Min-Max";
         statusEl.className = "px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-medium";
     }
 
@@ -2027,6 +2079,9 @@ async function saveAllSettings() {
 
     const ghToken = document.getElementById('github-token-input').value.trim();
     const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
+    const currentDayObj = getDayData(currentDateKey);
+    currentDayObj.targetMin = userGoals.minCalories;
+    currentDayObj.targetMax = userGoals.calories;
 
     if (ghToken) {
         localStorage.setItem('fitTracker_github_token', ghToken);
