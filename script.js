@@ -672,21 +672,18 @@ function getNutrientAdjustments(dateKey) {
 }
 
 // ==========================================
-// Weekly Calorie Chart (7 วัน + เส้นเป้าหมาย & ขั้นต่ำ)
+// Weekly Calorie Chart (7 วัน + เส้นขั้นบันได Min-Max แยกรายวัน)
 // ==========================================
 function renderWeeklyChart() {
     const container = document.getElementById('weekly-chart-container');
     if (!container) return;
 
-    const selectedGoals = getDayCalorieGoals(currentDateKey);
-    const targetCal = selectedGoals.max;
-    const minCal = selectedGoals.min;
     const parts = currentDateKey.split('-');
     const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 
     let daysData = [];
-    let maxVal = Math.max(2000, targetCal + 500);
+    let maxVal = 2000;
 
     for (let i = 6; i >= 0; i--) {
         let d = new Date(baseDate);
@@ -710,6 +707,7 @@ function renderWeeklyChart() {
 
         const effectiveLimit = dGoals.max + totalBurn;
         if (totalCal > maxVal) maxVal = totalCal;
+        if (dGoals.max + 500 > maxVal) maxVal = dGoals.max + 500;
 
         daysData.push({
             key,
@@ -717,12 +715,52 @@ function renderWeeklyChart() {
             dayNum: d.getDate(),
             cal: totalCal,
             limit: effectiveLimit,
+            goalMax: dGoals.max,
+            goalMin: dGoals.min,
             isSelected: key === currentDateKey
         });
     }
 
-    const targetLineBottomPct = Math.min(100, Math.round((targetCal / maxVal) * 100));
-    const minLineBottomPct = Math.min(100, Math.round((minCal / maxVal) * 100));
+    // สร้างเส้น SVG แบบขั้นบันได (Step Line) ตามเป้า Min-Max ของแต่ละวัน
+    const colW = 100 / 7;
+    let maxStepPoints = [];
+    let minStepPoints = [];
+    let stepBadgesHtml = '';
+
+    daysData.forEach((d, idx) => {
+        const x1 = (idx * colW).toFixed(2);
+        const x2 = ((idx + 1) * colW).toFixed(2);
+        const yMax = (100 - Math.min(100, (d.goalMax / maxVal) * 100)).toFixed(2);
+        const yMin = (100 - Math.min(100, (d.goalMin / maxVal) * 100)).toFixed(2);
+
+        maxStepPoints.push(`${x1},${yMax} ${x2},${yMax}`);
+        minStepPoints.push(`${x1},${yMin} ${x2},${yMin}`);
+
+        // แสดงป้ายตัวเลขกำกับตรงวันแรก หรือวันที่เส้นมีการหักขึ้น/หักลง
+        const prev = idx > 0 ? daysData[idx - 1] : null;
+        if (!prev || prev.goalMax !== d.goalMax) {
+            const bottomPct = Math.min(100, (d.goalMax / maxVal) * 100);
+            const isLast = idx === daysData.length - 1;
+            const posStyle = isLast ? 'right: 0;' : `left: ${(idx * colW).toFixed(1)}%;`;
+            stepBadgesHtml += `
+                <span class="absolute text-[9px] bg-slate-900/95 text-amber-400 px-1 rounded font-semibold border border-amber-500/30 z-30 pointer-events-none"
+                      style="${posStyle} bottom: calc(${bottomPct}% + 3px);">
+                    ${d.goalMax.toLocaleString()}
+                </span>
+            `;
+        }
+        if (!prev || prev.goalMin !== d.goalMin) {
+            const bottomPct = Math.min(100, (d.goalMin / maxVal) * 100);
+            const isLast = idx === daysData.length - 1;
+            const posStyle = isLast ? 'right: 0;' : `left: ${(idx * colW).toFixed(1)}%;`;
+            stepBadgesHtml += `
+                <span class="absolute text-[9px] bg-slate-900/95 text-cyan-400 px-1 rounded font-semibold border border-cyan-500/30 z-30 pointer-events-none"
+                      style="${posStyle} bottom: calc(${bottomPct}% - 14px);">
+                    ${d.goalMin.toLocaleString()}
+                </span>
+            `;
+        }
+    });
 
     const barsHtml = daysData.map(d => {
         const barHeightPct = Math.min(100, Math.round((d.cal / maxVal) * 100));
@@ -752,17 +790,15 @@ function renderWeeklyChart() {
 
     container.innerHTML = `
         <div class="relative pt-3">
-            <div class="absolute left-0 right-0 border-t border-dashed border-amber-400/80 z-20 pointer-events-none flex justify-end"
-                 style="bottom: calc(30px + (96px * ${targetLineBottomPct / 100}));">
-                <span class="text-[9px] bg-slate-900/95 text-amber-400 px-1 rounded -mt-2.5 font-semibold border border-amber-500/30">
-                    ${targetCal.toLocaleString()}
-                </span>
-            </div>
-            <div class="absolute left-0 right-0 border-t border-dashed border-cyan-400/70 z-20 pointer-events-none flex justify-end"
-                 style="bottom: calc(30px + (96px * ${minLineBottomPct / 100}));">
-                <span class="text-[9px] bg-slate-900/95 text-cyan-400 px-1 rounded -mt-2.5 font-semibold border border-cyan-500/30">
-                    ${minCal.toLocaleString()}
-                </span>
+            <!-- เลเยอร์เส้นประขั้นบันไดสูงเท่ากับแท่งกราฟ (96px) -->
+            <div class="absolute left-0 right-0 h-24 pointer-events-none z-20" style="bottom: 30px;">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full overflow-visible">
+                    <polyline fill="none" stroke="#fbbf24" stroke-width="1.3" stroke-dasharray="2.5,2"
+                              vector-effect="non-scaling-stroke" points="${maxStepPoints.join(' ')}" />
+                    <polyline fill="none" stroke="#22d3ee" stroke-width="1.2" stroke-dasharray="2.5,2"
+                              vector-effect="non-scaling-stroke" points="${minStepPoints.join(' ')}" />
+                </svg>
+                ${stepBadgesHtml}
             </div>
             <div class="flex items-end justify-between gap-1.5">
                 ${barsHtml}
