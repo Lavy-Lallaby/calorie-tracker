@@ -3370,8 +3370,10 @@ function renderWorkoutCourseContent() {
             <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 ${visibleExercises.map(ex => {
                     const isChecked = !!customBuilderSelection[ex.name];
+                    const isUserEx = userCustomExercises.some(u => u.name === ex.name);
                     const sets = customBuilderSelection[ex.name] || 3;
                     const safeName = ex.name.replace(/'/g, "\\'");
+                    const safeAttrName = ex.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
                     const meta = exerciseMuscleMap[ex.name] || { primary: ex.customPrimary || ["core"] };
                     const pText = meta.primary.map(m => muscleThai[m] || m).join(",");
                     return `
@@ -3383,15 +3385,18 @@ function renderWorkoutCourseContent() {
                                     <div class="text-[10px] text-slate-400">เน้น: <span class="text-rose-400">${pText}</span> • ${ex.reps.split('×')[0].trim()}</div>
                                 </div>
                             </label>
-                            ${isChecked ? `
-                                <div class="flex items-center gap-1 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-0.5">
-                                    <button type="button" onclick="changeBuilderSets('${safeName}', -1)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">-</button>
-                                    <span class="text-[11px] font-bold text-amber-300 px-1">${sets} เซต</span>
-                                    <button type="button" onclick="changeBuilderSets('${safeName}', 1)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">+</button>
+                           ${isUserEx ? `
+                                <div class="flex items-center gap-1 shrink-0" data-ex-name="${safeAttrName}">
+                                    <button type="button" onclick="editUserCustomExercise(this.parentElement.dataset.exName)" title="ดู/แก้ไขท่าที่ใส่เอง"
+                                        class="bg-slate-800 hover:bg-slate-700 text-amber-400 w-6 h-6 rounded-lg flex items-center justify-center transition">
+                                        <i class="fa-solid fa-pen text-[10px]"></i>
+                                    </button>
+                                    <button type="button" onclick="deleteUserCustomExercise(this.parentElement.dataset.exName)" title="ลบท่าที่ใส่เอง"
+                                        class="bg-slate-800 hover:bg-slate-700 text-rose-400 w-6 h-6 rounded-lg flex items-center justify-center transition">
+                                        <i class="fa-solid fa-trash text-[10px]"></i>
+                                    </button>
                                 </div>
                             ` : ''}
-                        </div>
-                    `;
                 }).join('')}
             </div>
 
@@ -4390,6 +4395,80 @@ function updateBodyComposition() {
     };
 
     saveDataAndSync();
+}
+
+function editUserCustomExercise(exName) {
+    const idx = userCustomExercises.findIndex(u => u.name === exName);
+    if (idx === -1) return;
+
+    const ex = userCustomExercises[idx];
+    const newName = prompt("แก้ไขชื่อท่าที่ใส่เอง:", ex.name);
+    if (newName === null) return;
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+        alert("ชื่อท่าห้ามว่างครับ");
+        return;
+    }
+
+    const newReps = prompt("แก้ไขจำนวนครั้ง / เซต (เช่น 12-15 ครั้ง × 3 เซต):", ex.reps || "12-15 ครั้ง × 3 เซต");
+    if (newReps === null) return;
+
+    const newTip = prompt("แก้ไขคำแนะนำ / โน้ตท่านี้:", ex.tip || "");
+    if (newTip === null) return;
+
+    const muscleOptions = "chest (อก), back (หลัง), legs (ขา), glutes (ก้น), shoulders (ไหล่), arms (แขน), core (ท้อง)";
+    const curMuscle = (ex.customPrimary && ex.customPrimary[0]) || "core";
+    const inputMuscle = prompt(`แก้ไขกล้ามเนื้อหลัก [${muscleOptions}]:`, curMuscle);
+    if (inputMuscle === null) return;
+
+    const validMuscles = ["chest", "back", "legs", "glutes", "shoulders", "arms", "core"];
+    const muscleCode = validMuscles.includes(inputMuscle.trim().toLowerCase())
+        ? inputMuscle.trim().toLowerCase()
+        : curMuscle;
+
+    const muscleGroupLabel = {
+        chest: "หน้าอก",
+        back: "แผ่นหลัง",
+        legs: "ขา & ก้น",
+        glutes: "ขา & ก้น",
+        shoulders: "ไหล่ & แขน",
+        arms: "ไหล่ & แขน",
+        core: "หน้าท้อง & แกนกลาง"
+    }[muscleCode] || ex.muscle;
+
+    // ย้ายสถานะการเลือกและจำนวนเซตไปยังชื่อใหม่ (กรณีเปลี่ยนชื่อท่า)
+    if (customBuilderSelection[ex.name] !== undefined) {
+        const selectedSets = customBuilderSelection[ex.name];
+        delete customBuilderSelection[ex.name];
+        customBuilderSelection[trimmedName] = selectedSets;
+        localStorage.setItem('fitTracker_custom_builder', JSON.stringify(customBuilderSelection));
+    }
+
+    userCustomExercises[idx] = {
+        ...ex,
+        name: trimmedName,
+        muscle: muscleGroupLabel,
+        reps: newReps.trim() || ex.reps,
+        tip: newTip.trim(),
+        customPrimary: [muscleCode]
+    };
+
+    localStorage.setItem('fitTracker_user_exercises', JSON.stringify(userCustomExercises));
+    renderWorkoutCourseContent();
+}
+
+function deleteUserCustomExercise(exName) {
+    if (!confirm(`ต้องการลบท่าที่ใส่เอง "${exName}" ใช่ไหม?`)) return;
+
+    userCustomExercises = userCustomExercises.filter(u => u.name !== exName);
+    localStorage.setItem('fitTracker_user_exercises', JSON.stringify(userCustomExercises));
+
+    if (customBuilderSelection[exName] !== undefined) {
+        delete customBuilderSelection[exName];
+        localStorage.setItem('fitTracker_custom_builder', JSON.stringify(customBuilderSelection));
+    }
+
+    renderWorkoutCourseContent();
 }
 
 function formatDeltaBadge(cur, base, unit, lowerIsBetter = true) {
