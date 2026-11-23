@@ -460,15 +460,27 @@ async function uploadPhotoToGitHub(base64Content) {
 // Core App Initialization & UI Rendering
 // ==========================================
 function renderUIOnly() {
-    renderWeeklyChart();
-    renderDateDisplay();
-    renderBurnModeCard();
-    renderMeals();
-    renderWaterAndWeight();
-    renderActivity();
-    renderSummary();
-    renderNutritionCoach();
-    updateCatalogDatalist();
+    const isDashboardPage = Boolean(document.getElementById('meals-list') || document.getElementById('weekly-chart'));
+    const isCoursePage = Boolean(document.getElementById('course-content-container'));
+
+    if (isDashboardPage) {
+        if (typeof renderWeeklyChart === 'function') renderWeeklyChart();
+        if (typeof renderDateDisplay === 'function') renderDateDisplay();
+        if (typeof renderBurnModeCard === 'function') renderBurnModeCard();
+        if (typeof renderMeals === 'function') renderMeals();
+        if (typeof renderWaterAndWeight === 'function') renderWaterAndWeight();
+        if (typeof renderActivity === 'function') renderActivity();
+        if (typeof renderSummary === 'function') renderSummary();
+        if (typeof renderNutritionCoach === 'function') renderNutritionCoach();
+    }
+
+    if (typeof updateCatalogDatalist === 'function') {
+        updateCatalogDatalist();
+    }
+
+    if (isCoursePage && typeof renderWorkoutCourseContent === 'function') {
+        renderWorkoutCourseContent();
+    }
 }
 
 async function initApp() {
