@@ -237,7 +237,15 @@ async function syncFromGitHub(showAlert = false) {
             localStorage.setItem('fitTracker_exercise_photos', JSON.stringify(exercisePhotosMap));
         }
 
-        renderAllUI();
+        if (typeof renderAllUI === 'function') {
+            renderAllUI();
+        } else {
+            if (typeof renderDashboard === 'function') renderDashboard();
+            if (typeof renderChart === 'function') renderChart();
+            if (typeof renderMeals === 'function') renderMeals();
+            if (typeof renderSkincareContent === 'function') renderSkincareContent();
+        }
+        
         setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
         if (showAlert) alert("ดึงข้อมูลจาก GitHub สำเร็จแล้ว!");
     } catch (err) {
