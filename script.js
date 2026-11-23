@@ -3166,10 +3166,10 @@ function toggleBuilderExercise(exName) {
     renderWorkoutCourseContent();
 }
 
-function changeBuilderSets(exName, delta) {
+function changeBuilderSets(exName, delta, event) {
+    if (event) event.stopPropagation();
     const cur = customBuilderSelection[exName] || 3;
-    const next = Math.max(1, Math.min(10, cur + delta));
-    customBuilderSelection[exName] = next;
+    customBuilderSelection[exName] = Math.max(1, Math.min(10, cur + delta));
     localStorage.setItem('fitTracker_custom_builder', JSON.stringify(customBuilderSelection));
     renderWorkoutCourseContent();
 }
@@ -3242,6 +3242,9 @@ function renderWorkoutCourseContent() {
     // แท็บ 2: เลือกท่าเอง + หุ่นจำลองวิเคราะห์จุดกล้ามเนื้อ (SVG Heatmap)
     // ==========================================
     if (currentCourseTab === 'custom') {
+        const prevListEl = document.getElementById('custom-builder-list');
+        const prevScrollTop = prevListEl ? prevListEl.scrollTop : 0;
+
         const selectedNames = Object.keys(customBuilderSelection);
         const primarySet = new Set();
         const secondarySet = new Set();
@@ -3259,8 +3262,8 @@ function renderWorkoutCourseContent() {
         });
 
         const getPartColor = (muscleKey) => {
-            if (primarySet.has(muscleKey)) return "#f43f5e";   // กล้ามเนื้อหลัก
-            if (secondarySet.has(muscleKey)) return "#fbbf24"; // กล้ามเนื้อรอง
+            if (primarySet.has(muscleKey)) return "#f43f5e";
+            if (secondarySet.has(muscleKey)) return "#fbbf24";
             return "#2d334a";
         };
 
@@ -3376,7 +3379,7 @@ function renderWorkoutCourseContent() {
                 `).join('')}
             </div>
 
-            <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            <div id="custom-builder-list" class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 ${visibleExercises.map(ex => {
                     const isChecked = !!customBuilderSelection[ex.name];
                     const sets = customBuilderSelection[ex.name] || 3;
@@ -3394,9 +3397,9 @@ function renderWorkoutCourseContent() {
                             </label>
                             ${isChecked ? `
                                 <div class="flex items-center gap-1 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-0.5">
-                                    <button type="button" onclick="changeBuilderSets('${safeName}', -1)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">-</button>
+                                    <button type="button" onclick="changeBuilderSets('${safeName}', -1, event)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">-</button>
                                     <span class="text-[11px] font-bold text-amber-300 px-1">${sets} เซต</span>
-                                    <button type="button" onclick="changeBuilderSets('${safeName}', 1)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">+</button>
+                                    <button type="button" onclick="changeBuilderSets('${safeName}', 1, event)" class="w-5 h-5 text-slate-300 hover:text-white text-xs font-bold">+</button>
                                 </div>
                             ` : ''}
                         </div>
@@ -3422,6 +3425,11 @@ function renderWorkoutCourseContent() {
                 <i class="fa-solid fa-check mr-1"></i> บันทึกเวทที่เลือกเอง (${selectedNames.length} ท่า • -${totalKcal} kcal)
             </button>
         `;
+
+        const nextListEl = document.getElementById('custom-builder-list');
+        if (nextListEl) {
+            nextListEl.scrollTop = prevScrollTop;
+        }
         return;
     }
 
