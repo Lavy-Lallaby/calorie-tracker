@@ -3116,7 +3116,8 @@ function openWorkoutCourseModal() {
 }
 
 function closeWorkoutCourseModal() {
-    document.getElementById('course-modal').classList.add('hidden');
+    const modal = document.getElementById('course-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 function saveCourseConfig() {
@@ -3917,9 +3918,14 @@ function logCourseWorkoutToToday(title, duration, calories, exercises = null) {
         entry.exercises = exercises;
     }
     dayData.workouts.push(entry);
+
+    const hasCourseModal = Boolean(document.getElementById('course-modal'));
     closeWorkoutCourseModal();
     saveDataAndSync();
-    alert(`บันทึก "${title}" (-${calories} kcal) ลงในรายการออกกำลังกายของวันที่ ${currentDateKey} เรียบร้อยแล้ว!`);
+
+    if (!hasCourseModal) {
+        window.location.href = './';
+    }
 }
 
 let customFocusOverride = null;
