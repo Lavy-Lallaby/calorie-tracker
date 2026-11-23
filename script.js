@@ -218,6 +218,7 @@ async function syncFromGitHub(showAlert = false) {
             }
             if (cloudData.skincareLogs) { skincareLogs = cloudData.skincareLogs; localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(skincareLogs)); }
             if (cloudData.skincarePhotosMap) { skincarePhotosMap = cloudData.skincarePhotosMap; localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(skincarePhotosMap)); }
+            if (cloudData.exercisePhotosMap) { exercisePhotosMap = cloudData.exercisePhotosMap; localStorage.setItem('fitTracker_ex_photos', JSON.stringify(exercisePhotosMap)); }
 
             renderUIOnly();
             setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
@@ -262,6 +263,7 @@ async function pushToGitHub(showAlert = false) {
             skincareItems: skincareItems,
             skincareLogs: skincareLogs,
             skincarePhotosMap: skincarePhotosMap,
+            exercisePhotosMap: exercisePhotosMap
         };
         const contentBase64 = utf8ToBase64(JSON.stringify(payload, null, 2));
 
@@ -1880,7 +1882,7 @@ async function scanFoodWithGemini(file) {
     try {
         const base64Data = await resizeImageToBase64(file, 800);
         const apiKey = localStorage.getItem('fitTracker_gemini_key');
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
            {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
