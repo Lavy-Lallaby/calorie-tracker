@@ -3966,9 +3966,6 @@ async function handleExercisePhotoSelected(event) {
     }
 }
 
-// ==========================================
-// Skincare & Body Care Routine Reminder
-// ==========================================
 const defaultSkincareItems = [
     // ==========================================
     // ☀️ ตอนเช้า (ทุกวัน)
