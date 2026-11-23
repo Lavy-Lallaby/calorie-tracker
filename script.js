@@ -460,27 +460,16 @@ async function uploadPhotoToGitHub(base64Content) {
 // Core App Initialization & UI Rendering
 // ==========================================
 function renderUIOnly() {
-    const isDashboardPage = Boolean(document.getElementById('meals-list') || document.getElementById('weekly-chart'));
-    const isCoursePage = Boolean(document.getElementById('course-content-container'));
+  const isDashboardPage = Boolean(
+    document.getElementById('meals-container') ||
+    document.getElementById('weekly-chart-container') ||
+    document.getElementById('meals-list') ||
+    document.getElementById('weekly-chart')
+  );
 
-    if (isDashboardPage) {
-        if (typeof renderWeeklyChart === 'function') renderWeeklyChart();
-        if (typeof renderDateDisplay === 'function') renderDateDisplay();
-        if (typeof renderBurnModeCard === 'function') renderBurnModeCard();
-        if (typeof renderMeals === 'function') renderMeals();
-        if (typeof renderWaterAndWeight === 'function') renderWaterAndWeight();
-        if (typeof renderActivity === 'function') renderActivity();
-        if (typeof renderSummary === 'function') renderSummary();
-        if (typeof renderNutritionCoach === 'function') renderNutritionCoach();
-    }
-
-    if (typeof updateCatalogDatalist === 'function') {
-        updateCatalogDatalist();
-    }
-
-    if (isCoursePage && typeof renderWorkoutCourseContent === 'function') {
-        renderWorkoutCourseContent();
-    }
+  if (isDashboardPage) {
+    renderDashboard();
+  }
 }
 
 async function initApp() {
@@ -3737,87 +3726,76 @@ function renderWorkoutCourseContent() {
 }
 
 let activeLogModalIndex = null;
+let editingWorkoutLogIndex = null;
 
 function openWorkoutLogDetailModal(logIndex) {
-    // ปรับชื่อตัวแปร array รายการออกกำลังกายของวันนั้นให้ตรงกับโค้ดของคุณ
-    const logs = window.todayWorkoutLogs || window.workoutLogs || [];
-    const log = logs[logIndex];
-    if (!log) return;
+  const dayData = getDayData(currentDateKey);
+  const logs = Array.isArray(dayData.workouts) ? dayData.workouts : [];
+  const item = logs[logIndex];
+  if (!item) return;
 
-    activeLogModalIndex = logIndex;
+  editingWorkoutLogIndex = logIndex;
 
-    // รองรับทั้งกรณีที่ log เก็บรายละเอียดท่าไว้เป็น log.exercises หรือแปลงจากข้อความเดิม
-    const items = Array.isArray(log.exercises) && log.exercises.length > 0
-        ? log.exercises.map(item => ({
-            name: item.name,
-            sets: item.sets || 1,
-            reps: item.reps || ""
-        }))
-        : parseExercisesFromLogTitle(log.title || log.name || "");
+  const modal = document.getElementById('workout-log-detail-modal');
+  if (!modal) return;
 
-    const modalHtml = `
-        <div id="workoutLogDetailModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3" onclick="if(event.target.id==='workoutLogDetailModal') closeWorkoutLogDetailModal()">
-            <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden text-white shadow-2xl">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-                    <div>
-                        <div class="text-sm font-bold text-white">รายละเอียดเวทที่บันทึกไว้</div>
-                        <div class="text-[11px] text-slate-400">รวม ${items.length} ท่า • เผาผลาญประมาณ ${Math.abs(log.kcal || 0)} kcal</div>
-                    </div>
-                    <button type="button" onclick="closeWorkoutLogDetailModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
+  const nameInput = document.getElementById('edit-workout-name');
+  const calInput = document.getElementById('edit-workout-calories');
+  const durInput = document.getElementById('edit-workout-duration');
+  const noteInput = document.getElementById('edit-workout-note');
 
-                <div class="p-3 overflow-y-auto space-y-2.5 flex-1">
-                    ${items.map((item, idx) => {
-                        const info = findExerciseGuideInfo(item.name);
-                        return `
-                            <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div>
-                                        <div class="text-xs font-bold text-indigo-300">${idx + 1}. ${item.name}</div>
-                                        <div class="text-[11px] text-slate-400 mt-0.5">
-                                            กล้ามเนื้อ: <span class="text-rose-400">${info.muscleText}</span>
-                                            ${item.reps ? ` • ${item.reps}` : ''}
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 shrink-0">
-                                        <button type="button" onclick="changeLogItemSets(${idx}, -1)" class="w-5 h-5 text-slate-300 hover:text-white font-bold">-</button>
-                                        <span id="logModalSets_${idx}" class="text-xs font-semibold text-amber-300 min-w-[42px] text-center">${item.sets} เซต</span>
-                                        <button type="button" onclick="changeLogItemSets(${idx}, 1)" class="w-5 h-5 text-slate-300 hover:text-white font-bold">+</button>
-                                    </div>
-                                </div>
+  if (nameInput) nameInput.value = item.name || item.title || '';
+  if (calInput) calInput.value = Number(item.calories || 0);
+  if (durInput) durInput.value = Number(item.duration || 0);
+  if (noteInput) noteInput.value = item.note || '';
 
-                                <div class="bg-slate-900/90 border border-slate-800/80 rounded-lg p-2.5 text-[11px] leading-relaxed text-slate-300">
-                                    <div class="font-semibold text-emerald-400 mb-1">วิธีทำ & ข้อควรระวัง:</div>
-                                    <div>${info.howTo}</div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-
-                <div class="p-3 border-t border-slate-800 flex items-center justify-end gap-2 bg-slate-900">
-                    <button type="button" onclick="closeWorkoutLogDetailModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">
-                        ปิด
-                    </button>
-                    <button type="button" onclick="saveWorkoutLogChanges()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white">
-                        บันทึกการแก้ไข
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('workoutLogDetailModal')?.remove();
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    window._tempLogModalItems = items;
+  modal.classList.add('active');
+  modal.style.display = 'flex';
 }
 
 function closeWorkoutLogDetailModal() {
-    document.getElementById('workoutLogDetailModal')?.remove();
-    window._tempLogModalItems = null;
-    activeLogModalIndex = null;
+  editingWorkoutLogIndex = null;
+  const modal = document.getElementById('workout-log-detail-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+}
+
+async function saveWorkoutLogChanges() {
+  if (editingWorkoutLogIndex === null) return;
+
+  const dayData = getDayData(currentDateKey);
+  if (!Array.isArray(dayData.workouts) || !dayData.workouts[editingWorkoutLogIndex]) return;
+
+  const nameInput = document.getElementById('edit-workout-name');
+  const calInput = document.getElementById('edit-workout-calories');
+  const durInput = document.getElementById('edit-workout-duration');
+  const noteInput = document.getElementById('edit-workout-note');
+
+  const currentItem = dayData.workouts[editingWorkoutLogIndex];
+  dayData.workouts[editingWorkoutLogIndex] = {
+    ...currentItem,
+    name: nameInput ? nameInput.value.trim() || currentItem.name : currentItem.name,
+    calories: calInput ? Math.max(0, Number(calInput.value) || 0) : Number(currentItem.calories || 0),
+    duration: durInput ? Math.max(0, Number(durInput.value) || 0) : Number(currentItem.duration || 0),
+    note: noteInput ? noteInput.value.trim() : (currentItem.note || '')
+  };
+
+  closeWorkoutLogDetailModal();
+  renderUIOnly();
+  await pushToGitHub(false);
+}
+
+async function deleteWorkoutLogItem() {
+  if (editingWorkoutLogIndex === null) return;
+
+  const dayData = getDayData(currentDateKey);
+  if (!Array.isArray(dayData.workouts) || !dayData.workouts[editingWorkoutLogIndex]) return;
+
+  dayData.workouts.splice(editingWorkoutLogIndex, 1);
+  closeWorkoutLogDetailModal();
+  renderUIOnly();
+  await pushToGitHub(false);
 }
 
 function changeLogItemSets(idx, delta) {
