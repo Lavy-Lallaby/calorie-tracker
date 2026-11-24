@@ -3554,9 +3554,15 @@ function renderWorkoutCourseContent() {
                 <button type="button" onclick="addUserCustomExerciseToBuilder()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shrink-0">เพิ่ม</button>
             </div>
 
-            <button type="button" onclick="saveCustomBuilderWorkout()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl shadow-lg shadow-indigo-600/25 transition">
-                <i class="fa-solid fa-check mr-1"></i> บันทึกเวทที่เลือกเอง (${selectedNames.length} ท่า • -${totalKcal} kcal)
-            </button>
+            <!-- ปุ่มเริ่มเล่นจริง (จัดคิวสลับส่วน + หุ่นสาธิต + จับเวลา) และ ปุ่มบันทึกทันที -->
+            <div class="grid grid-cols-12 gap-2 pt-1">
+                <button type="button" onclick="startGuidedWorkoutPlayer()" class="col-span-7 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-play"></i> เริ่มเล่นตามคิว (${selectedNames.length} ท่า)
+                </button>
+                <button type="button" onclick="saveCustomBuilderWorkout()" class="col-span-5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 px-2 rounded-xl transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-check"></i> บันทึกเลย (-${totalKcal})
+                </button>
+            </div>
         `;
 
         const nextListEl = document.getElementById('custom-builder-list');
@@ -5316,6 +5322,361 @@ renderUIOnly = function() {
     renderDailyMacroChart();
     renderDailyHabitsAndSupplements();
 };
+
+// ==========================================
+// Active Workout Player: จัดคิวสลับกล้ามเนื้อ + หุ่นจำลองเคลื่อนไหว + ตัวจับเวลา
+// ==========================================
+let activeWorkoutQueue = [];
+let playerCurrentStepIdx = 0;
+let playerCurrentSet = 1;
+let playerIsResting = false;
+let playerTimerInterval = null;
+let playerSecondsLeft = 0;
+let playerRestDuration = 60;
+
+// 1. อัลกอริทึมจัดเรียงท่าไม่ให้เน้นกล้ามเนื้อหลักซ้ำกันติดกัน
+function buildSmartAlternatingQueue(selectedNames) {
+    const items = selectedNames.map(name => {
+        const sets = customBuilderSelection[name] || 3;
+        const userEx = userCustomExercises.find(u => u.name === name);
+        const libEx = nonMachineExercises.find(e => e.name === name);
+        const meta = exerciseMuscleMap[name] || { primary: userEx?.customPrimary || ["core"], secondary: [], kcal: 12 };
+        const guide = findExerciseGuideInfo(name);
+        return {
+            name,
+            sets,
+            reps: (userEx?.reps || libEx?.reps || "12-15 ครั้ง").split('×')[0].trim(),
+            primary: meta.primary,
+            primaryKey: meta.primary[0] || "core",
+            kcalPerSet: meta.kcal,
+            muscleText: guide.muscleText,
+            howTo: guide.howTo
+        };
+    });
+
+    const ordered = [];
+    const remaining = [...items];
+    let lastMuscle = null;
+
+    while (remaining.length > 0) {
+        // หาท่าที่กล้ามเนื้อหลักไม่ซ้ำกับท่าก่อนหน้า
+        let pickIdx = remaining.findIndex(item => item.primaryKey !== lastMuscle);
+        // ถ้าเหลือแต่กล้ามเนื้อกลุ่มเดียวกัน ให้หยิบท่าแรกที่เหลือ
+        if (pickIdx === -1) pickIdx = 0;
+
+        const chosen = remaining.splice(pickIdx, 1)[0];
+        ordered.push(chosen);
+        lastMuscle = chosen.primaryKey;
+    }
+    return ordered;
+}
+
+// 2. หุ่นจำลอง SVG เคลื่อนไหวสาธิตท่าทางตามชื่อท่า
+function getAnimatedExerciseSvg(exName) {
+    const lower = exName.toLowerCase();
+
+    // ท่าแพลงก์ (Plank)
+    if (lower.includes('plank') || lower.includes('แพลงก์')) {
+        return `
+            <svg viewBox="0 0 200 110" class="w-48 h-28 mx-auto">
+                <line x1="15" y1="90" x2="185" y2="90" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                <g>
+                    <animateTransform attributeName="transform" type="translate" values="0,0; 0,-2; 0,0" dur="2.5s" repeatCount="indefinite"/>
+                    <!-- หัว & ลำตัวขนานพื้น -->
+                    <circle cx="42" cy="58" r="9" fill="#fbbf24"/>
+                    <line x1="50" y1="62" x2="115" y2="66" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
+                    <!-- แขนตั้งศอก -->
+                    <polyline points="55,63 52,88 68,88" fill="none" stroke="#94a3b8" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <!-- ขาเหยียดตรง -->
+                    <line x1="115" y1="66" x2="168" y2="87" stroke="#f43f5e" stroke-width="5" stroke-linecap="round"/>
+                </g>
+                <text x="100" y="20" text-anchor="middle" fill="#94a3b8" font-size="10">เกร็งหน้าท้อง-ก้น ลำตัวตรงเป็นเส้นเดียว</text>
+            </svg>
+        `;
+    }
+
+    // ท่าวิดพื้นตัว V (Pike Push-up)
+    if (lower.includes('pike') || lower.includes('โด่งก้น')) {
+        return `
+            <svg viewBox="0 0 200 120" class="w-48 h-28 mx-auto">
+                <line x1="15" y1="102" x2="185" y2="102" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                <g>
+                    <animateTransform attributeName="transform" type="translate" values="0,0; 0,8; 0,0" dur="2.2s" repeatCount="indefinite"/>
+                    <circle cx="52" cy="76" r="8" fill="#fbbf24"/>
+                    <!-- ลำตัวโด่งก้นเป็นตัว V คว่ำ -->
+                    <polyline points="55,99 64,72 102,34 152,99" fill="none" stroke="#f43f5e" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </g>
+                <text x="100" y="18" text-anchor="middle" fill="#94a3b8" font-size="10">โด่งสะโพกสูง งอศอกลดศีรษะลงหาพื้น</text>
+            </svg>
+        `;
+    }
+
+    // ท่าวิดพื้น / ดิป / ปีนเขา (Push-up / Dips / Mountain Climbers)
+    if (lower.includes('push') || lower.includes('วิดพื้น') || lower.includes('dip') || lower.includes('ดิป') || lower.includes('climber') || lower.includes('ปีนเขา')) {
+        return `
+            <svg viewBox="0 0 200 115" class="w-48 h-28 mx-auto">
+                <line x1="15" y1="95" x2="185" y2="95" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                <g>
+                    <animateTransform attributeName="transform" type="rotate" values="0 165 92; 9 165 92; 0 165 92" dur="2s" repeatCount="indefinite"/>
+                    <circle cx="44" cy="48" r="9" fill="#fbbf24"/>
+                    <line x1="52" y1="53" x2="165" y2="92" stroke="#f43f5e" stroke-width="6" stroke-linecap="round"/>
+                    <line x1="62" y1="57" x2="58" y2="92" stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round"/>
+                </g>
+                <text x="100" y="18" text-anchor="middle" fill="#94a3b8" font-size="10">ลดอกลงช้าๆ กางศอก 45 องศา แล้วดันขึ้น</text>
+            </svg>
+        `;
+    }
+
+    // ท่านอนยกสะโพก / นอนหงาย / นอนคว่ำ (Glute Bridge / Dead Bug / Superman / Crunch)
+    if (lower.includes('bridge') || lower.includes('สะโพก') || lower.includes('dead bug') || lower.includes('superman') || lower.includes('นอน') || lower.includes('twist')) {
+        return `
+            <svg viewBox="0 0 200 115" class="w-48 h-28 mx-auto">
+                <line x1="15" y1="95" x2="185" y2="95" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="40" cy="84" r="8" fill="#fbbf24"/>
+                <!-- สะโพกยกขึ้น-ลง -->
+                <polyline points="48,88 98,62 135,62 152,92" fill="none" stroke="#f43f5e" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+                    <animate attributeName="points" values="48,88 98,86 135,86 152,92; 48,88 98,56 135,58 152,92; 48,88 98,86 135,86 152,92" dur="2.2s" repeatCount="indefinite"/>
+                </polyline>
+                <text x="100" y="20" text-anchor="middle" fill="#94a3b8" font-size="10">ดันสะโพกขึ้น บีบเกร็งค้าง 1-2 วินาที</text>
+            </svg>
+        `;
+    }
+
+    // ค่าเริ่มต้น: ท่ายืนย่อตัว สควอท / ลันจ์ / ดึงยางยืด (Squat / Lunge / Row / Band)
+    return `
+        <svg viewBox="0 0 160 130" class="w-44 h-28 mx-auto">
+            <line x1="25" y1="115" x2="135" y2="115" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+            <!-- หัว + ลำตัว + แขนยื่นไปข้างหน้า (ขยับขึ้น-ลงตามจังหวะย่อ) -->
+            <g>
+                <animateTransform attributeName="transform" type="translate" values="0,0; 0,18; 0,0" dur="2.2s" repeatCount="indefinite"/>
+                <circle cx="80" cy="24" r="9" fill="#fbbf24"/>
+                <line x1="80" y1="34" x2="74" y2="68" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
+                <line x1="79" y1="42" x2="108" y2="45" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
+            </g>
+            <!-- ขาพับงอเข่าตามจังหวะ -->
+            <polyline points="74,68 92,90 78,113" fill="none" stroke="#f43f5e" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+                <animate attributeName="points" values="74,68 82,90 78,113; 66,86 96,92 78,113; 74,68 82,90 78,113" dur="2.2s" repeatCount="indefinite"/>
+            </polyline>
+            <text x="80" y="12" text-anchor="middle" fill="#94a3b8" font-size="9">หย่อนก้นไปด้านหลัง หลังตรง คุมจังหวะ</text>
+        </svg>
+    `;
+}
+
+// 3. เปิดหน้าต่างลงมือเล่นจริง
+function startGuidedWorkoutPlayer() {
+    const selectedNames = Object.keys(customBuilderSelection);
+    if (selectedNames.length === 0) {
+        alert("กรุณาเลือกท่าที่เล่นอย่างน้อย 1 ท่าก่อนเริ่มครับ");
+        return;
+    }
+
+    activeWorkoutQueue = buildSmartAlternatingQueue(selectedNames);
+    playerCurrentStepIdx = 0;
+    playerCurrentSet = 1;
+    playerIsResting = false;
+    stopPlayerTimer();
+
+    renderGuidedWorkoutPlayerModal();
+}
+
+function stopPlayerTimer() {
+    if (playerTimerInterval) {
+        clearInterval(playerTimerInterval);
+        playerTimerInterval = null;
+    }
+}
+
+function startPlayerRestCountdown(seconds) {
+    stopPlayerTimer();
+    playerRestDuration = seconds;
+    playerSecondsLeft = seconds;
+    playerIsResting = true;
+    renderGuidedWorkoutPlayerModal();
+
+    playerTimerInterval = setInterval(() => {
+        playerSecondsLeft--;
+        const timerEl = document.getElementById('player-rest-clock');
+        if (timerEl) {
+            const m = Math.floor(playerSecondsLeft / 60);
+            const s = playerSecondsLeft % 60;
+            timerEl.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        if (playerSecondsLeft <= 0) {
+            stopPlayerTimer();
+            playRestBeep();
+            if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+            advanceToNextSetOrExercise();
+        }
+    }, 1000);
+}
+
+function advanceToNextSetOrExercise() {
+    stopPlayerTimer();
+    playerIsResting = false;
+    const curEx = activeWorkoutQueue[playerCurrentStepIdx];
+    if (!curEx) return;
+
+    if (playerCurrentSet < curEx.sets) {
+        playerCurrentSet++;
+    } else if (playerCurrentStepIdx < activeWorkoutQueue.length - 1) {
+        playerCurrentStepIdx++;
+        playerCurrentSet = 1;
+    } else {
+        // เล่นครบทุกท่าและทุกเซตแล้ว
+        finishGuidedWorkout();
+        return;
+    }
+    renderGuidedWorkoutPlayerModal();
+}
+
+function completeCurrentPlayerSet() {
+    const curEx = activeWorkoutQueue[playerCurrentStepIdx];
+    const isLastSetOfAll = (playerCurrentStepIdx === activeWorkoutQueue.length - 1) && (playerCurrentSet >= curEx.sets);
+    if (isLastSetOfAll) {
+        finishGuidedWorkout();
+    } else {
+        startPlayerRestCountdown(playerRestDuration);
+    }
+}
+
+function finishGuidedWorkout() {
+    stopPlayerTimer();
+    document.getElementById('guidedWorkoutModal')?.remove();
+
+    let totalSets = 0;
+    let totalKcal = 0;
+    const exercisesDetail = activeWorkoutQueue.map(item => {
+        totalSets += item.sets;
+        totalKcal += item.sets * item.kcalPerSet;
+        return { name: item.name, sets: item.sets, reps: item.reps };
+    });
+
+    const estMinutes = Math.max(5, Math.round(totalSets * 1.5));
+    const title = `เวทจัดคิวสลับส่วน (${activeWorkoutQueue.length} ท่า: ${activeWorkoutQueue.map(x => x.name.split('(')[0].trim()).slice(0, 3).join(', ')}${activeWorkoutQueue.length > 3 ? '...' : ''})`;
+
+    logCourseWorkoutToToday(title, estMinutes, Math.round(totalKcal), exercisesDetail);
+}
+
+function closeGuidedWorkoutModal() {
+    if (confirm("ต้องการออกจากโหมดฝึกตอนนี้ใช่ไหม? (ข้อมูลที่ยังเล่นไม่จบจะยังไม่ถูกบันทึก)")) {
+        stopPlayerTimer();
+        document.getElementById('guidedWorkoutModal')?.remove();
+    }
+}
+
+function renderGuidedWorkoutPlayerModal() {
+    const curEx = activeWorkoutQueue[playerCurrentStepIdx];
+    if (!curEx) return;
+
+    const nextEx = (playerCurrentSet < curEx.sets)
+        ? { name: `${curEx.name} (เซตที่ ${playerCurrentSet + 1})`, muscleText: curEx.muscleText }
+        : activeWorkoutQueue[playerCurrentStepIdx + 1];
+
+    const m = Math.floor(playerSecondsLeft / 60);
+    const s = playerSecondsLeft % 60;
+    const formattedClock = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+    const queueChipsHtml = activeWorkoutQueue.map((item, idx) => {
+        const isCurrent = idx === playerCurrentStepIdx;
+        const isDone = idx < playerCurrentStepIdx;
+        return `
+            <span class="px-2 py-1 rounded-lg text-[10px] font-semibold border shrink-0 ${
+                isCurrent ? 'bg-indigo-600 text-white border-indigo-400' :
+                isDone ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50 line-through' :
+                'bg-slate-950 text-slate-400 border-slate-800'
+            }">
+                ${idx + 1}. ${item.name.split('(')[0].trim()} (${item.muscleText})
+            </span>
+        `;
+    }).join('');
+
+    const html = `
+        <div id="guidedWorkoutModal" class="fixed inset-0 z-[80] bg-slate-950/95 backdrop-blur-md flex flex-col justify-between p-4 text-white overflow-y-auto">
+            <div class="w-full max-w-md mx-auto space-y-3">
+                <!-- Header -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div>
+                        <span class="text-[10px] text-emerald-400 font-semibold block">จัดลำดับสลับกลุ่มกล้ามเนื้ออัตโนมัติ</span>
+                        <h3 class="text-sm font-bold text-white">ท่าที่ ${playerCurrentStepIdx + 1} / ${activeWorkoutQueue.length} • เซตที่ ${playerCurrentSet} / ${curEx.sets}</h3>
+                    </div>
+                    <button type="button" onclick="closeGuidedWorkoutModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- แถบคิวลำดับท่าทั้งหมด (ไม่ซ้ำจุดเดิมติดกัน) -->
+                <div class="flex gap-1.5 overflow-x-auto pb-1">
+                    ${queueChipsHtml}
+                </div>
+
+                <!-- การ์ดท่าปัจจุบัน + หุ่นจำลองเคลื่อนไหว -->
+                <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-4 space-y-3 shadow-xl">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <h2 class="text-base font-extrabold text-white">${curEx.name}</h2>
+                            <div class="text-xs text-rose-400 font-semibold mt-0.5">เน้นกล้ามเนื้อ: ${curEx.muscleText}</div>
+                        </div>
+                        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-xl text-xs font-bold shrink-0">
+                            ${curEx.reps}
+                        </span>
+                    </div>
+
+                    <!-- หุ่นจำลองเคลื่อนไหวสาธิตท่า -->
+                    <div class="bg-slate-950 rounded-2xl border border-slate-800 py-2 px-3">
+                        ${getAnimatedExerciseSvg(curEx.name)}
+                    </div>
+
+                    <!-- วิธีทำท่าเวท -->
+                    <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3 text-xs space-y-1">
+                        <div class="font-bold text-emerald-400"><i class="fa-solid fa-circle-info mr-1"></i> วิธีทำ & โฟกัสท่านี้:</div>
+                        <p class="text-slate-300 leading-relaxed">${curEx.howTo}</p>
+                    </div>
+                </div>
+
+                <!-- โซนจับเวลาพักระหว่างเซต OR ปุ่มจบเซต -->
+                ${playerIsResting ? `
+                    <div class="bg-amber-950/40 border border-amber-500/50 rounded-3xl p-4 text-center space-y-3">
+                        <div class="text-xs font-bold text-amber-300">⏱️ กำลังพักระหว่างเซต (เตรียมตัวท่าถัดไป)</div>
+                        <div id="player-rest-clock" class="text-4xl font-extrabold font-mono text-white tracking-wider">${formattedClock}</div>
+                        <div class="flex justify-center gap-2 text-xs">
+                            <button type="button" onclick="startPlayerRestCountdown(45)" class="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">45 วิ</button>
+                            <button type="button" onclick="startPlayerRestCountdown(60)" class="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">60 วิ</button>
+                            <button type="button" onclick="startPlayerRestCountdown(90)" class="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">90 วิ</button>
+                        </div>
+                        <button type="button" onclick="advanceToNextSetOrExercise()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3 rounded-2xl">
+                            ข้ามเวลาพัก → ลุยต่อทันที
+                        </button>
+                    </div>
+                ` : `
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                            <span>ตั้งเวลาพักหลังจบเซต:</span>
+                            <div class="flex gap-1.5">
+                                <button type="button" onclick="playerRestDuration=45; renderGuidedWorkoutPlayerModal()" class="px-2 py-0.5 rounded ${playerRestDuration===45?'bg-indigo-600 text-white':'bg-slate-800'}">45วิ</button>
+                                <button type="button" onclick="playerRestDuration=60; renderGuidedWorkoutPlayerModal()" class="px-2 py-0.5 rounded ${playerRestDuration===60?'bg-indigo-600 text-white':'bg-slate-800'}">60วิ</button>
+                                <button type="button" onclick="playerRestDuration=90; renderGuidedWorkoutPlayerModal()" class="px-2 py-0.5 rounded ${playerRestDuration===90?'bg-indigo-600 text-white':'bg-slate-800'}">90วิ</button>
+                            </div>
+                        </div>
+                        <button type="button" onclick="completeCurrentPlayerSet()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition">
+                            ✓ จบเซตที่ ${playerCurrentSet} → เริ่มจับเวลาพัก
+                        </button>
+                    </div>
+                `}
+
+                ${nextEx ? `
+                    <div class="bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-[11px] flex justify-between items-center text-slate-400">
+                        <span>คิวถัดไป: <b class="text-slate-200">${nextEx.name}</b></span>
+                        <span class="text-rose-400">${nextEx.muscleText}</span>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    document.getElementById('guidedWorkoutModal')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+}
 
 // ==========================================
 // Initialize on DOM Load
