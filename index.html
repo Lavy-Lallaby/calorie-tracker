@@ -33,6 +33,78 @@
     .v59-dark-scroll::-webkit-scrollbar { height: 4px; width: 4px; }
     .v59-dark-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); border-radius: 9999px; }
     .v59-dark-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.45); border-radius: 9999px; }
+  
+    /* ================= LIGHT THEME OVERRIDES (ครอบทุกโมดูลอัตโนมัติ) ================= */
+    html.light-theme body {
+      background-color: #f1f5f9 !important;
+      color: #0f172a !important;
+    }
+    html.light-theme header,
+    html.light-theme nav {
+      background-color: rgba(255, 255, 255, 0.94) !important;
+      border-color: #cbd5e1 !important;
+    }
+    /* การ์ดหลัก (bg-slate-900) -> ขาวสะอาดมีเงาบางๆ */
+    html.light-theme .bg-slate-900,
+    html.light-theme .bg-slate-900\/95,
+    html.light-theme .bg-slate-900\/90 {
+      background-color: #ffffff !important;
+      background-image: none !important;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+    }
+    /* กล่องย่อย & ช่องกรอก (bg-slate-950) -> เทาอ่อนสบายตา */
+    html.light-theme .bg-slate-950,
+    html.light-theme .bg-slate-950\/95,
+    html.light-theme .bg-slate-950\/90,
+    html.light-theme .bg-slate-950\/80,
+    html.light-theme .bg-slate-950\/70,
+    html.light-theme .bg-slate-950\/60 {
+      background-color: #f8fafc !important;
+    }
+    html.light-theme .bg-slate-800,
+    html.light-theme .bg-slate-800\/90,
+    html.light-theme .bg-slate-800\/80 {
+      background-color: #e2e8f0 !important;
+    }
+    /* เส้นขอบ */
+    html.light-theme .border-slate-800,
+    html.light-theme .border-slate-800\/90,
+    html.light-theme .border-slate-800\/80,
+    html.light-theme .border-slate-700 {
+      border-color: #cbd5e1 !important;
+    }
+    /* ตัวอักษรสีขาว & สีอ่อน -> ปรับเป็นสีเข้มอ่านง่าย */
+    html.light-theme .text-white { color: #0f172a !important; }
+    html.light-theme .text-slate-100,
+    html.light-theme .text-slate-200 { color: #1e293b !important; }
+    html.light-theme .text-slate-300 { color: #334155 !important; }
+    html.light-theme .text-slate-400 { color: #64748b !important; }
+    /* ปรับสีตัวเลขไฮไลต์ให้เข้มขึ้นเมื่ออยู่บนพื้นสว่าง */
+    html.light-theme .text-amber-300,
+    html.light-theme .text-amber-400 { color: #d97706 !important; }
+    html.light-theme .text-emerald-300,
+    html.light-theme .text-emerald-400 { color: #059669 !important; }
+    html.light-theme .text-sky-300,
+    html.light-theme .text-sky-400 { color: #0284c7 !important; }
+    html.light-theme .text-indigo-300,
+    html.light-theme .text-indigo-400 { color: #4f46e5 !important; }
+    html.light-theme .text-rose-300,
+    html.light-theme .text-rose-400 { color: #e11d48 !important; }
+    html.light-theme .text-pink-300,
+    html.light-theme .text-pink-400 { color: #db2777 !important; }
+    html.light-theme .text-purple-300,
+    html.light-theme .text-purple-400 { color: #7c3aed !important; }
+    /* คงตัวหนังสือสีขาวไว้เฉพาะปุ่มที่มีพื้นหลังสีเข้ม */
+    html.light-theme .bg-indigo-600,
+    html.light-theme .bg-emerald-600,
+    html.light-theme .bg-sky-600,
+    html.light-theme .bg-pink-600,
+    html.light-theme .bg-rose-600,
+    html.light-theme .bg-orange-600,
+    html.light-theme .bg-teal-600,
+    html.light-theme .bg-purple-600 {
+      color: #ffffff !important;
+    }
   </style>
 </head>
 <body class="min-h-screen select-none">
@@ -59,6 +131,20 @@
         <div class="flex items-center gap-1.5">
           <button type="button" onclick="goToToday()" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl transition">
             วันนี้
+          </button>
+          <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลกับ GitHub" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 flex items-center justify-center transition">
+            <i id="sync-icon" class="fa-solid fa-rotate text-xs"></i>
+          </button>
+          <button type="button" onclick="openSettingsModal()" title="ตั้งค่าเป้าหมาย & API" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center transition">
+            <i class="fa-solid fa-gear text-xs"></i>
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="goToToday()" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl transition">
+            วันนี้
+          </button>
+          <button type="button" onclick="toggleAppTheme()" id="theme-toggle-btn" title="สลับโหมดมืด/สว่าง" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 flex items-center justify-center transition">
+            <i id="theme-toggle-icon" class="fa-solid fa-sun text-xs"></i>
           </button>
           <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลกับ GitHub" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 flex items-center justify-center transition">
             <i id="sync-icon" class="fa-solid fa-rotate text-xs"></i>
