@@ -149,6 +149,7 @@ function renderActivePageUI() {
     if (activeMainPage === 'trip' && typeof renderTripPage === 'function') renderTripPage();
     if (activeMainPage === 'addons' && typeof renderAddonsPage === 'function') renderAddonsPage();
     if (activeMainPage === 'finance' && typeof renderFinancePage === 'function') renderFinancePage();
+    if (activeMainPage === 'gear' && typeof renderGearPage === 'function') renderGearPage();
 }
 
 // ------------------------------------------
