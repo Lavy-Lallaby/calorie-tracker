@@ -151,6 +151,7 @@ function renderActivePageUI() {
     if (activeMainPage === 'finance' && typeof renderFinancePage === 'function') renderFinancePage();
     if (activeMainPage === 'gear' && typeof renderGearPage === 'function') renderGearPage();
     if (activeMainPage === 'focus' && typeof renderFocusPage === 'function') renderFocusPage();
+    if (activeMainPage === 'car' && typeof renderCarPage === 'function') renderCarPage();
 }
 
 // ------------------------------------------
@@ -465,6 +466,10 @@ async function syncFromGitHub(showAlert = false) {
             window.savedTrips = remoteDb.trips;
             localStorage.setItem('fitTracker_trips', JSON.stringify(remoteDb.trips));
         }
+        if (remoteDb.car) { 
+            window.carData = remoteDb.car; 
+            localStorage.setItem('fitTracker_car_data', JSON.stringify(remoteDb.car)); 
+        }
 
         renderActivePageUI();
         setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
@@ -509,7 +514,8 @@ async function pushToGitHub(showAlert = false) {
             exercisePhotosMap: window.exercisePhotosMap || JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}'),
             trips: window.savedTrips || JSON.parse(localStorage.getItem('fitTracker_trips') || '[]'),
             pantry: window.pantryItems,
-            gear: window.gearState
+            gear: window.gearState,
+            car: window.carData
         };
 
         const contentBase64 = utf8ToBase64(JSON.stringify(payload, null, 2));
