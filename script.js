@@ -5115,12 +5115,142 @@ function renderDailyHabitsAndSupplements() {
     `;
 }
 
+// ==========================================
+// กราฟหลอดเช็กสารอาหารวันนี้ (ตัวไหนเกินเป้า / ตัวไหนยังขาด)
+// ==========================================
+function renderDailyMacroChart() {
+    const card = document.getElementById('daily-macro-chart-card');
+    if (!card) return;
+
+    const dayData = getDayData(currentDateKey);
+    let totals = {
+        protein: 0, carbs: 0, sugar: 0, fiber: 0,
+        fat: 0, satFat: 0, sodium: 0, potassium: 0, cholesterol: 0
+    };
+
+    Object.values(dayData.meals || {}).forEach(list => {
+        list.forEach(item => {
+            totals.protein += Number(item.protein || 0);
+            totals.carbs += Number(item.carbs || 0);
+            totals.sugar += Number(item.sugar || 0);
+            totals.fiber += Number(item.fiber || 0);
+            totals.fat += Number(item.fat || 0);
+            totals.satFat += Number(item.satFat || 0);
+            totals.sodium += Number(item.sodium || 0);
+            totals.potassium += Number(item.potassium || 0);
+            totals.cholesterol += Number(item.cholesterol || 0);
+        });
+    });
+
+    const macroAdj = getNutrientAdjustments(currentDateKey);
+    const protMin = Number(userGoals.proteinMin) || 96;
+
+    // กลุ่มที่ 1: ตัวที่ต้องคุมไม่ให้เกิน (Limit Caps)
+    const limitItems = [
+        { label: "คาร์บ", cur: totals.carbs, max: macroAdj.carbs.adjustedMax, unit: "g", dec: 1 },
+        { label: "น้ำตาล", cur: totals.sugar, max: macroAdj.sugar.adjustedMax, unit: "g", dec: 1 },
+        { label: "ไขมันรวม", cur: totals.fat, max: macroAdj.fat.adjustedMax, unit: "g", dec: 1 },
+        { label: "ไขมันอิ่มตัว", cur: totals.satFat, max: macroAdj.satFat.adjustedMax, unit: "g", dec: 1 },
+        { label: "โซเดียม", cur: totals.sodium, max: macroAdj.sodium.adjustedMax, unit: "mg", dec: 0 },
+        { label: "คอเลสเตอรอล", cur: totals.cholesterol, max: macroAdj.cholesterol.adjustedMax, unit: "mg", dec: 0 }
+    ];
+
+    // กลุ่มที่ 2: ตัวที่ควรทานให้ถึงเป้า (Target Goals)
+    const goalItems = [
+        { label: "โปรตีน", cur: totals.protein, target: protMin, unit: "g", dec: 1, color: "bg-emerald-400" },
+        { label: "ไฟเบอร์", cur: totals.fiber, target: 25, unit: "g", dec: 1, color: "bg-teal-400" },
+        { label: "โพแทสเซียม", cur: totals.potassium, target: 3500, unit: "mg", dec: 0, color: "bg-lime-400" }
+    ];
+
+    const overCount = limitItems.filter(i => i.cur > i.max).length;
+
+    const limitBarsHtml = limitItems.map(item => {
+        const pct = item.max > 0 ? Math.round((item.cur / item.max) * 100) : 0;
+        const barW = Math.min(100, pct);
+        const isOver = item.cur > item.max;
+        const isWarn = !isOver && pct >= 80;
+
+        let barColor = "bg-sky-400";
+        let textColor = "text-slate-300";
+        let badge = "";
+
+        if (isOver) {
+            barColor = "bg-rose-500";
+            textColor = "text-rose-400 font-bold";
+            const overAmt = (item.cur - item.max).toFixed(item.dec);
+            badge = `<span class="bg-rose-950 text-rose-300 border border-rose-700/60 text-[9px] px-1.5 py-0.2 rounded ml-1">เกิน +${overAmt}${item.unit}</span>`;
+        } else if (isWarn) {
+            barColor = "bg-amber-400";
+            textColor = "text-amber-300 font-semibold";
+            badge = `<span class="text-[9px] text-amber-400 ml-1">(${pct}%)</span>`;
+        }
+
+        return `
+            <div class="space-y-1">
+                <div class="flex justify-between items-center text-[11px]">
+                    <span class="text-slate-200 font-medium">${item.label}${badge}</span>
+                    <span class="${textColor}">${item.cur.toFixed(item.dec)} / ${item.max}${item.unit}</span>
+                </div>
+                <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                    <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${barW}%;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const goalBarsHtml = goalItems.map(item => {
+        const pct = Math.min(100, Math.round((item.cur / item.target) * 100));
+        const isDone = item.cur >= item.target;
+        return `
+            <div class="bg-slate-950/70 p-2 rounded-xl border ${isDone ? 'border-emerald-700/50' : 'border-slate-800'} space-y-1">
+                <div class="flex justify-between text-[10px]">
+                    <span class="text-slate-300">${item.label}</span>
+                    <span class="${isDone ? 'text-emerald-400 font-bold' : 'text-slate-400'}">${pct}%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                    <div class="${item.color} h-full rounded-full transition-all duration-500" style="width: ${pct}%;"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 text-right">${item.cur.toFixed(item.dec)}/${item.target}${item.unit}</div>
+            </div>
+        `;
+    }).join('');
+
+    card.innerHTML = `
+        <details open>
+            <summary class="flex justify-between items-center cursor-pointer select-none">
+                <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-bars-progress text-indigo-400"></i> กราฟเช็กเพดานสารอาหารวันนี้
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold ${overCount > 0 ? 'bg-rose-950 text-rose-300 border border-rose-700/50' : 'bg-emerald-950 text-emerald-300 border border-emerald-700/50'}">
+                    ${overCount > 0 ? `เกินเกณฑ์ ${overCount} รายการ` : 'ยังไม่เกินเกณฑ์'}
+                </span>
+            </summary>
+
+            <div class="pt-3 space-y-3">
+                <!-- หลอดแสดงสารอาหารที่ต้องคุมไม่ให้เกิน -->
+                <div class="space-y-2">
+                    ${limitBarsHtml}
+                </div>
+
+                <!-- หลอดสารอาหารที่ควรเติมให้ถึงเป้า -->
+                <div class="pt-2 border-t border-slate-800/80 space-y-1.5">
+                    <div class="text-[10px] text-slate-400 font-semibold">สารอาหารที่ควรทานให้ถึงเป้า:</div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        ${goalBarsHtml}
+                    </div>
+                </div>
+            </div>
+        </details>
+    `;
+}
+
 // Hook เข้ากับ renderUIOnly เดิมให้อัปเดตการ์ดใหม่ทุกครั้ง
 const _origRenderUIOnly = renderUIOnly;
 renderUIOnly = function() {
     _origRenderUIOnly();
     renderIfTimerCard();
     applyWorkoutAwareMacros();
+    renderDailyMacroChart();
     renderDailyHabitsAndSupplements();
 };
 
