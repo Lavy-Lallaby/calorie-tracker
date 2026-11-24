@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fittracker-cache-v61';
+const CACHE_NAME = 'fittracker-cache-v62';
 
 const urlsToCache = [
   './',
@@ -14,7 +14,9 @@ const urlsToCache = [
   './summary.js',
   './trip.html',
   './trip.js',
-  './manifest.json'
+  './manifest.json',
+  './addons.html',
+  './addons.js'
 ];
 
 // 1. ติดตั้งและเก็บไฟล์ทั้งหมดลง Cache
