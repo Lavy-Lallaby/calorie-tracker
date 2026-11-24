@@ -1297,22 +1297,24 @@ function renderCatalogManagerList() {
     `).join('');
 }
 
+// ------------------------------------------
+// 8. Water Tracker (อัปเดตตัวเลข + หลอดน้ำทันที)
+// ------------------------------------------
 function renderWaterUI() {
-    const badge = document.getElementById('water-summary-badge');
-    const goalLabel = document.getElementById('goal-water-label');
-    const bar = document.getElementById('water-progress-bar');
-    const pctEl = document.getElementById('water-percent');
-    if (!badge) return;
-
     const dayData = getDayData(currentDateKey);
     const water = Math.max(0, Number(dayData.water) || 0);
     const goal = Math.max(1, Number(userGoals.water) || 2000);
     const pct = Math.min(100, Math.round((water / goal) * 100));
 
-    if (goalLabel) goalLabel.innerText = goal.toLocaleString();
-    badge.innerText = `${water.toLocaleString()} / ${goal.toLocaleString()} ml`;
+    const badge = document.getElementById('water-summary-badge');
+    const goalLabel = document.getElementById('goal-water-label');
+    const bar = document.getElementById('water-progress-bar');
+    const pctEl = document.getElementById('water-percent');
+
+    if (goalLabel) goalLabel.textContent = goal.toLocaleString();
+    if (badge) badge.textContent = `${water.toLocaleString()} / ${goal.toLocaleString()} ml`;
     if (bar) bar.style.width = `${pct}%`;
-    if (pctEl) pctEl.innerText = `${pct}%`;
+    if (pctEl) pctEl.textContent = `${pct}%`;
 }
 
 function addWater(amount) {
@@ -1320,9 +1322,14 @@ function addWater(amount) {
     const currentWater = Math.max(0, Number(dayData.water) || 0);
     dayData.water = Math.max(0, currentWater + Number(amount || 0));
 
+    // อัปเดตตัวเลขและหลอดน้ำบนหน้าจอทันที
     renderWaterUI();
 
+    // บันทึกลง localStorage ทันที
     localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+
+    // ซิงก์ขึ้น GitHub ถ้ามีฟังก์ชันอยู่
     if (typeof pushToGitHub === 'function') {
         pushToGitHub(false);
     }
