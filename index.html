@@ -135,9 +135,20 @@
           <button type="button" onclick="toggleAppTheme()" id="theme-toggle-btn" title="สลับโหมดมืด/สว่าง" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 flex items-center justify-center transition">
             <i id="theme-toggle-icon" class="fa-solid fa-sun text-xs"></i>
           </button>
-          <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลกับ GitHub" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 flex items-center justify-center transition">
-            <i id="sync-icon" class="fa-solid fa-rotate text-xs"></i>
+          <button type="button" onclick="uploadToGitHub()"
+            class="bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition">
+            <i id="btn-upload-icon" class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Upload</span>
           </button>
+        
+          <button type="button" onclick="downloadFromGitHub()"
+            class="bg-sky-600/20 hover:bg-sky-600/35 border border-sky-500/40 text-sky-300 text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition">
+            <i id="btn-download-icon" class="fa-solid fa-cloud-arrow-down"></i>
+            <span>Download</span>
+          </button>
+          <!-- <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลกับ GitHub" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 flex items-center justify-center transition">
+            <i id="sync-icon" class="fa-solid fa-rotate text-xs"></i>
+          </button> -->
           <button type="button" onclick="openSettingsModal()" title="ตั้งค่าเป้าหมาย & API" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center transition">
             <i class="fa-solid fa-gear text-xs"></i>
           </button>
