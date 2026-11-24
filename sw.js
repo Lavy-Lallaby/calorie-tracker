@@ -18,7 +18,9 @@ const urlsToCache = [
   './addons.html',
   './addons.js',
   './finance.html',
-  './finance.js'
+  './finance.js',
+  './gear.html',
+  './gear.js'
 ];
 
 // 1. ติดตั้งและเก็บไฟล์ทั้งหมดลง Cache
