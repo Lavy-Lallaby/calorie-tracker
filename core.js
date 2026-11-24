@@ -455,7 +455,8 @@ async function pushToGitHub(showAlert = false) {
             skincareLogs: window.skincareLogs || JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}'),
             skincarePhotosMap: window.skincarePhotosMap || JSON.parse(localStorage.getItem('fitTracker_skincare_photos') || '{}'),
             exercisePhotosMap: window.exercisePhotosMap || JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}'),
-            trips: window.savedTrips || JSON.parse(localStorage.getItem('fitTracker_trips') || '[]')
+            trips: window.savedTrips || JSON.parse(localStorage.getItem('fitTracker_trips') || '[]'),
+            pantry: window.pantryItems
         };
 
         const contentBase64 = utf8ToBase64(JSON.stringify(payload, null, 2));
