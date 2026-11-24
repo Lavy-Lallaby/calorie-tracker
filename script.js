@@ -5679,13 +5679,43 @@ function renderGuidedWorkoutPlayerModal() {
 }
 
 // ==========================================================================
-// FitTracker v59.2 Add-on Module (ผูกตรงเข้ากับ ID ใน index.html 100%)
-// - #smart-macro-sync-card
-// - #sleep-rhr-card
-// - #weekly-trend-dual-card
+// FitTracker v59.3 Add-on Module
+// - ผูกตรงเข้ากับ #smart-macro-sync-card, #habits-sleep-banner, #sleep-rhr-card, #weekly-trend-dual-card
+// - ตกแต่ง Dark Slim Scrollbar ให้แถบเลื่อนเมนูประจำเนียนเข้ากับธีม
 // ==========================================================================
 
 let v59TrendMode = 'cal'; // 'cal' | 'sleep'
+
+// ------------------------------------------
+// 0. Inject Dark Slim Scrollbar Style (แก้แถบเลื่อนสีขาวหนาให้สวยกลมกลืน)
+// ------------------------------------------
+function injectV59CustomStyles() {
+    if (document.getElementById('v59-custom-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'v59-custom-styles';
+    style.textContent = `
+        .v59-dark-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+        }
+        .v59-dark-scroll::-webkit-scrollbar {
+            height: 4px;
+            width: 4px;
+        }
+        .v59-dark-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 9999px;
+        }
+        .v59-dark-scroll::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.45);
+            border-radius: 9999px;
+        }
+        .v59-dark-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.75);
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 // ------------------------------------------
 // 1. Watch Sleep & RHR Data Helpers (บันทึกลง allMealsHistory & GitHub db.json)
@@ -5814,19 +5844,22 @@ function quickAddCatalogItemToActiveMeal(catalogIdx) {
 }
 
 // ------------------------------------------
-// 4. Render ลงกล่อง HTML จริงใน index.html
+// 4. Render ลงกล่อง HTML จริงทั้ง 4 จุดใน index.html
 // ------------------------------------------
 function renderV59Addons() {
+    injectV59CustomStyles();
+
     // ลบกล่องชั่วคราวรุ่นเก่าทิ้งถ้ายังค้างอยู่
     document.getElementById('v59-nutrition-addon')?.remove();
     document.getElementById('v59-analytics-addon')?.remove();
+    document.getElementById('v59-habits-sleep-card')?.remove();
 
     if (userGoals.autoWeightMacro) {
         recalcGoalsByCurrentWeight(false);
     }
 
     renderSmartMacroSyncCard();
-    renderV59HabitsSleepBanner();
+    renderHabitsSleepBanner();
     renderSleepRhrCard();
     renderWeeklyTrendDualCard();
 }
@@ -5840,7 +5873,7 @@ function renderSmartMacroSyncCard() {
     const isAuto = Boolean(userGoals.autoWeightMacro);
     const mode = userGoals.autoWeightGoal || 'cut';
     const currentMealLabel = (typeof activeMealTab === 'string' && mealTypes.includes(activeMealTab)) ? activeMealTab : 'มื้อเช้า';
-    const quickItems = (foodCatalog || []).slice(0, 10);
+    const quickItems = (foodCatalog || []).slice(0, 12);
 
     card.innerHTML = `
         <div class="space-y-3">
@@ -5880,9 +5913,9 @@ function renderSmartMacroSyncCard() {
                 `}
             </div>
 
-            <!-- ส่วนที่ 2: แถบเมนูประจำ 1 คลิก -->
+            <!-- ส่วนที่ 2: แถบเมนูประจำ 1 คลิก (Dark Slim Scrollbar) -->
             ${quickItems.length > 0 ? `
-                <div class="pt-2.5 border-t border-slate-800/80 space-y-1.5">
+                <div class="pt-2.5 border-t border-slate-800/80 space-y-2">
                     <div class="flex items-center justify-between text-xs">
                         <span class="font-bold text-amber-300 flex items-center gap-1.5">
                             <i class="fa-solid fa-star"></i> เมนูประจำ (แตะใส่ <b class="text-white underline">${currentMealLabel}</b>)
@@ -5891,10 +5924,10 @@ function renderSmartMacroSyncCard() {
                             คลังเมนู (${foodCatalog.length})
                         </button>
                     </div>
-                    <div class="flex gap-2 overflow-x-auto pb-1">
+                    <div class="v59-dark-scroll flex gap-2 overflow-x-auto pb-2 snap-x">
                         ${quickItems.map((item, idx) => `
                             <button type="button" onclick="quickAddCatalogItemToActiveMeal(${idx})"
-                                class="shrink-0 bg-slate-950/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 rounded-xl px-3 py-1.5 text-left transition">
+                                class="snap-start shrink-0 bg-slate-950/90 hover:bg-slate-800 active:scale-95 border border-slate-800 hover:border-amber-500/50 rounded-xl px-3 py-2 text-left transition">
                                 <div class="text-[11px] font-semibold text-slate-100 max-w-[145px] truncate">+ ${item.name}</div>
                                 <div class="text-[9px] text-emerald-400 mt-0.5">${item.calories} kcal • P ${item.protein}g</div>
                             </button>
@@ -5906,18 +5939,10 @@ function renderSmartMacroSyncCard() {
     `;
 }
 
-// 4.2 หน้าดูแลผิว: แถบซิงก์คุณภาพการนอน (คงรูปแบบที่แสดงผลสวยไว้เหมือนเดิม)
-function renderV59HabitsSleepBanner() {
-    const habitsBox = document.getElementById('daily-habits-container');
-    if (!habitsBox || !habitsBox.parentNode) return;
-
-    let sleepCard = document.getElementById('v59-habits-sleep-card');
-    if (!sleepCard) {
-        sleepCard = document.createElement('div');
-        sleepCard.id = 'v59-habits-sleep-card';
-        sleepCard.className = 'bg-slate-900 rounded-2xl p-3.5 border border-indigo-500/30 space-y-2 mb-3';
-        habitsBox.parentNode.insertBefore(sleepCard, habitsBox);
-    }
+// 4.2 กล่อง #habits-sleep-banner (หน้าดูแลผิว: แถบซิงก์คุณภาพการนอน)
+function renderHabitsSleepBanner() {
+    const banner = document.getElementById('habits-sleep-banner');
+    if (!banner) return;
 
     const wh = getWatchHealth(currentDateKey);
     const h = parseFloat(wh.sleepHours) || 0;
@@ -5927,30 +5952,32 @@ function renderV59HabitsSleepBanner() {
     if (h >= 7) skinSleepAdvice = '✨ นอนเต็มอิ่ม! ผิวและกล้ามเนื้อซ่อมแซมได้เต็มประสิทธิภาพ';
     else if (h > 0 && h < 6) skinSleepAdvice = '⚠️ นอนน้อยกว่า 6 ชม. ระวังผิวโทรม บวมน้ำ และหิวของหวานง่ายขึ้น';
 
-    sleepCard.innerHTML = `
-        <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-indigo-300"><i class="fa-solid fa-bed mr-1.5"></i> คุณภาพการนอน & ชีพจร (HUAWEI Watch)</span>
-            <span class="text-[10px] text-slate-400">${currentDateKey}</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2 text-xs">
-            <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
-                <span class="text-[10px] text-slate-400 block">ชั่วโมงนอน</span>
-                <input type="number" step="0.1" value="${wh.sleepHours}" onchange="updateWatchHealthField('sleepHours', this.value)" placeholder="7.5"
-                    class="w-full bg-transparent text-sm font-bold text-indigo-300 mt-0.5 focus:outline-none">
+    banner.innerHTML = `
+        <div class="space-y-2">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-indigo-300"><i class="fa-solid fa-bed mr-1.5"></i> คุณภาพการนอน & ชีพจร (HUAWEI Watch)</span>
+                <span class="text-[10px] text-slate-400">${currentDateKey}</span>
             </div>
-            <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
-                <span class="text-[10px] text-slate-400 block">Sleep Score</span>
-                <input type="number" value="${wh.sleepScore}" onchange="updateWatchHealthField('sleepScore', this.value)" placeholder="85"
-                    class="w-full bg-transparent text-sm font-bold text-emerald-300 mt-0.5 focus:outline-none">
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">ชั่วโมงนอน</span>
+                    <input type="number" step="0.1" value="${wh.sleepHours}" onchange="updateWatchHealthField('sleepHours', this.value)" placeholder="7.5"
+                        class="w-full bg-transparent text-sm font-bold text-indigo-300 mt-0.5 focus:outline-none">
+                </div>
+                <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">Sleep Score</span>
+                    <input type="number" value="${wh.sleepScore}" onchange="updateWatchHealthField('sleepScore', this.value)" placeholder="85"
+                        class="w-full bg-transparent text-sm font-bold text-emerald-300 mt-0.5 focus:outline-none">
+                </div>
+                <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">Resting HR</span>
+                    <input type="number" value="${wh.rhr}" onchange="updateWatchHealthField('rhr', this.value)" placeholder="58"
+                        class="w-full bg-transparent text-sm font-bold text-rose-400 mt-0.5 focus:outline-none">
+                </div>
             </div>
-            <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
-                <span class="text-[10px] text-slate-400 block">Resting HR</span>
-                <input type="number" value="${wh.rhr}" onchange="updateWatchHealthField('rhr', this.value)" placeholder="58"
-                    class="w-full bg-transparent text-sm font-bold text-rose-400 mt-0.5 focus:outline-none">
+            <div class="text-[11px] text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
+                ${skinSleepAdvice} ${score > 0 ? `(คะแนน TruSleep: <b class="text-emerald-400">${score}</b>)` : ''}
             </div>
-        </div>
-        <div class="text-[11px] text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-            ${skinSleepAdvice} ${score > 0 ? `(คะแนน TruSleep: <b class="text-emerald-400">${score}</b>)` : ''}
         </div>
     `;
 }
