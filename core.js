@@ -892,37 +892,6 @@ function toggleAppTheme() {
 // โหลดธีมที่เคยเลือกไว้ทันทีตั้งแต่เปิดแอป
 applyAppTheme(localStorage.getItem('fitTracker_theme') || 'dark');
 
-function renderWaterUI() {
-    const badge = document.getElementById('water-summary-badge');
-    const goalLabel = document.getElementById('goal-water-label');
-    const bar = document.getElementById('water-progress-bar');
-    const pctEl = document.getElementById('water-percent');
-    if (!badge) return;
-
-    const dayData = getDayData(currentDateKey);
-    const water = Math.max(0, Number(dayData.water) || 0);
-    const goal = Math.max(1, Number(userGoals.water) || 2000);
-    const pct = Math.min(100, Math.round((water / goal) * 100));
-
-    if (goalLabel) goalLabel.innerText = goal.toLocaleString();
-    badge.innerText = `${water.toLocaleString()} / ${goal.toLocaleString()} ml`;
-    if (bar) bar.style.width = `${pct}%`;
-    if (pctEl) pctEl.innerText = `${pct}%`;
-}
-
-function addWater(amount) {
-    const dayData = getDayData(currentDateKey);
-    const currentWater = Math.max(0, Number(dayData.water) || 0);
-    dayData.water = Math.max(0, currentWater + Number(amount || 0));
-
-    renderWaterUI();
-
-    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-    if (typeof pushToGitHub === 'function') {
-        pushToGitHub(false);
-    }
-}
-
 // ------------------------------------------
 // 8. Initialize App on Load
 // ------------------------------------------
