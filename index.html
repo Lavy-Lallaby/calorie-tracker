@@ -2,31 +2,213 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FitTracker</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-</head>
-<body class="bg-slate-950 text-white pb-24">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FitTracker Pro</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
 
-  <!-- Header วันที่ & ซิงก์ GitHub -->
-  <header id="app-header" class="sticky top-0 z-30 bg-slate-900/95 border-b border-slate-800 p-3">
-    <!-- ... แถบวันที่และปุ่มตั้งค่า ... -->
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Libraries: OCR (Tesseract), Barcode (Html5Qrcode), Map (Leaflet) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Prompt', sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
+      padding-bottom: 88px;
+    }
+    .v59-dark-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+    }
+    .v59-dark-scroll::-webkit-scrollbar { height: 4px; width: 4px; }
+    .v59-dark-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); border-radius: 9999px; }
+    .v59-dark-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.45); border-radius: 9999px; }
+  </style>
+</head>
+<body class="min-h-screen select-none">
+
+  <!-- ================= TOP HEADER (วันที่, ซิงก์ GitHub, ตั้งค่า) ================= -->
+  <header class="sticky top-0 z-30 bg-slate-950/95 border-b border-slate-800/90 backdrop-blur px-3 py-2.5">
+    <div class="max-w-lg mx-auto space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-sky-500 flex items-center justify-center shadow-md">
+            <i class="fa-solid fa-fire-flame-curved text-white text-sm"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-sm font-extrabold tracking-tight text-white">FitTracker</h1>
+              <span id="future-plan-badge" class="hidden text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">แผนล่วงหน้า</span>
+            </div>
+            <span id="sync-status-badge" class="text-[10px] text-slate-400 block mt-0.5">
+              <i class="fa-solid fa-hard-drive"></i> กำลังเริ่มต้น...
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="goToToday()" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl transition">
+            วันนี้
+          </button>
+          <button type="button" onclick="syncFromGitHub(true)" title="ซิงก์ข้อมูลกับ GitHub" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 flex items-center justify-center transition">
+            <i id="sync-icon" class="fa-solid fa-rotate text-xs"></i>
+          </button>
+          <button type="button" onclick="openSettingsModal()" title="ตั้งค่าเป้าหมาย & API" class="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center transition">
+            <i class="fa-solid fa-gear text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- แถบเลื่อนเปลี่ยนวัน -->
+      <div class="flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl px-2 py-1.5">
+        <button type="button" onclick="changeDay(-1)" class="w-8 h-7 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-center transition">
+          <i class="fa-solid fa-chevron-left text-xs"></i>
+        </button>
+        <div class="text-center">
+          <div id="display-date" class="text-xs font-bold text-white">กำลังโหลดวันที่...</div>
+          <span id="current-date-badge" class="text-[10px] text-indigo-400 font-semibold">วันนี้</span>
+        </div>
+        <button type="button" onclick="changeDay(1)" class="w-8 h-7 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-center transition">
+          <i class="fa-solid fa-chevron-right text-xs"></i>
+        </button>
+      </div>
+    </div>
   </header>
 
-  <!-- พื้นที่โหลดไฟล์ HTML ย่อย (foodtrack.html / train.html / skincare.html / summary.html / trip.html) -->
-  <main id="page-slot" class="max-w-lg mx-auto p-3"></main>
+  <!-- ================= MAIN MODULE SLOT (โหลด HTML ย่อยมาวางตรงนี้) ================= -->
+  <main id="page-slot" class="max-w-lg mx-auto p-3 space-y-3"></main>
 
-  <!-- แถบเมนู 5 ปุ่มด้านล่าง -->
-  <nav class="fixed bottom-0 inset-x-0 z-40 bg-slate-900 border-t border-slate-800 grid grid-cols-5 p-1.5">
-    <button onclick="loadPageModule('foodtrack')" id="nav-foodtrack" class="nav-btn">🍱 อาหาร</button>
-    <button onclick="loadPageModule('train')" id="nav-train" class="nav-btn">🏋️ เวท</button>
-    <button onclick="loadPageModule('skincare')" id="nav-skincare" class="nav-btn">✨ ผิว</button>
-    <button onclick="loadPageModule('summary')" id="nav-summary" class="nav-btn">📊 สรุป</button>
-    <button onclick="loadPageModule('trip')" id="nav-trip" class="nav-btn">🗺️ เที่ยว</button>
+  <!-- ================= BOTTOM 5-TAB NAVIGATION ================= -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 border-t border-slate-800 backdrop-blur px-2 py-1.5">
+    <div class="max-w-lg mx-auto grid grid-cols-5 gap-1">
+      <button type="button" onclick="loadPageModule('foodtrack')" id="nav-btn-foodtrack" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-300 font-bold transition">
+        <i class="fa-solid fa-utensils text-sm mb-0.5"></i>
+        <span class="text-[10px]">อาหาร</span>
+      </button>
+      <button type="button" onclick="loadPageModule('train')" id="nav-btn-train" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-dumbbell text-sm mb-0.5"></i>
+        <span class="text-[10px]">เวท & หุ่น</span>
+      </button>
+      <button type="button" onclick="loadPageModule('skincare')" id="nav-btn-skincare" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-sparkles text-sm mb-0.5"></i>
+        <span class="text-[10px]">ดูแลผิว</span>
+      </button>
+      <button type="button" onclick="loadPageModule('summary')" id="nav-btn-summary" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-chart-pie text-sm mb-0.5"></i>
+        <span class="text-[10px]">สรุปผล</span>
+      </button>
+      <button type="button" onclick="loadPageModule('trip')" id="nav-btn-trip" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-route text-sm mb-0.5"></i>
+        <span class="text-[10px]">แผนเที่ยว</span>
+      </button>
+    </div>
   </nav>
 
-  <!-- โหลดระบบกลางและโมดูล JS ทั้งหมด -->
+  <!-- ================= GLOBAL SETTINGS MODAL (ตั้งค่าเป้าหมาย, BMR/TDEE, API) ================= -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="flex justify-between items-center px-4 py-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-indigo-400"></i> ตั้งค่าโปรแกรม & Cloud Sync
+        </h3>
+        <button type="button" onclick="closeSettingsModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-4 text-xs">
+        <!-- โปรแกรมเป้าหมาย -->
+        <div class="space-y-1.5">
+          <label class="font-bold text-slate-200 block">เลือกโปรแกรมเป้าหมายหลัก:</label>
+          <select id="goal-preset-select" onchange="applyGoalPreset(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+            <option value="fat_loss">🔥 ลดไขมัน + รักษากล้ามเนื้อ (1,500 kcal)</option>
+            <option value="fat_sugar_burn">⚡ รีดไขมัน & น้ำตาล (IF 16/8)</option>
+            <option value="high_protein">🥩 เน้นโปรตีนสูง ลดคาร์บ</option>
+            <option value="keto_fat">🥑 เน้นไขมันดี ลดแป้ง (Low-Carb)</option>
+            <option value="maintain">⚖️ รักษาน้ำหนัก & สมดุล (1,900 kcal)</option>
+            <option value="lean_bulk">💪 เพิ่มน้ำหนัก & สร้างกล้าม (2,300 kcal)</option>
+            <option value="custom">⚙️ กำหนดตัวเลขเอง (Custom)</option>
+          </select>
+          <p id="preset-desc-label" class="text-[11px] text-slate-400 leading-relaxed"></p>
+        </div>
+
+        <!-- คำนวณ BMR & TDEE -->
+        <div class="bg-slate-950/90 border border-purple-500/30 rounded-2xl p-3 space-y-2">
+          <div class="font-bold text-purple-300"><i class="fa-solid fa-calculator mr-1"></i> คำนวณ BMR & TDEE ส่วนตัว</div>
+          <div class="grid grid-cols-4 gap-1.5">
+            <select id="bmr-gender" onchange="calculateBMRandTDEE()" class="bg-slate-900 border border-slate-800 rounded-lg px-1.5 py-1.5 text-white">
+              <option value="male">ชาย</option>
+              <option value="female">หญิง</option>
+            </select>
+            <input type="number" id="bmr-age" value="27" oninput="calculateBMRandTDEE()" placeholder="อายุ" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-center" />
+            <input type="number" id="bmr-height" value="167" oninput="calculateBMRandTDEE()" placeholder="สูง(cm)" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-center" />
+            <input type="number" step="0.1" id="bmr-weight" oninput="calculateBMRandTDEE()" placeholder="นน.(kg)" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-center" />
+          </div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <input type="number" step="0.1" id="bmr-bodyfat" oninput="calculateBMRandTDEE()" placeholder="% ไขมัน (ไม่บังคับ)" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white" />
+            <select id="bmr-activity" onchange="calculateBMRandTDEE()" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white">
+              <option value="1.2">นั่งทำงาน ไม่ออกกำลัง</option>
+              <option value="1.375" selected>ออกกำลัง 1-3 วัน/สัปดาห์</option>
+              <option value="1.55">ออกกำลัง 3-5 วัน/สัปดาห์</option>
+              <option value="1.725">ออกกำลังหนัก 6-7 วัน</option>
+            </select>
+          </div>
+          <div id="bmr-result-box" class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+            <div class="text-slate-400">กรอกน้ำหนักเพื่อคำนวณค่าพลังงาน</div>
+          </div>
+        </div>
+
+        <!-- เป้าหมายรายวัน -->
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-[10px] text-slate-400">แคลอรีขั้นต่ำ (Min)</label><input type="number" id="goal-min-cal-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">แคลอรีสูงสุด (Max)</label><input type="number" id="goal-cal-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">โปรตีนขั้นต่ำ (g)</label><input type="number" id="goal-prot-min-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">โปรตีนสูงสุด (g)</label><input type="number" id="goal-prot-max-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">คาร์บไม่เกิน (g)</label><input type="number" id="goal-carbs-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">ไขมันไม่เกิน (g)</label><input type="number" id="goal-fat-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">เป้าก้าวเดิน/วัน</label><input type="number" id="goal-steps-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div><label class="text-[10px] text-slate-400">เป้าน้ำดื่ม (ml)</label><input type="number" id="goal-water-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+          <div class="col-span-2"><label class="text-[10px] text-slate-400">น้ำหนักเป้าหมาย (kg)</label><input type="number" step="0.1" id="goal-weight-input" placeholder="เช่น 72.0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        </div>
+
+        <!-- GitHub & Gemini API Keys -->
+        <div class="border-t border-slate-800 pt-3 space-y-2">
+          <div>
+            <label class="text-[10px] text-sky-400 font-semibold">GitHub Personal Access Token (ซิงก์ db.json)</label>
+            <input type="password" id="github-token-input" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-amber-400 font-semibold">Gemini API Key (สำหรับปุ่มถ่ายรูปอาหาร AI)</label>
+            <input type="password" id="gemini-api-key-input" placeholder="AIzaSyxxxxxxxxxx" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white mt-0.5" />
+          </div>
+        </div>
+
+        <!-- ส่งออก CSV -->
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="exportHistoryToCSV()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 rounded-xl font-semibold border border-slate-700">
+            <i class="fa-solid fa-file-csv text-emerald-400 mr-1"></i> ส่งออก Excel (CSV)
+          </button>
+        </div>
+      </div>
+
+      <div class="p-3 border-t border-slate-800 flex justify-end gap-2 bg-slate-950">
+        <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">ยกเลิก</button>
+        <button type="button" onclick="saveAllSettings()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">บันทึกทั้งหมด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LOAD CORE & MODULE SCRIPTS ================= -->
   <script src="core.js"></script>
   <script src="foodtrack.js"></script>
   <script src="train.js"></script>
