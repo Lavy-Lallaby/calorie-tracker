@@ -1,0 +1,116 @@
+<!-- ==========================================================================
+     finance.html — โมดูลบันทึกรายรับ-รายจ่าย, งบประมาณ & สรุปรายเดือน
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดสรุปยอดรายเดือน & เพดานงบรายวัน -->
+  <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 rounded-3xl p-4 border border-emerald-500/30 shadow-lg space-y-3">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <span class="text-[11px] text-slate-400 block">ยอดคงเหลือสุทธิเดือนนี้</span>
+        <div id="fin-month-balance" class="text-2xl font-extrabold text-white tracking-tight mt-0.5">
+          0 <span class="text-xs font-normal text-slate-400">บาท</span>
+        </div>
+      </div>
+
+      <button type="button" onclick="editDailyExpenseBudget()" class="text-[11px] bg-slate-950/90 hover:bg-slate-800 border border-slate-700 text-amber-300 px-2.5 py-1.5 rounded-xl font-semibold transition">
+        งบ/วัน: <span id="fin-daily-budget-label">500</span> บ. <i class="fa-solid fa-pen text-[9px] ml-0.5"></i>
+      </button>
+    </div>
+
+    <!-- 3 ช่องสรุป: รายจ่ายวันนี้ / รายจ่ายทั้งเดือน / รายรับทั้งเดือน -->
+    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block">จ่ายวันนี้</span>
+        <b id="fin-today-expense" class="text-rose-400 text-sm">0 บ.</b>
+      </div>
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block">จ่ายทั้งเดือน</span>
+        <b id="fin-month-expense" class="text-amber-300 text-sm">0 บ.</b>
+      </div>
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block">รายรับเดือนนี้</span>
+        <b id="fin-month-income" class="text-emerald-400 text-sm">0 บ.</b>
+      </div>
+    </div>
+
+    <!-- หลอดงบประมาณรายวัน -->
+    <div class="space-y-1">
+      <div class="flex justify-between text-[10px]">
+        <span class="text-slate-400">ใช้งบวันนี้ไปแล้ว <b id="fin-daily-pct" class="text-white">0%</b></span>
+        <span id="fin-daily-rem-label" class="text-emerald-400 font-semibold">เหลือ 500 บ.</span>
+      </div>
+      <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+        <div id="fin-daily-progress" class="bg-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. ฟอร์มบันทึกรายการด่วน + ปุ่มลัด 1 คลิก -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-plus-circle text-emerald-400"></i> บันทึกรายรับ / รายจ่ายวันนี้
+      </h3>
+      <div class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[11px]">
+        <button type="button" id="fin-type-expense" onclick="setFinanceEntryType('expense')" class="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold">รายจ่าย (-)</button>
+        <button type="button" id="fin-type-income" onclick="setFinanceEntryType('income')" class="px-2.5 py-1 rounded-lg text-slate-400">รายรับ (+)</button>
+      </div>
+    </div>
+
+    <!-- แถบปุ่มบันทึกไว 1 คลิก -->
+    <div class="v59-dark-scroll flex gap-1.5 overflow-x-auto pb-1">
+      <button type="button" onclick="quickAddFinance('กาแฟดำ / เครื่องดื่ม', 55, 'food')" class="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200">+ ☕ กาแฟ 55 บ.</button>
+      <button type="button" onclick="quickAddFinance('อาหารคลีน / อกไก่', 75, 'food')" class="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200">+ 🍱 ข้าวคลีน 75 บ.</button>
+      <button type="button" onclick="quickAddFinance('เติมน้ำมันรถ', 500, 'transport')" class="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200">+ ⛽ น้ำมัน 500 บ.</button>
+      <button type="button" onclick="quickAddFinance('ทางด่วน / ที่จอดรถ', 50, 'transport')" class="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200">+ 🛣️ ทางด่วน 50 บ.</button>
+    </div>
+
+    <form onsubmit="handleFinanceSubmit(event)" class="space-y-2 text-xs">
+      <div class="grid grid-cols-12 gap-2">
+        <select id="fin-category" class="col-span-5 bg-slate-950 border border-slate-800 rounded-xl px-2 py-2 text-white">
+          <option value="food">🍱 อาหาร & เครื่องดื่ม</option>
+          <option value="transport">⛽ เดินทาง & น้ำมัน</option>
+          <option value="skincare">✨ สกินแคร์ & ของใช้</option>
+          <option value="fitness">🏋️ ฟิตเนส & อาหารเสริม</option>
+          <option value="trip">🏖️ เที่ยว & ช้อปปิ้ง</option>
+          <option value="income">💵 เงินเดือน / รายรับ</option>
+          <option value="other">📦 อื่นๆ</option>
+        </select>
+        <input type="text" id="fin-title" required placeholder="รายการ (เช่น อกไก่เซเว่น)"
+          class="col-span-7 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500" />
+      </div>
+
+      <div class="flex gap-2">
+        <div class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 flex items-center">
+          <input type="number" step="any" id="fin-amount" required placeholder="จำนวนเงิน (บาท)"
+            class="w-full bg-transparent text-white font-bold text-sm focus:outline-none" />
+          <span class="text-slate-400 ml-1">บาท</span>
+        </div>
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 rounded-xl shrink-0">
+          บันทึก
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- 3. รายการเงินเข้า-ออกของวันนี้ -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-receipt text-sky-400"></i> รายการบัญชีวันนี้
+      </h3>
+      <span id="fin-today-count" class="text-[10px] text-slate-400">0 รายการ</span>
+    </div>
+    <div id="fin-today-list" class="space-y-1.5"></div>
+  </section>
+
+  <!-- 4. สรุปสัดส่วนรายจ่ายแยกตามหมวดหมู่ (ทั้งเดือน) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+      <i class="fa-solid fa-chart-bar text-amber-400"></i> สัดส่วนรายจ่ายประจำเดือน
+    </h3>
+    <div id="fin-month-breakdown" class="space-y-2"></div>
+  </section>
+
+</div>
