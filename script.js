@@ -1978,7 +1978,8 @@ async function scanFoodWithGemini(file) {
     try {
         const base64Data = await resizeImageToBase64(file, 800);
         const apiKey = localStorage.getItem('fitTracker_gemini_key');
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        // เปลี่ยนจาก gemini-2.5-flash เป็น gemini-3.8-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
         const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
            {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
