@@ -1,0 +1,243 @@
+<!-- ==========================================================================
+     foodtrack.html — โมดูลบันทึกอาหาร, สารอาหาร, โค้ช & Modal สแกน/เพิ่มอาหาร
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดสรุปแคลอรี & สารอาหารวันนี้ -->
+  <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-xs text-slate-400">พลังงานคงเหลือวันนี้</span>
+          <span id="calorie-status" class="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-medium">อยู่ในช่วง Min-Max</span>
+        </div>
+        <div id="calories-remaining" class="text-3xl font-extrabold text-white tracking-tight mt-0.5">
+          1500 <span class="text-sm font-normal text-slate-400">kcal</span>
+        </div>
+        <div id="workout-macro-badge" class="hidden mt-1 inline-block text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-700/50 px-2 py-0.5 rounded-lg font-semibold"></div>
+      </div>
+
+      <div class="text-right space-y-1">
+        <button type="button" onclick="editCurrentDayCalorieRange()" class="text-[11px] bg-slate-950/90 hover:bg-slate-800 border border-slate-700 text-amber-300 px-2.5 py-1 rounded-xl font-semibold transition">
+          เป้า: <span id="goal-cal-label">1,200-1,500</span> <i class="fa-solid fa-pen text-[9px] ml-0.5"></i>
+        </button>
+        <div class="flex justify-end gap-1">
+          <button type="button" onclick="copyDailySummaryText()" title="คัดลอกสรุปส่งแชท" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-slate-700">
+            <i class="fa-regular fa-copy"></i> สรุป
+          </button>
+          <button type="button" onclick="cloneCurrentDayToTomorrow()" title="คัดลอกอาหารวันนี้ไปวางพรุ่งนี้" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-sky-300 px-2 py-1 rounded-lg border border-slate-700">
+            <i class="fa-solid fa-forward"></i> พรุ่งนี้
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+      <div id="calorie-progress-bar" class="bg-gradient-to-r from-emerald-400 to-sky-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+    </div>
+
+    <!-- กินเข้า / เผาผลาญ / โปรตีน -->
+    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800/90">
+        <span class="text-[10px] text-slate-400 block">กินเข้า</span>
+        <b id="calories-consumed" class="text-white text-sm">0 kcal</b>
+      </div>
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800/90">
+        <span class="text-[10px] text-slate-400 block">เผาผลาญ</span>
+        <b id="calories-burned" class="text-orange-400 text-sm">0 kcal</b>
+      </div>
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800/90">
+        <span class="text-[10px] text-slate-400 block">โปรตีน</span>
+        <b id="protein-summary" class="text-emerald-400 text-sm">0 / <span class="text-xs font-normal text-slate-400">96-128 g</span></b>
+      </div>
+    </div>
+
+    <!-- กล่องเตือนชดเชยแคลอรี/สารอาหารจากเมื่อวาน -->
+    <div id="rollover-alert-box" class="hidden"></div>
+
+    <!-- ตารางสารอาหารละเอียด 9 ช่อง (แตะเพื่อดูคำแนะนำรายตัว) -->
+    <div class="grid grid-cols-3 gap-1.5 text-center text-[11px] pt-1">
+      <button type="button" onclick="showMacroTip('carbs')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">คาร์บ</span>
+        <b id="carbs-total" class="text-slate-200">0g</b>
+      </button>
+      <button type="button" onclick="showMacroTip('sugar')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">น้ำตาล</span>
+        <b id="sugar-total" class="text-pink-400">0g</b>
+      </button>
+      <button type="button" onclick="showMacroTip('fiber')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">ไฟเบอร์</span>
+        <b id="fiber-total" class="text-teal-400">0g</b>
+      </button>
+      <button type="button" onclick="showMacroTip('fat')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">ไขมันรวม</span>
+        <b id="fats-total" class="text-amber-300">0g</b>
+      </button>
+      <button type="button" onclick="showMacroTip('satFat')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">ไขมันอิ่มตัว</span>
+        <b id="satfat-total" class="text-orange-400">0g</b>
+      </button>
+      <button type="button" onclick="showMacroTip('transFat')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">ไขมันทรานส์</span>
+        <b id="transfat-total" class="text-rose-400">0g</b>
+      </button>
+      <button type="button" onclick="showMacroTip('sodium')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">โซเดียม</span>
+        <b id="sodium-total" class="text-amber-400">0mg</b>
+      </button>
+      <button type="button" onclick="showMacroTip('potassium')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">โพแทสเซียม</span>
+        <b id="potassium-total" class="text-lime-400">0mg</b>
+      </button>
+      <button type="button" onclick="showMacroTip('cholesterol')" class="bg-slate-950/70 hover:bg-slate-800/80 p-1.5 rounded-xl border border-slate-800/80">
+        <span class="text-[9px] text-slate-400 block">คอเลสเตอรอล</span>
+        <b id="cholesterol-total" class="text-purple-300">0mg</b>
+      </button>
+    </div>
+
+    <!-- กล่องแสดงคำแนะนำสารอาหารเมื่อกดที่ช่องด้านบน -->
+    <div id="macro-tip-box" class="hidden">
+      <div id="macro-tip-content" class="flex-1"></div>
+      <button type="button" onclick="hideMacroTip()" class="text-slate-400 hover:text-white px-1"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </section>
+
+  <!-- 2. การ์ดจับเวลา IF 16/8 (แสดงอัตโนมัติเมื่อเลือกโหมด IF) -->
+  <section id="if-timer-card" class="hidden bg-slate-900 rounded-2xl p-3.5 border border-amber-500/40 shadow-sm"></section>
+
+  <!-- 3. การ์ดโหมดการกิน & ตารางอาหาร 7 วัน -->
+  <section id="burn-mode-card" class="bg-slate-900 rounded-2xl p-3.5 border border-slate-800 shadow-sm space-y-2.5"></section>
+
+  <!-- 4. แถบ 4 มื้ออาหาร (เช้า / กลางวัน / เย็น / ว่าง) -->
+  <section id="meals-container"></section>
+
+  <!-- 5. การ์ด Smart Macro ตามน้ำหนักจริง + เมนูประจำ 1 คลิก -->
+  <section id="smart-macro-sync-card" class="bg-slate-900 rounded-2xl p-3.5 border border-slate-800 shadow-sm"></section>
+
+  <!-- 6. กราฟหลอดเช็กเพดานสารอาหารวันนี้ -->
+  <section id="daily-macro-chart-card" class="bg-slate-900 rounded-2xl p-3.5 border border-slate-800 shadow-sm"></section>
+
+  <!-- 7. โค้ชแนะนำเมนูเสริมโปรตีน & ข้อควรระวัง -->
+  <section id="coach-container"></section>
+</div>
+
+<!-- ================= MODAL เพิ่ม / แก้ไขรายการอาหาร ================= -->
+<div id="food-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+    <div class="flex justify-between items-center px-4 py-3 border-b border-slate-800">
+      <h3 id="modal-title" class="text-sm font-bold text-white">เพิ่มรายการอาหาร</h3>
+      <button type="button" onclick="closeFoodModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <form id="food-form" onsubmit="handleFoodSubmit(event)" class="p-4 overflow-y-auto space-y-3 text-xs">
+      <input type="hidden" id="edit-meal-type" />
+      <input type="hidden" id="edit-item-index" />
+      <input type="file" id="ai-image-input" accept="image/*" capture="environment" onchange="handleImageSelected(event)" class="hidden" />
+      <input type="file" id="food-photo-input" accept="image/*" onchange="handleFoodPhotoSelected(event)" class="hidden" />
+
+      <!-- ปุ่มตัวช่วยสแกนด่วน 4 ปุ่ม -->
+      <div class="grid grid-cols-4 gap-1.5">
+        <button type="button" onclick="triggerImageCapture('label')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2 flex flex-col items-center gap-1 text-amber-300">
+          <i class="fa-solid fa-file-invoice text-sm"></i>
+          <span class="text-[10px]">สแกนฉลาก</span>
+        </button>
+        <button type="button" onclick="openBarcodeScanner()" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2 flex flex-col items-center gap-1 text-sky-300">
+          <i class="fa-solid fa-barcode text-sm"></i>
+          <span class="text-[10px]">บาร์โค้ด</span>
+        </button>
+        <button type="button" onclick="triggerImageCapture('food')" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2 flex flex-col items-center gap-1 text-emerald-300">
+          <i class="fa-solid fa-camera text-sm"></i>
+          <span class="text-[10px]">AI ถ่ายอาหาร</span>
+        </button>
+        <button type="button" onclick="triggerFoodPhotoUpload()" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2 flex flex-col items-center gap-1 text-purple-300">
+          <i class="fa-regular fa-image text-sm"></i>
+          <span class="text-[10px]">แนบรูปเก็บ</span>
+        </button>
+      </div>
+
+      <div id="ai-loading-indicator" class="hidden text-center text-sky-400 bg-sky-950/40 border border-sky-700/40 py-2 rounded-xl font-semibold"></div>
+
+      <!-- พรีวิวรูปภาพอาหาร -->
+      <div id="food-photo-preview-wrap" class="hidden bg-slate-950 p-2 rounded-xl border border-slate-800 space-y-1.5">
+        <img id="food-photo-preview" src="" class="w-full max-h-36 object-contain rounded-lg" />
+        <div class="flex justify-between items-center text-[10px]">
+          <span id="food-photo-status" class="text-slate-400"></span>
+          <button type="button" id="remove-food-photo-btn" onclick="removeFoodPhoto()" class="text-rose-400 hover:underline">ลบรูป</button>
+        </div>
+      </div>
+
+      <!-- ชื่อเมนู + Datalist จากคลัง -->
+      <div>
+        <label class="text-[10px] text-slate-400">ชื่อเมนูอาหาร (พิมพ์เพื่อค้นหาจากคลังเดิม)</label>
+        <input type="text" id="food-name" list="food-catalog-list" onchange="autofillFoodCatalog(this.value)" required placeholder="เช่น อกไก่ต้ม (100g)"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white mt-0.5 focus:outline-none focus:border-indigo-500" />
+        <datalist id="food-catalog-list"></datalist>
+      </div>
+
+      <!-- จำนวนตัวคูณ & เครื่องคิดเลขตาชั่ง (กรัม) -->
+      <div class="grid grid-cols-3 gap-1.5 bg-slate-950/80 p-2 rounded-xl border border-slate-800">
+        <div>
+          <label class="text-[9px] text-amber-300 block">จำนวน (ตัวคูณ)</label>
+          <input type="number" step="any" id="food-qty" value="1" oninput="applyQuantityMultiplier()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white font-bold mt-0.5" />
+        </div>
+        <div>
+          <label class="text-[9px] text-slate-400 block">ฐานฉลาก (g)</label>
+          <input type="number" step="any" id="food-base-grams" value="100" oninput="calcGramMultiplier()" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-300 mt-0.5" />
+        </div>
+        <div>
+          <label class="text-[9px] text-sky-300 block">ชั่งจริง (g)</label>
+          <input type="number" step="any" id="food-actual-grams" placeholder="เช่น 135" oninput="calcGramMultiplier()" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-sky-300 mt-0.5" />
+        </div>
+      </div>
+
+      <!-- ช่องกรอกสารอาหารละเอียดทศนิยม 2 ตำแหน่ง -->
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="text-[10px] text-slate-400">พลังงาน (kcal)</label><input type="number" step="any" id="food-calories" oninput="updateBaseNutritionFromInputs()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-emerald-400">โปรตีน (g)</label><input type="number" step="any" id="food-protein" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-slate-400">คาร์โบไฮเดรต (g)</label><input type="number" step="any" id="food-carbs" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-pink-400">น้ำตาล (g)</label><input type="number" step="any" id="food-sugar" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-teal-400">ไฟเบอร์ (g)</label><input type="number" step="any" id="food-fiber" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-amber-300">ไขมันรวม (g)</label><input type="number" step="any" id="food-fat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-orange-400">ไขมันอิ่มตัว (g)</label><input type="number" step="any" id="food-satfat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-rose-400">ไขมันทรานส์ (g)</label><input type="number" step="any" id="food-transfat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-amber-400">โซเดียม (mg)</label><input type="number" step="any" id="food-sodium" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div><label class="text-[10px] text-lime-400">โพแทสเซียม (mg)</label><input type="number" step="any" id="food-potassium" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+        <div class="col-span-2"><label class="text-[10px] text-purple-300">คอเลสเตอรอล (mg)</label><input type="number" step="any" id="food-cholesterol" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="closeFoodModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">ยกเลิก</button>
+        <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold">บันทึกรายการ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL สแกนบาร์โค้ด ================= -->
+<div id="barcode-modal" class="hidden fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-4 space-y-3">
+    <div class="flex justify-between items-center">
+      <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-barcode text-sky-400 mr-1.5"></i> สแกนบาร์โค้ดสินค้า</h3>
+      <button type="button" onclick="closeBarcodeScanner()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="barcode-reader" class="w-full rounded-xl overflow-hidden bg-black"></div>
+    <div id="barcode-status" class="text-xs text-center text-sky-300">กำลังเปิดกล้อง...</div>
+  </div>
+</div>
+
+<!-- ================= MODAL จัดการคลังเมนูประจำ ================= -->
+<div id="catalog-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 border-b border-slate-800">
+      <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-book-open text-amber-400 mr-1.5"></i> คลังเมนูอาหารส่วนตัว</h3>
+      <button type="button" onclick="closeCatalogManagerModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-3 border-b border-slate-800">
+      <input type="text" id="catalog-search-input" oninput="renderCatalogManagerList()" placeholder="ค้นหาชื่อเมนูในคลัง..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white" />
+    </div>
+    <div id="catalog-manager-list" class="p-3 overflow-y-auto space-y-2 flex-1"></div>
+  </div>
+</div>
