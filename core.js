@@ -150,6 +150,7 @@ function renderActivePageUI() {
     if (activeMainPage === 'addons' && typeof renderAddonsPage === 'function') renderAddonsPage();
     if (activeMainPage === 'finance' && typeof renderFinancePage === 'function') renderFinancePage();
     if (activeMainPage === 'gear' && typeof renderGearPage === 'function') renderGearPage();
+    if (activeMainPage === 'focus' && typeof renderFocusPage === 'function') renderFocusPage();
 }
 
 // ------------------------------------------
