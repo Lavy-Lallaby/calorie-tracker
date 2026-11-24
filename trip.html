@@ -1,0 +1,94 @@
+<!-- ==========================================================================
+     trip.html — โมดูลวางแผนเที่ยว & แผนที่นำทาง (Interactive Map + OSRM Route)
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดเลือกทริป & จัดการวันเดินทาง -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-sky-500/30 shadow-lg space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <div class="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/40 text-sky-300 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-map-location-dot text-sm"></i>
+        </div>
+        <select id="trip-select-dropdown" onchange="selectTrip(this.value)"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-white truncate focus:outline-none focus:border-sky-500">
+        </select>
+      </div>
+
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" onclick="createNewTrip()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold px-2.5 py-2 rounded-xl transition">
+          + ทริปใหม่
+        </button>
+        <button type="button" onclick="deleteActiveTrip()" title="ลบทริปนี้" class="w-8 h-8 rounded-xl bg-slate-950 hover:bg-rose-950/60 border border-slate-800 text-rose-400 flex items-center justify-center transition">
+          <i class="fa-solid fa-trash text-xs"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- แถบเลือกวันในทริป + เวลาออกเดินทาง -->
+    <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+      <div id="trip-days-tabs" class="v59-dark-scroll flex gap-1.5 overflow-x-auto pb-1"></div>
+
+      <div class="flex items-center gap-1.5 shrink-0 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+        <span class="text-[10px] text-slate-400">ออก:</span>
+        <input type="time" id="trip-start-time-input" onchange="updateTripStartTime(this.value)"
+          class="bg-transparent text-amber-300 font-bold text-xs focus:outline-none" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. แผนที่ Interactive Map (Leaflet + OpenStreetMap) -->
+  <section class="bg-slate-900 rounded-3xl p-3 border border-slate-800 shadow-lg space-y-2.5">
+    <div id="trip-leaflet-map" class="w-full h-56 rounded-2xl border border-slate-800 overflow-hidden z-10 bg-slate-950"></div>
+
+    <!-- กล่องสรุประยะทางรวม + เวลาขับรถ + ปุ่มเปิด Google Maps รวมเส้นทาง -->
+    <div id="trip-route-summary"></div>
+  </section>
+
+  <!-- 3. ไทม์ไลน์จุดแวะพัก (เวลาถึง/ออก + ระยะทางช่วงต่อช่วง + นำทางรายจุด) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-timeline text-amber-400"></i> ลำดับการเดินทาง & จุดแวะพัก
+      </h3>
+      <span id="trip-stops-count-badge" class="text-[10px] bg-slate-950 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-800">0 จุด</span>
+    </div>
+
+    <div id="trip-stops-timeline" class="pt-1"></div>
+  </section>
+
+  <!-- 4. ฟอร์มค้นหาพิกัด & เพิ่มจุดแวะใหม่ -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+      <i class="fa-solid fa-plus-circle"></i> เพิ่มจุดแวะ / ปั๊มน้ำมัน / ร้านอาหาร / ของฝาก
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <select id="trip-stop-type" class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white">
+        <option value="gas">⛽ ปั๊มน้ำมัน / จุดพักรถ</option>
+        <option value="food">🍽️ ร้านอาหาร / คาเฟ่</option>
+        <option value="gift">🎁 ร้านของฝาก</option>
+        <option value="spot">📸 จุดแวะเที่ยว / ที่พัก</option>
+        <option value="start">🚩 จุดเริ่มต้นใหม่</option>
+      </select>
+      <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+        <span class="text-[10px] text-slate-400 shrink-0">แวะพัก:</span>
+        <input type="number" id="trip-stop-stay" value="30" class="w-full bg-transparent text-white font-bold text-right focus:outline-none" />
+        <span class="text-[10px] text-slate-400 shrink-0">นาที</span>
+      </div>
+    </div>
+
+    <input type="text" id="trip-stop-query" placeholder="ชื่อสถานที่ (เช่น ตลาดบ้านเพ ระยอง, ปั๊ม ปตท. บ้านบึง) หรือวางพิกัด"
+      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500" />
+
+    <input type="text" id="trip-stop-note" placeholder="โน้ตเพิ่มเติม (เช่น เติมน้ำมัน, ซื้อหมึกแห้ง, เมนูแนะนำ)"
+      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none" />
+
+    <div id="trip-search-status" class="text-[11px] text-sky-400"></div>
+
+    <button type="button" onclick="searchAndAddTripStop()"
+      class="w-full bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+      <i class="fa-solid fa-location-dot"></i> ค้นหาพิกัด & ปักหมุดลงแผนที่
+    </button>
+  </section>
+</div>
