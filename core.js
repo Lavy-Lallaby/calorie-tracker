@@ -836,11 +836,14 @@ async function saveAllSettings() {
         water: Math.max(500, Number(document.getElementById('goal-water-input').value) || 2000),
         targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
     };
+
     localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
     localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
 
-    const ghToken = document.getElementById('github-token-input').value.trim();
-    const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
+    const ghToken = (document.getElementById('github-token-input')?.value || '').trim();
+    const geminiKey = (document.getElementById('gemini-api-key-input')?.value || '').trim();
+
     if (ghToken) localStorage.setItem('fitTracker_github_token', ghToken);
     else localStorage.removeItem('fitTracker_github_token');
 
