@@ -4810,6 +4810,295 @@ function renderBurnModeCard() {
 }
 
 // ==========================================
+// 0. Multi-Page Navigation Controller (สลับ 4 แท็บหลัก)
+// ==========================================
+let activeMainPage = 'nutrition';
+
+function switchMainPage(pageKey) {
+    activeMainPage = pageKey;
+    document.querySelectorAll('.main-page-section').forEach(sec => sec.classList.add('hidden'));
+    const targetSec = document.getElementById(`page-${pageKey}`);
+    if (targetSec) targetSec.classList.remove('hidden');
+
+    document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        btn.className = "nav-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition";
+    });
+    const activeBtn = document.getElementById(`nav-btn-${pageKey}`);
+    if (activeBtn) {
+        activeBtn.className = "nav-tab-btn flex flex-col items-center justify-center py-1 text-indigo-400 font-bold transition";
+    }
+
+    if (pageKey === 'habits' && typeof renderSkincareContent === 'function') {
+        renderSkincareContent();
+        renderDailyHabitsAndSupplements();
+    }
+    if (pageKey === 'analytics') {
+        renderWeeklyChart();
+        renderCalendarMonth();
+        renderCalendarDayDetail(currentDateKey);
+        renderHealthReport(currentReportDays || 7);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ==========================================
+// 1. IF 16/8 Real-Time Fasting Timer
+// ==========================================
+let ifState = JSON.parse(localStorage.getItem('fitTracker_if_state') || 'null') || {
+    mode: 'fasting', // 'fasting' หรือ 'eating'
+    lastMealTime: null
+};
+
+function toggleFastingState() {
+    if (ifState.mode === 'fasting') {
+        ifState.mode = 'eating';
+        ifState.eatStartTime = Date.now();
+    } else {
+        ifState.mode = 'fasting';
+        ifState.lastMealTime = Date.now();
+    }
+    localStorage.setItem('fitTracker_if_state', JSON.stringify(ifState));
+    renderIfTimerCard();
+}
+
+function renderIfTimerCard() {
+    const card = document.getElementById('if-timer-card');
+    if (!card) return;
+
+    const isBurnMode = userGoals.preset === 'fat_sugar_burn';
+    const now = new Date();
+    const hour = now.getHours();
+    const min = now.getMinutes();
+
+    let statusTitle = "";
+    let statusSub = "";
+    let timerText = "";
+
+    if (ifState.lastMealTime && ifState.mode === 'fasting') {
+        const diffMs = Date.now() - ifState.lastMealTime;
+        const hrs = Math.floor(diffMs / 3600000);
+        const mins = Math.floor((diffMs % 3600000) / 60000);
+        const remHrs = Math.max(0, 15 - hrs);
+        const remMins = hrs >= 16 ? 0 : (59 - mins);
+        statusTitle = hrs >= 16 ? "🔥 ครบ 16 ชม. แล้ว! พร้อมเปิดมื้อแรก" : "⏳ กำลังฟาสติ้ง (ดึงไขมันสะสม)";
+        statusSub = `อดมาแล้ว ${hrs} ชม. ${mins} นาที`;
+        timerText = hrs >= 16 ? "00:00" : `${String(remHrs).padStart(2, '0')}:${String(remMins).padStart(2, '0')}`;
+    } else {
+        // อ้างอิงกรอบเวลา 12:00 - 20:00 น.
+        if (hour >= 12 && hour < 20) {
+            const remH = 19 - hour;
+            const remM = 59 - min;
+            statusTitle = "🍽️ ช่วงเวลาทานอาหาร (12:00 – 20:00 น.)";
+            statusSub = "เน้นโปรตีนให้ถึงเป้า • ตัดแป้งมื้อเย็น";
+            timerText = `${String(remH).padStart(2, '0')}:${String(remM).padStart(2, '0')}`;
+        } else {
+            const targetH = hour < 12 ? (11 - hour) : (35 - hour);
+            const targetM = 59 - min;
+            statusTitle = "🔥 ช่วงฟาสติ้ง (ดื่มได้เฉพาะน้ำเปล่า/กาแฟดำ)";
+            statusSub = "เหลือเวลาถึง 12:00 น.";
+            timerText = `${String(targetH).padStart(2, '0')}:${String(targetM).padStart(2, '0')}`;
+        }
+    }
+
+    card.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+            <div>
+                <div class="text-xs font-bold ${isBurnMode ? 'text-amber-400' : 'text-sky-300'}">${statusTitle}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${statusSub}</div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <span class="text-base font-extrabold font-mono text-white bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">${timerText}</span>
+                <button type="button" onclick="toggleFastingState()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-semibold px-2.5 py-1.5 rounded-xl">
+                    ${ifState.mode === 'fasting' ? 'เริ่มมื้อแรก' : 'จบมื้อสุดท้าย'}
+                </button>
+            </div>
+        </div>
+    `;
+}
+setInterval(renderIfTimerCard, 60000);
+
+// ==========================================
+// 2. Workout-Aware Macro Adjustment (เชื่อมวันเล่นเวทกับเป้าสารอาหาร)
+// ==========================================
+function applyWorkoutAwareMacros() {
+    const dayData = getDayData(currentDateKey);
+    const hasStrengthWorkout = (dayData.workouts || []).some(w =>
+        (w.type || '').includes('เวท') || (w.type || '').includes('คอร์ส')
+    );
+
+    const badge = document.getElementById('workout-macro-badge');
+    const protSummaryEl = document.getElementById('protein-summary');
+    if (!badge || !protSummaryEl) return;
+
+    if (hasStrengthWorkout) {
+        const boostedMin = Math.max(Number(userGoals.proteinMin) || 96, 110);
+        const boostedMax = Math.max(Number(userGoals.proteinMax) || 128, 130);
+        badge.classList.remove('hidden');
+        badge.innerHTML = `💪 วันเล่นเวท: แนะนำโปรตีน ${boostedMin}-${boostedMax}g`;
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+// ==========================================
+// 3. Gram Scale Calculator (คำนวณตัวคูณจากตาชั่งจริง g)
+// ==========================================
+function calcGramMultiplier() {
+    const baseG = parseFloat(document.getElementById('food-base-grams')?.value) || 100;
+    const actualG = parseFloat(document.getElementById('food-actual-grams')?.value);
+    if (!actualG || actualG <= 0) return;
+
+    const mult = Math.round((actualG / baseG) * 100) / 100;
+    const qtyInput = document.getElementById('food-qty');
+    if (qtyInput) {
+        qtyInput.value = mult;
+        applyQuantityMultiplier();
+    }
+}
+
+// ==========================================
+// 4. Rest Timer with Audio Beep (จับเวลาพักเซต)
+// ==========================================
+let restTimerInterval = null;
+let restSecondsLeft = 60;
+
+function playRestBeep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.35);
+    } catch (e) {}
+}
+
+function updateRestTimerDisplay() {
+    const el = document.getElementById('rest-timer-display');
+    if (!el) return;
+    const m = Math.floor(restSecondsLeft / 60);
+    const s = restSecondsLeft % 60;
+    el.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function startRestTimer(seconds) {
+    stopRestTimer();
+    restSecondsLeft = seconds;
+    updateRestTimerDisplay();
+    const st = document.getElementById('rest-timer-status');
+    if (st) st.innerText = "กำลังพักระหว่างเซต...";
+
+    restTimerInterval = setInterval(() => {
+        restSecondsLeft--;
+        updateRestTimerDisplay();
+        if (restSecondsLeft <= 0) {
+            stopRestTimer();
+            playRestBeep();
+            if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+            if (st) st.innerText = "✅ ครบเวลาพักแล้ว! ลุยเซตต่อไป";
+        }
+    }, 1000);
+}
+
+function stopRestTimer() {
+    if (restTimerInterval) {
+        clearInterval(restTimerInterval);
+        restTimerInterval = null;
+    }
+}
+
+// ==========================================
+// 5. Daily Habits, Streak & Supplements Checklist
+// ==========================================
+const defaultSupplements = [
+    { id: 'sup_whey', name: '🥤 เวย์โปรตีน / โปรตีนเสริม' },
+    { id: 'sup_vit', name: '💊 วิตามินรวม (Multivitamin)' },
+    { id: 'sup_fish', name: '🐟 น้ำมันปลา (Fish Oil)' }
+];
+let supplementLogs = JSON.parse(localStorage.getItem('fitTracker_sup_logs') || '{}');
+
+function toggleSupplementCheck(supId) {
+    if (!supplementLogs[currentDateKey]) supplementLogs[currentDateKey] = [];
+    const idx = supplementLogs[currentDateKey].indexOf(supId);
+    if (idx > -1) supplementLogs[currentDateKey].splice(idx, 1);
+    else supplementLogs[currentDateKey].push(supId);
+    localStorage.setItem('fitTracker_sup_logs', JSON.stringify(supplementLogs));
+    renderDailyHabitsAndSupplements();
+}
+
+function calculateDisciplineStreak() {
+    let streak = 0;
+    const parts = currentDateKey.split('-');
+    let d = new Date(parts[0], parts[1] - 1, parts[2]);
+    for (let i = 0; i < 60; i++) {
+        const key = getFormattedDateKey(d);
+        const dayObj = allMealsHistory[key];
+        const hasFood = dayObj && dayObj.meals && Object.values(dayObj.meals).some(l => l.length > 0);
+        if (hasFood) {
+            streak++;
+            d.setDate(d.getDate() - 1);
+        } else {
+            break;
+        }
+    }
+    return streak;
+}
+
+function renderDailyHabitsAndSupplements() {
+    const box = document.getElementById('daily-habits-container');
+    if (!box) return;
+
+    const streak = calculateDisciplineStreak();
+    const checkedSup = supplementLogs[currentDateKey] || [];
+    const dayData = getDayData(currentDateKey);
+    const waterDone = (Number(dayData.water) || 0) >= (Number(userGoals.water) || 2000);
+    const stepsDone = (Number(dayData.steps) || 0) >= (Number(userGoals.steps) || 10000);
+
+    box.innerHTML = `
+        <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+            <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-fire text-amber-400"></i> วินัยต่อเนื่อง & อาหารเสริม
+            </h3>
+            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                🔥 Streak ${streak} วัน
+            </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-950/80 p-2.5 rounded-xl border ${waterDone ? 'border-emerald-600/50 text-emerald-300' : 'border-slate-800 text-slate-400'}">
+                ${waterDone ? '✅' : '⬜'} ดื่มน้ำครบเป้า
+            </div>
+            <div class="bg-slate-950/80 p-2.5 rounded-xl border ${stepsDone ? 'border-emerald-600/50 text-emerald-300' : 'border-slate-800 text-slate-400'}">
+                ${stepsDone ? '✅' : '⬜'} เดินครบ ${(Number(userGoals.steps)||10000).toLocaleString()} ก้าว
+            </div>
+        </div>
+
+        <div class="space-y-1.5 pt-1">
+            <div class="text-[11px] font-semibold text-slate-300">เช็กลิสต์อาหารเสริม / วิตามินวันนี้:</div>
+            ${defaultSupplements.map(s => {
+                const isDone = checkedSup.includes(s.id);
+                return `
+                    <label class="flex items-center gap-2.5 bg-slate-950/70 p-2.5 rounded-xl border ${isDone ? 'border-emerald-700/40 opacity-75' : 'border-slate-800'} cursor-pointer">
+                        <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleSupplementCheck('${s.id}')" class="w-4 h-4 accent-emerald-500 rounded">
+                        <span class="text-xs ${isDone ? 'line-through text-slate-500' : 'text-slate-100'}">${s.name}</span>
+                    </label>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+// Hook เข้ากับ renderUIOnly เดิมให้อัปเดตการ์ดใหม่ทุกครั้ง
+const _origRenderUIOnly = renderUIOnly;
+renderUIOnly = function() {
+    _origRenderUIOnly();
+    renderIfTimerCard();
+    applyWorkoutAwareMacros();
+    renderDailyHabitsAndSupplements();
+};
+
+// ==========================================
 // Initialize on DOM Load
 // ==========================================
 window.addEventListener('DOMContentLoaded', () => {
