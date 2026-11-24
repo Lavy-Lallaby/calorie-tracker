@@ -650,7 +650,7 @@ function saveDataAndSync() {
     localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
     localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
     renderActivePageUI();
-    pushToGitHub(false);
+    // pushToGitHub(false);
 }
 
 // ------------------------------------------
@@ -887,11 +887,11 @@ async function saveAllSettings() {
     closeSettingsModal();
     renderActivePageUI();
 
-    if (ghToken) await pushToGitHub(true);
-    else {
-        setSyncStatus('local', 'บันทึกในเครื่อง');
-        alert("บันทึกเป้าหมายเรียบร้อยแล้ว!");
-    }
+    // if (ghToken) await pushToGitHub(true);
+    // else {
+    //     setSyncStatus('local', 'บันทึกในเครื่อง');
+    //     alert("บันทึกเป้าหมายเรียบร้อยแล้ว!");
+    // }
 }
 
 function closeSettingsModal() {
