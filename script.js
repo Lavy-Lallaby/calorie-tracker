@@ -2433,78 +2433,6 @@ function closeFoodModal() {
     document.getElementById('food-modal').classList.add('hidden');
 }
 
-async function handleFoodSubmit(e) {
-    e.preventDefault();
-    const mealType = document.getElementById('edit-meal-type').value;
-    const itemIndex = document.getElementById('edit-item-index').value;
-    const rawName = (document.getElementById('food-name').value || '').trim();
-    if (!rawName) return;
-
-    const qtyNum = Math.max(0.1, extractMultiplier(document.getElementById('food-qty').value));
-    const nonNeg = (id) => Math.max(0, Number(document.getElementById(id)?.value) || 0);
-    const round1 = (val) => Math.round(val * 10) / 10;
-
-    let finalPhotoPath = currentFoodPhotoPath;
-    if (pendingFoodPhotoBase64) {
-        setSyncStatus('syncing', 'กำลังอัปโหลดรูปอาหาร...');
-        const uploadedPath = await uploadPhotoToGitHub(pendingFoodPhotoBase64);
-        if (uploadedPath) {
-            finalPhotoPath = uploadedPath;
-        }
-    }
-
-    const newItem = {
-        name: rawName,
-        qty: qtyNum,
-        photo: finalPhotoPath || null,
-        calories: Math.round(nonNeg('food-calories')),
-        protein: round1(nonNeg('food-protein')),
-        carbs: round1(nonNeg('food-carbs')),
-        sugar: round1(nonNeg('food-sugar')),
-        fiber: round1(nonNeg('food-fiber')),
-        fat: round1(nonNeg('food-fat')),
-        satFat: round1(nonNeg('food-satfat')),
-        transFat: round1(nonNeg('food-transfat')),
-        sodium: Math.round(nonNeg('food-sodium')),
-        potassium: Math.round(nonNeg('food-potassium')),
-        cholesterol: Math.round(nonNeg('food-cholesterol'))
-    };
-
-    const dayData = getDayData(currentDateKey);
-    if (itemIndex !== '') {
-        dayData.meals[mealType][Number(itemIndex)] = newItem;
-    } else {
-        dayData.meals[mealType].push(newItem);
-    }
-
-    const unitItem = {
-        name: newItem.name,
-        photo: finalPhotoPath || null,
-        calories: Math.round(newItem.calories / qtyNum),
-        protein: round1(newItem.protein / qtyNum),
-        carbs: round1(newItem.carbs / qtyNum),
-        sugar: round1(newItem.sugar / qtyNum),
-        fiber: round1(newItem.fiber / qtyNum),
-        fat: round1(newItem.fat / qtyNum),
-        satFat: round1(newItem.satFat / qtyNum),
-        transFat: round1(newItem.transFat / qtyNum),
-        sodium: Math.round(newItem.sodium / qtyNum),
-        potassium: Math.round(newItem.potassium / qtyNum),
-        cholesterol: Math.round(newItem.cholesterol / qtyNum)
-    };
-
-    const existingCatIdx = foodCatalog.findIndex(f => f.name.toLowerCase() === unitItem.name.toLowerCase());
-    if (existingCatIdx === -1) {
-        foodCatalog.push(unitItem);
-    } else if (finalPhotoPath) {
-        foodCatalog[existingCatIdx].photo = finalPhotoPath;
-    }
-
-    pendingFoodPhotoBase64 = null;
-    closeFoodModal();
-    saveDataAndSync();
-}
-
 function deleteMealItem(mealType, index) {
     if (confirm("ต้องการลบรายการนี้ใช่ไหม?")) {
         const dayData = getDayData(currentDateKey);
@@ -6164,6 +6092,166 @@ switchMainPage = function(pageKey) {
 };
 
 setTimeout(renderV59Addons, 120);
+
+// ==========================================================================
+// FitTracker v59.4 Precision Patch (รองรับทศนิยม 2 ตำแหน่ง 0.05g แม่นยำ)
+// ==========================================================================
+
+// ฟังก์ชันปัดทศนิยมสูงสุด 2 ตำแหน่ง (ตัดเลข .00 ทิ้งให้ดูสะอาดตา เช่น 0.20 -> 0.2, 0.05 -> 0.05)
+function fmtPrecise(val, maxDec = 2) {
+    const num = Number(val) || 0;
+    const factor = Math.pow(10, maxDec);
+    return Math.round((num + Number.EPSILON) * factor) / factor;
+}
+
+// 1. อัปเกรดฟังก์ชันคูณปริมาณอาหาร (Qty Multiplier) ให้เก็บความละเอียด 2 ตำแหน่ง
+applyQuantityMultiplier = function() {
+    if (!baseNutrition) {
+        setBaseNutritionFromCurrentInputs();
+    }
+    const mult = extractMultiplier(document.getElementById('food-qty').value);
+
+    document.getElementById('food-calories').value = fmtPrecise(baseNutrition.calories * mult, 1);
+    document.getElementById('food-protein').value = fmtPrecise(baseNutrition.protein * mult, 2);
+    document.getElementById('food-carbs').value = fmtPrecise(baseNutrition.carbs * mult, 2);
+    document.getElementById('food-sugar').value = fmtPrecise(baseNutrition.sugar * mult, 2);
+    document.getElementById('food-fiber').value = fmtPrecise(baseNutrition.fiber * mult, 2);
+    document.getElementById('food-fat').value = fmtPrecise(baseNutrition.fat * mult, 2);
+    document.getElementById('food-satfat').value = fmtPrecise(baseNutrition.satFat * mult, 2);
+    document.getElementById('food-transfat').value = fmtPrecise(baseNutrition.transFat * mult, 2);
+    document.getElementById('food-sodium').value = fmtPrecise(baseNutrition.sodium * mult, 1);
+    document.getElementById('food-potassium').value = fmtPrecise(baseNutrition.potassium * mult, 1);
+    document.getElementById('food-cholesterol').value = fmtPrecise(baseNutrition.cholesterol * mult, 1);
+};
+
+// 2. อัปเกรดการบันทึกอาหาร & คลังเมนู ไม่ให้ปัดทศนิยม 0.05 ทิ้ง
+handleFoodSubmit = async function(e) {
+    e.preventDefault();
+    const mealType = document.getElementById('edit-meal-type').value;
+    const itemIndex = document.getElementById('edit-item-index').value;
+    const rawName = (document.getElementById('food-name').value || '').trim();
+    if (!rawName) return;
+
+    const qtyNum = Math.max(0.01, extractMultiplier(document.getElementById('food-qty').value));
+    const nonNeg = (id) => Math.max(0, Number(document.getElementById(id)?.value) || 0);
+
+    let finalPhotoPath = currentFoodPhotoPath;
+    if (pendingFoodPhotoBase64) {
+        setSyncStatus('syncing', 'กำลังอัปโหลดรูปอาหาร...');
+        const uploadedPath = await uploadPhotoToGitHub(pendingFoodPhotoBase64);
+        if (uploadedPath) {
+            finalPhotoPath = uploadedPath;
+        }
+    }
+
+    const newItem = {
+        name: rawName,
+        qty: qtyNum,
+        photo: finalPhotoPath || null,
+        calories: fmtPrecise(nonNeg('food-calories'), 1),
+        protein: fmtPrecise(nonNeg('food-protein'), 2),
+        carbs: fmtPrecise(nonNeg('food-carbs'), 2),
+        sugar: fmtPrecise(nonNeg('food-sugar'), 2),
+        fiber: fmtPrecise(nonNeg('food-fiber'), 2),
+        fat: fmtPrecise(nonNeg('food-fat'), 2),
+        satFat: fmtPrecise(nonNeg('food-satfat'), 2),
+        transFat: fmtPrecise(nonNeg('food-transfat'), 2),
+        sodium: fmtPrecise(nonNeg('food-sodium'), 1),
+        potassium: fmtPrecise(nonNeg('food-potassium'), 1),
+        cholesterol: fmtPrecise(nonNeg('food-cholesterol'), 1)
+    };
+
+    const dayData = getDayData(currentDateKey);
+    if (itemIndex !== '') {
+        dayData.meals[mealType][Number(itemIndex)] = newItem;
+    } else {
+        dayData.meals[mealType].push(newItem);
+    }
+
+    // เก็บค่าต่อ 1 หน่วยลงคลังเมนูด้วยความละเอียด 2 ตำแหน่ง (0.05 * 4 = 0.2 -> หาร 4 กลับได้ 0.05 เป๊ะ)
+    const unitItem = {
+        name: newItem.name,
+        photo: finalPhotoPath || null,
+        calories: fmtPrecise(newItem.calories / qtyNum, 2),
+        protein: fmtPrecise(newItem.protein / qtyNum, 2),
+        carbs: fmtPrecise(newItem.carbs / qtyNum, 2),
+        sugar: fmtPrecise(newItem.sugar / qtyNum, 2),
+        fiber: fmtPrecise(newItem.fiber / qtyNum, 2),
+        fat: fmtPrecise(newItem.fat / qtyNum, 2),
+        satFat: fmtPrecise(newItem.satFat / qtyNum, 2),
+        transFat: fmtPrecise(newItem.transFat / qtyNum, 2),
+        sodium: fmtPrecise(newItem.sodium / qtyNum, 2),
+        potassium: fmtPrecise(newItem.potassium / qtyNum, 2),
+        cholesterol: fmtPrecise(newItem.cholesterol / qtyNum, 2)
+    };
+
+    const existingCatIdx = foodCatalog.findIndex(f => f.name.toLowerCase() === unitItem.name.toLowerCase());
+    if (existingCatIdx === -1) {
+        foodCatalog.push(unitItem);
+    } else if (finalPhotoPath) {
+        foodCatalog[existingCatIdx].photo = finalPhotoPath;
+    }
+
+    pendingFoodPhotoBase64 = null;
+    closeFoodModal();
+    saveDataAndSync();
+};
+
+// 3. อัปเดตตัวเลขสรุปหน้าหลักให้แสดงทศนิยม 2 ตำแหน่ง (เช่น 0.05g, 0.2g)
+const _v59OrigRenderSummary = renderSummary;
+renderSummary = function() {
+    _v59OrigRenderSummary();
+
+    const dayData = getDayData(currentDateKey);
+    let tCal = 0, tProt = 0, tCarbs = 0, tSugar = 0, tFiber = 0;
+    let tFat = 0, tSatFat = 0, tTransFat = 0, tSodium = 0, tPotas = 0, tChol = 0;
+
+    Object.values(dayData.meals || {}).forEach(list => {
+        list.forEach(item => {
+            tCal += Number(item.calories || 0);
+            tProt += Number(item.protein || 0);
+            tCarbs += Number(item.carbs || 0);
+            tSugar += Number(item.sugar || 0);
+            tFiber += Number(item.fiber || 0);
+            tFat += Number(item.fat || 0);
+            tSatFat += Number(item.satFat || 0);
+            tTransFat += Number(item.transFat || 0);
+            tSodium += Number(item.sodium || 0);
+            tPotas += Number(item.potassium || 0);
+            tChol += Number(item.cholesterol || 0);
+        });
+    });
+
+    const protMin = Number(userGoals.proteinMin) || 96;
+    const protMax = Number(userGoals.proteinMax) || 128;
+
+    const setTxt = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    setTxt('calories-consumed', `${fmtPrecise(tCal, 1)} kcal`);
+    setTxt('protein-summary', `${fmtPrecise(tProt, 2)} / <span class="text-xs font-normal text-slate-400">${protMin}-${protMax} g</span>`);
+    setTxt('carbs-total', `${fmtPrecise(tCarbs, 2)}g`);
+    setTxt('sugar-total', `${fmtPrecise(tSugar, 2)}g`);
+    setTxt('fiber-total', `${fmtPrecise(tFiber, 2)}g`);
+    setTxt('fats-total', `${fmtPrecise(tFat, 2)}g`);
+    setTxt('satfat-total', `${fmtPrecise(tSatFat, 2)}g`);
+    setTxt('transfat-total', `${fmtPrecise(tTransFat, 2)}g`);
+    setTxt('sodium-total', `${fmtPrecise(tSodium, 1)}mg`);
+    setTxt('potassium-total', `${fmtPrecise(tPotas, 1)}mg`);
+    setTxt('cholesterol-total', `${fmtPrecise(tChol, 1)}mg`);
+};
+
+// 4. เปิดให้ช่อง input ใน Modal อาหารพิมพ์ทศนิยม 0.01 ได้ไม่ติดแจ้งเตือนเบราว์เซอร์
+function enableTwoDecimalInputs() {
+    const decimalIds = [
+        'food-qty', 'food-calories', 'food-protein', 'food-carbs',
+        'food-sugar', 'food-fiber', 'food-fat', 'food-satfat', 'food-transfat',
+        'food-sodium', 'food-potassium', 'food-cholesterol'
+    ];
+    decimalIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('step', 'any');
+    });
+}
+setTimeout(enableTwoDecimalInputs, 150);
 
 // ==========================================
 // Initialize on DOM Load
