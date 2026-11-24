@@ -1,0 +1,79 @@
+<!-- ==========================================================================
+     summary.html — โมดูลสรุปผล, กราฟ 7 วัน, ปฏิทินรายเดือน, รายงานสุขภาพ & Watch Sync
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. กราฟแท่งแคลอรี 7 วัน + เส้นขั้นบันได Min-Max -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-column text-emerald-400"></i> กราฟแคลอรี 7 วันล่าสุด
+        </h3>
+        <span class="text-[10px] text-slate-400">แตะแท่งกราฟเพื่อสลับดูข้อมูลวันนั้น</span>
+      </div>
+      <div class="flex items-center gap-2 text-[10px]">
+        <span class="text-amber-400 font-semibold">--- Max</span>
+        <span class="text-cyan-400 font-semibold">--- Min</span>
+      </div>
+    </div>
+    <div id="weekly-chart-container"></div>
+  </section>
+
+  <!-- 2. ปฏิทินรายเดือนแบบจุดสถานะคู่ & รายละเอียดรายวัน -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-calendar-days text-indigo-400"></i> ปฏิทินบันทึกประจำเดือน
+      </h3>
+      <div class="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-xl border border-slate-800">
+        <button type="button" onclick="changeCalendarMonth(-1)" class="w-6 h-6 rounded-lg hover:bg-slate-800 text-slate-300 text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+        <span id="calendar-month-title" class="text-xs font-bold text-amber-300 px-1.5">เดือน</span>
+        <button type="button" onclick="changeCalendarMonth(1)" class="w-6 h-6 rounded-lg hover:bg-slate-800 text-slate-300 text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+
+    <!-- หัวคอลัมน์วันในสัปดาห์ -->
+    <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400">
+      <div class="text-rose-400">อา</div>
+      <div>จ</div>
+      <div>อ</div>
+      <div>พ</div>
+      <div>พฤ</div>
+      <div>ศ</div>
+      <div class="text-sky-400">ส</div>
+    </div>
+
+    <!-- ตารางวันที่ -->
+    <div id="calendar-grid-container" class="grid grid-cols-7 gap-1"></div>
+
+    <div class="flex justify-center gap-4 text-[10px] text-slate-400 pt-0.5">
+      <span>● จุดซ้าย: แคลอรี</span>
+      <span>● จุดขวา: โปรตีน</span>
+    </div>
+
+    <!-- กล่องสรุปรายละเอียดของวันที่เลือกในปฏิทิน -->
+    <div id="calendar-day-detail" class="bg-slate-950/90 p-3 rounded-2xl border border-slate-800 space-y-2"></div>
+  </section>
+
+  <!-- 3. การ์ดบันทึก HUAWEI Watch (ชั่วโมงนอน, TruSleep Score, Resting HR) -->
+  <section id="sleep-rhr-card" class="bg-slate-900 rounded-3xl p-4 border border-indigo-500/30 shadow-lg"></section>
+
+  <!-- 4. กราฟแนวโน้ม 7 วัน (น้ำหนักตัว vs แคลอรีสุทธิ / ชั่วโมงนอน) -->
+  <section id="weekly-trend-dual-card" class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg"></section>
+
+  <!-- 5. รายงานประเมินผลสุขภาพ (7 วัน / 30 วัน) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-award text-amber-400"></i> รายงานประเมินสุขภาพ
+      </h3>
+      <div class="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button type="button" id="report-tab-7" onclick="switchReportPeriod(7)" class="px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white">7 วัน</button>
+        <button type="button" id="report-tab-30" onclick="switchReportPeriod(30)" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">30 วัน</button>
+      </div>
+    </div>
+
+    <div id="report-content-container" class="space-y-3"></div>
+  </section>
+</div>
