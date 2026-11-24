@@ -1277,9 +1277,11 @@ function openCatalogManagerModal() {
     renderCatalogManagerList();
     document.getElementById('catalog-modal').classList.remove('hidden');
 }
+
 function closeCatalogManagerModal() {
     document.getElementById('catalog-modal').classList.add('hidden');
 }
+
 function renderCatalogManagerList() {
     const listEl = document.getElementById('catalog-manager-list');
     const kw = (document.getElementById('catalog-search-input').value || '').toLowerCase();
@@ -1293,4 +1295,35 @@ function renderCatalogManagerList() {
             <button type="button" onclick="if(confirm('ลบเมนูนี้?')){foodCatalog.splice(${item.idx},1); renderCatalogManagerList(); saveDataAndSync();}" class="bg-slate-800 text-rose-400 w-7 h-7 rounded-lg"><i class="fa-solid fa-trash text-[11px]"></i></button>
         </div>
     `).join('');
+}
+
+function renderWaterUI() {
+    const badge = document.getElementById('water-summary-badge');
+    const goalLabel = document.getElementById('goal-water-label');
+    const bar = document.getElementById('water-progress-bar');
+    const pctEl = document.getElementById('water-percent');
+    if (!badge) return;
+
+    const dayData = getDayData(currentDateKey);
+    const water = Math.max(0, Number(dayData.water) || 0);
+    const goal = Math.max(1, Number(userGoals.water) || 2000);
+    const pct = Math.min(100, Math.round((water / goal) * 100));
+
+    if (goalLabel) goalLabel.innerText = goal.toLocaleString();
+    badge.innerText = `${water.toLocaleString()} / ${goal.toLocaleString()} ml`;
+    if (bar) bar.style.width = `${pct}%`;
+    if (pctEl) pctEl.innerText = `${pct}%`;
+}
+
+function addWater(amount) {
+    const dayData = getDayData(currentDateKey);
+    const currentWater = Math.max(0, Number(dayData.water) || 0);
+    dayData.water = Math.max(0, currentWater + Number(amount || 0));
+
+    renderWaterUI();
+
+    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    if (typeof pushToGitHub === 'function') {
+        pushToGitHub(false);
+    }
 }
