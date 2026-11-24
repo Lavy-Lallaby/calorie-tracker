@@ -810,6 +810,35 @@ function exportHistoryToCSV() {
 }
 
 // ------------------------------------------
+// Theme Switcher (Dark / Light Mode)
+// ------------------------------------------
+function applyAppTheme(theme) {
+    const isLight = (theme === 'light');
+    document.documentElement.classList.toggle('light-theme', isLight);
+
+    const icon = document.getElementById('theme-toggle-icon');
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (icon) {
+        icon.className = isLight
+            ? 'fa-solid fa-moon text-xs text-indigo-500'
+            : 'fa-solid fa-sun text-xs text-amber-300';
+    }
+    if (metaTheme) {
+        metaTheme.setAttribute('content', isLight ? '#f1f5f9' : '#0f172a');
+    }
+}
+
+function toggleAppTheme() {
+    const current = localStorage.getItem('fitTracker_theme') || 'dark';
+    const next = (current === 'dark') ? 'light' : 'dark';
+    localStorage.setItem('fitTracker_theme', next);
+    applyAppTheme(next);
+}
+
+// โหลดธีมที่เคยเลือกไว้ทันทีตั้งแต่เปิดแอป
+applyAppTheme(localStorage.getItem('fitTracker_theme') || 'dark');
+
+// ------------------------------------------
 // 8. Initialize App on Load
 // ------------------------------------------
 window.addEventListener('DOMContentLoaded', async () => {
