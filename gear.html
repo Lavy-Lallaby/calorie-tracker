@@ -1,0 +1,72 @@
+<!-- ==========================================================================
+     gear.html — โมดูลจัดกระเป๋า & เช็กลิสต์อุปกรณ์ออกทริป (Packing Checklist)
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดสรุปความคืบหน้าจัดกระเป๋า & เลือกประเภททริป -->
+  <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/40 rounded-3xl p-4 border border-sky-500/30 shadow-lg space-y-3">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-suitcase-rolling text-sky-400"></i> เช็กลิสต์จัดกระเป๋าเดินทาง
+        </h3>
+        <span class="text-[10px] text-slate-400">กันลืมของสำคัญ • ซิงก์ขึ้น Cloud อัตโนมัติ</span>
+      </div>
+
+      <button type="button" onclick="resetGearChecks()" class="text-[11px] bg-slate-950/90 hover:bg-slate-800 border border-slate-700 text-amber-300 px-2.5 py-1.5 rounded-xl font-semibold transition shrink-0">
+        <i class="fa-solid fa-rotate-left mr-0.5"></i> รีเซ็ตติ๊ก
+      </button>
+    </div>
+
+    <!-- เลือกโปรไฟล์รายการกระเป๋า -->
+    <div class="grid grid-cols-3 gap-1.5 text-[11px]">
+      <button type="button" id="gear-profile-beach" onclick="switchGearProfile('beach')" class="py-2 rounded-xl border font-semibold transition">
+        🏖️ ทะเล / ค้างคืน
+      </button>
+      <button type="button" id="gear-profile-hike" onclick="switchGearProfile('hike')" class="py-2 rounded-xl border font-semibold transition">
+        🏔️ เดินป่า / แคมป์
+      </button>
+      <button type="button" id="gear-profile-general" onclick="switchGearProfile('general')" class="py-2 rounded-xl border font-semibold transition">
+        🚗 ขับรถ / ทั่วไป
+      </button>
+    </div>
+
+    <!-- หลอดความคืบหน้า -->
+    <div class="space-y-1">
+      <div class="flex justify-between text-xs">
+        <span class="text-slate-300">จัดลงกระเป๋าแล้ว <b id="gear-checked-count" class="text-emerald-400">0/0</b> รายการ</span>
+        <b id="gear-progress-pct" class="text-sky-300">0%</b>
+      </div>
+      <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+        <div id="gear-progress-bar" class="bg-gradient-to-r from-sky-400 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. รายการของในกระเป๋าแยกตามหมวดหมู่ -->
+  <section id="gear-categories-container" class="space-y-3"></section>
+
+  <!-- 3. ฟอร์มเพิ่มรายการใหม่ลงกระเป๋า -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+      <i class="fa-solid fa-plus-circle"></i> เพิ่มของที่ต้องพกพา
+    </div>
+
+    <form onsubmit="handleAddGearItem(event)" class="space-y-2 text-xs">
+      <div class="grid grid-cols-12 gap-2">
+        <select id="gear-new-cat" class="col-span-5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white">
+          <option value="clothes">👕 เสื้อผ้า/รองเท้า</option>
+          <option value="skincare">🧴 สกินแคร์/ของใช้</option>
+          <option value="nutrition">🥤 เสบียง/อาหารเสริม</option>
+          <option value="tech">🔌 ไอที/เอกสาร/ยา</option>
+        </select>
+        <input type="text" id="gear-new-name" required placeholder="ชื่อสิ่งของ (เช่น แว่นกันแดด, สายชาร์จ)"
+          class="col-span-7 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500" />
+      </div>
+      <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition">
+        + เพิ่มลงรายการกระเป๋า
+      </button>
+    </form>
+  </section>
+
+</div>
