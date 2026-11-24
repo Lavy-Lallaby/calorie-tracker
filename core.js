@@ -366,8 +366,11 @@ function getNutrientAdjustments(dateKey) {
 }
 
 // ------------------------------------------
-// 5. GitHub REST API Sync (Pull & Push db.json)
+// 5. GitHub REST API Sync (Pull & Safe Auto Push)
 // ------------------------------------------
+let _isPushingToGitHub = false;
+let _queuedPushShowAlert = false;
+
 function utf8ToBase64(str) {
     const bytes = new TextEncoder().encode(str);
     let binString = "";
@@ -406,6 +409,120 @@ function setSyncStatus(type, text) {
         badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> ${text}`;
         badge.className = "text-[10px] text-slate-400 block mt-0.5";
         if (icon) icon.classList.remove('fa-spin');
+    }
+}
+
+async function fetchRemoteDbMeta(token) {
+    const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
+    const res = await fetch(getUrl, {
+        cache: 'no-store',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json'
+        }
+    });
+    if (res.status === 404) return { exists: false, sha: null, data: null };
+    if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`ดึง SHA ไม่สำเร็จ (HTTP ${res.status}) ${errText.slice(0, 120)}`);
+    }
+    const json = await res.json();
+    let parsed = null;
+    try {
+        parsed = JSON.parse(base64ToUtf8(json.content));
+    } catch (_) {
+        parsed = null;
+    }
+    return { exists: true, sha: json.sha, data: parsed };
+}
+
+function buildDbPayload() {
+    return {
+        updatedAt: new Date().toISOString(),
+        goals: userGoals,
+        history: allMealsHistory,
+        catalog: foodCatalog,
+        skincareItems: window.skincareItems || JSON.parse(localStorage.getItem('fitTracker_skincare_items') || '[]'),
+        skincareLogs: window.skincareLogs || JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}'),
+        skincarePhotosMap: window.skincarePhotosMap || JSON.parse(localStorage.getItem('fitTracker_skincare_photos') || '{}'),
+        exercisePhotosMap: window.exercisePhotosMap || JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}'),
+        trips: window.savedTrips || JSON.parse(localStorage.getItem('fitTracker_trips') || '[]'),
+        pantry: window.pantryItems,
+        gear: window.gearState,
+        car: window.carData
+    };
+}
+
+async function pushToGitHub(showAlert = false) {
+    const token = (localStorage.getItem('fitTracker_github_token') || '').trim();
+    if (!token) {
+        setSyncStatus('local', 'บันทึกในเครื่อง');
+        return;
+    }
+
+    // ถ้ากำลังอัปโหลดอยู่ ให้ต่อคิวไว้ทำรอบถัดไป ไม่ยิงชนกัน
+    if (_isPushingToGitHub) {
+        _queuedPushShowAlert = _queuedPushShowAlert || showAlert;
+        return;
+    }
+
+    _isPushingToGitHub = true;
+    setSyncStatus('syncing', 'กำลังบันทึกขึ้น Cloud...');
+
+    try {
+        // ดึง SHA ล่าสุดก่อนเสมอเพื่อลดโอกาสติด 409
+        const remoteMeta = await fetchRemoteDbMeta(token);
+        if (remoteMeta.sha) {
+            currentFileSha = remoteMeta.sha;
+        }
+
+        const contentBase64 = utf8ToBase64(JSON.stringify(buildDbPayload(), null, 2));
+        const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
+
+        const sendPut = async (shaToUse) => fetch(putUrl, {
+            method: 'PUT',
+            cache: 'no-store',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Update FitTracker DB (${currentDateKey})`,
+                content: contentBase64,
+                ...(shaToUse ? { sha: shaToUse } : {})
+            })
+        });
+
+        let putRes = await sendPut(currentFileSha);
+
+        // ถ้ายังติด 409 ให้รีเฟรช SHA อีกรอบแล้วยิงซ้ำทันที
+        if (putRes.status === 409) {
+            const refreshed = await fetchRemoteDbMeta(token);
+            currentFileSha = refreshed.sha || null;
+            putRes = await sendPut(currentFileSha);
+        }
+
+        if (!putRes.ok) {
+            const errBody = await putRes.text().catch(() => '');
+            throw new Error(`HTTP ${putRes.status} - ${errBody.slice(0, 140)}`);
+        }
+
+        const putData = await putRes.json();
+        currentFileSha = putData.content?.sha || currentFileSha;
+        setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
+        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub เรียบร้อยแล้ว!");
+    } catch (err) {
+        console.error('[pushToGitHub error]:', err);
+        setSyncStatus('error', `อัปโหลดไม่สำเร็จ: ${err.message}`);
+        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub ไม่สำเร็จ:\n" + err.message);
+    } finally {
+        _isPushingToGitHub = false;
+        if (_queuedPushShowAlert) {
+            const nextAlert = _queuedPushShowAlert;
+            _queuedPushShowAlert = false;
+            pushToGitHub(nextAlert);
+        }
     }
 }
 
@@ -483,96 +600,6 @@ async function syncFromGitHub(showAlert = false) {
 
 let isPushingToGitHub = false;
 let pendingPushAfterCurrent = false;
-
-async function pushToGitHub(showAlert = false) {
-    const token = localStorage.getItem('fitTracker_github_token');
-    if (!token) {
-        setSyncStatus('local', 'บันทึกในเครื่อง');
-        return;
-    }
-
-    if (isPushingToGitHub) {
-        pendingPushAfterCurrent = true;
-        return;
-    }
-
-    isPushingToGitHub = true;
-    setSyncStatus('syncing', 'กำลังบันทึกขึ้น Cloud...');
-
-    const fetchLatestSha = async () => {
-        const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
-        const getRes = await fetch(getUrl, {
-            cache: 'no-store',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github+json'
-            }
-        });
-        if (getRes.ok) {
-            const getData = await getRes.json();
-            currentFileSha = getData.sha;
-        }
-    };
-
-    try {
-        await fetchLatestSha();
-
-        const payload = {
-            updatedAt: new Date().toISOString(),
-            goals: userGoals,
-            history: allMealsHistory,
-            catalog: foodCatalog,
-            skincareItems: window.skincareItems || JSON.parse(localStorage.getItem('fitTracker_skincare_items') || '[]'),
-            skincareLogs: window.skincareLogs || JSON.parse(localStorage.getItem('fitTracker_skincare_logs') || '{}'),
-            skincarePhotosMap: window.skincarePhotosMap || JSON.parse(localStorage.getItem('fitTracker_skincare_photos') || '{}'),
-            exercisePhotosMap: window.exercisePhotosMap || JSON.parse(localStorage.getItem('fitTracker_ex_photos') || '{}'),
-            trips: window.savedTrips || JSON.parse(localStorage.getItem('fitTracker_trips') || '[]'),
-            pantry: window.pantryItems,
-            gear: window.gearState,
-            car: window.carData
-        };
-
-        const contentBase64 = utf8ToBase64(JSON.stringify(payload, null, 2));
-        const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
-
-        const sendPut = async () => fetch(putUrl, {
-            method: 'PUT',
-            cache: 'no-store',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: `Update FitTracker DB (${currentDateKey})`,
-                content: contentBase64,
-                sha: currentFileSha || undefined
-            })
-        });
-
-        let putRes = await sendPut();
-        if (putRes.status === 409) {
-            await fetchLatestSha();
-            putRes = await sendPut();
-        }
-        if (!putRes.ok) throw new Error(`HTTP ${putRes.status}`);
-
-        const putData = await putRes.json();
-        currentFileSha = putData.content?.sha || currentFileSha;
-        setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
-        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub เรียบร้อยแล้ว!");
-    } catch (err) {
-        console.error(err);
-        setSyncStatus('error', 'อัปโหลดล้มเหลว');
-        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub ไม่สำเร็จ: " + err.message);
-    } finally {
-        isPushingToGitHub = false;
-        if (pendingPushAfterCurrent) {
-            pendingPushAfterCurrent = false;
-            pushToGitHub(false);
-        }
-    }
-}
 
 function saveDataAndSync() {
     localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
