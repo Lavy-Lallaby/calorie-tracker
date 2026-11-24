@@ -1,0 +1,219 @@
+<!-- ==========================================================================
+     train.html — โมดูลออกกำลังกาย, คอร์สเวท, Custom Builder & Smart Scale
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดก้าวเดิน & บันทึกการออกกำลังกายวันนี้ -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-person-walking text-sky-400"></i> ก้าวเดิน & เผาผลาญวันนี้
+        </h3>
+        <span class="text-[10px] text-slate-400">เป้าหมาย: <span id="goal-steps-label">10,000</span> ก้าว</span>
+      </div>
+      <div class="text-right">
+        <span class="text-[10px] text-slate-400 block">เผาผลาญรวม</span>
+        <b class="text-sm text-orange-400">-<span id="activity-total-burn">0</span> kcal</b>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 flex items-center justify-between">
+        <input type="number" id="steps-input" onchange="updateSteps(this.value)" placeholder="กรอกจำนวนก้าว"
+          class="w-full bg-transparent text-sm font-bold text-white focus:outline-none" />
+        <span class="text-[11px] text-slate-400 shrink-0 ml-1">ก้าว (-<span id="steps-calories">0</span> kcal)</span>
+      </div>
+      <button type="button" onclick="addQuickSteps(1000)" class="bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-300 text-xs font-bold px-3 py-2.5 rounded-xl shrink-0">
+        +1,000
+      </button>
+    </div>
+
+    <div class="space-y-1">
+      <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+        <div id="steps-progress-bar" class="bg-gradient-to-r from-sky-400 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+      </div>
+      <div class="text-right text-[10px] text-slate-400"><span id="steps-percent">0%</span> ของเป้าก้าวเดิน</div>
+    </div>
+
+    <!-- รายการออกกำลังกายที่บันทึกไว้ของวันนี้ -->
+    <div class="pt-2 border-t border-slate-800/80 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-200"><i class="fa-solid fa-dumbbell text-indigo-400 mr-1"></i> กิจกรรม & เวทที่เล่นวันนี้</span>
+        <button type="button" onclick="openWorkoutModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold px-2.5 py-1 rounded-xl">
+          + เพิ่มคาร์ดิโอ/กิจกรรม
+        </button>
+      </div>
+      <div id="workouts-list" class="space-y-1"></div>
+    </div>
+  </section>
+
+  <!-- 2. คอร์สเวท & จัดตารางเล่นเอง (Active Workout Player) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-indigo-500/30 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-fire text-amber-400"></i> คอร์สเวท & จัดตารางฝึก
+        </h3>
+        <span class="text-[10px] text-slate-400">ไม่ต้องใช้เครื่องฟิตเนส • จัดคิวสลับกล้ามเนื้ออัตโนมัติ</span>
+      </div>
+    </div>
+
+    <!-- ตั้งค่าอุปกรณ์ & ตารางวัน -->
+    <div class="bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800 space-y-2 text-[11px]">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-slate-300 font-semibold">อุปกรณ์ที่มี:</span>
+        <div class="flex flex-wrap gap-2">
+          <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-chair" onchange="saveCourseConfig()" class="accent-indigo-500"> เก้าอี้/โต๊ะ</label>
+          <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-band" onchange="saveCourseConfig()" class="accent-indigo-500"> ยางยืด</label>
+          <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-dumbbell" onchange="saveCourseConfig()" class="accent-indigo-500"> ดัมเบล</label>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+        <span class="text-slate-300 font-semibold">ความถี่ตารางฝึก:</span>
+        <select id="course-schedule-select" onchange="saveCourseConfig()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-[11px]">
+          <option value="3days">3 วัน/สัปดาห์ (Full Body)</option>
+          <option value="4days">4 วัน/สัปดาห์ (Upper / Lower)</option>
+          <option value="5days">5 วัน/สัปดาห์ (แยกส่วนเข้มข้น)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 3 แท็บย่อย: ตารางวันนี้ / เลือกท่าเอง / คลังท่าทั้งหมด -->
+    <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+      <button type="button" id="course-tab-today" onclick="switchCourseTab('today')" class="py-1.5 rounded-lg text-[11px] font-semibold bg-indigo-600 text-white">ตารางวันนี้</button>
+      <button type="button" id="course-tab-custom" onclick="switchCourseTab('custom')" class="py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white">เลือกท่าเอง + หุ่น</button>
+      <button type="button" id="course-tab-library" onclick="switchCourseTab('library')" class="py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white">คลังท่าทั้งหมด</button>
+    </div>
+
+    <!-- พื้นที่แสดงเนื้อหาคอร์ส -->
+    <div id="course-content-container" class="space-y-3"></div>
+  </section>
+
+  <!-- 3. น้ำหนักตัว & Smart Scale Body Composition -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-weight-scale text-purple-400"></i> น้ำหนัก & องค์ประกอบร่างกาย
+        </h3>
+        <span id="goal-weight-diff" class="text-[10px] text-slate-400">ตั้งเป้าใน ⚙️</span>
+      </div>
+      <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5">
+        <input type="number" step="0.1" id="weight-input" onchange="updateWeight(this.value)" placeholder="0.0"
+          class="w-16 bg-transparent text-right text-sm font-extrabold text-purple-300 focus:outline-none" />
+        <span class="text-xs text-slate-400">kg</span>
+      </div>
+    </div>
+
+    <!-- กราฟแนวโน้มน้ำหนัก 7 วัน -->
+    <div id="weight-trend-container" class="bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800"></div>
+
+    <!-- Smart Scale (ไขมัน / กล้ามเนื้อ / ไขมันช่องท้อง / แขน-ขา) -->
+    <details class="bg-slate-950/70 rounded-2xl border border-slate-800 p-3">
+      <summary class="flex items-center justify-between cursor-pointer select-none text-xs font-bold text-purple-300">
+        <span><i class="fa-solid fa-person mr-1.5"></i> บันทึกค่าเครื่องชั่ง Smart Scale & หุ่น 3D</span>
+        <span id="body-comp-badge" class="text-[10px] text-slate-400">กดเปิด ▾</span>
+      </summary>
+
+      <div class="pt-3 space-y-3">
+        <div class="grid grid-cols-4 gap-1.5 text-xs">
+          <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-amber-300 block">% ไขมัน</span>
+            <input type="number" step="0.1" id="bc-fat-pct" onchange="updateBodyComposition()" placeholder="22.5" class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+          </div>
+          <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-emerald-300 block">กล้ามเนื้อ(kg)</span>
+            <input type="number" step="0.1" id="bc-muscle-kg" onchange="updateBodyComposition()" placeholder="54.0" class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+          </div>
+          <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-rose-300 block">ไขมันช่องท้อง</span>
+            <input type="number" step="0.5" id="bc-visceral" onchange="updateBodyComposition()" placeholder="9" class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+          </div>
+          <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-sky-300 block">% น้ำในตัว</span>
+            <input type="number" step="0.1" id="bc-water-pct" onchange="updateBodyComposition()" placeholder="56.0" class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5 text-xs">
+          <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-slate-400 block">ไขมันแขนซ้าย%</span>
+            <input type="number" step="0.1" id="bc-arm-l" onchange="updateBodyComposition()" placeholder="-" class="w-full bg-transparent text-slate-200 font-semibold focus:outline-none" />
+          </div>
+          <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-slate-400 block">ไขมันแขนขวา%</span>
+            <input type="number" step="0.1" id="bc-arm-r" onchange="updateBodyComposition()" placeholder="-" class="w-full bg-transparent text-slate-200 font-semibold focus:outline-none" />
+          </div>
+          <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-slate-400 block">ไขมันขาซ้าย%</span>
+            <input type="number" step="0.1" id="bc-leg-l" onchange="updateBodyComposition()" placeholder="-" class="w-full bg-transparent text-slate-200 font-semibold focus:outline-none" />
+          </div>
+          <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <span class="text-[9px] text-slate-400 block">ไขมันขาขวา%</span>
+            <input type="number" step="0.1" id="bc-leg-r" onchange="updateBodyComposition()" placeholder="-" class="w-full bg-transparent text-slate-200 font-semibold focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- หุ่นจำลอง 3D & ตารางส่วนต่าง -->
+        <div id="body-human-map-box" class="bg-slate-950/90 p-3 rounded-2xl border border-slate-800 space-y-2"></div>
+
+        <!-- บทวิเคราะห์องค์ประกอบร่างกาย -->
+        <div id="body-comp-analysis" class="hidden bg-purple-950/30 border border-purple-700/40 rounded-2xl p-3 text-[11px] leading-relaxed"></div>
+      </div>
+    </details>
+  </section>
+</div>
+
+<!-- ================= MODAL เพิ่มคาร์ดิโอ / กิจกรรมทั่วไป ================= -->
+<div id="workout-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-4 space-y-3 text-xs">
+    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+      <h3 class="text-sm font-bold text-white">บันทึกออกกำลังกาย / คาร์ดิโอ</h3>
+      <button type="button" onclick="closeWorkoutModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form onsubmit="handleWorkoutSubmit(event)" class="space-y-3">
+      <div>
+        <label class="text-[10px] text-slate-400">ประเภทกิจกรรม</label>
+        <select id="workout-type" onchange="autoCalcWorkoutCal()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-0.5">
+          <option value="เดินเร็ว / เดินชัน" data-rate="5.5">🚶 เดินเร็ว / เดินชัน</option>
+          <option value="วิ่งจ๊อกกิ้ง" data-rate="9.0">🏃 วิ่งจ๊อกกิ้ง</option>
+          <option value="ปั่นจักรยาน" data-rate="7.0">🚴 ปั่นจักรยาน</option>
+          <option value="ว่ายน้ำ / ดำน้ำ" data-rate="8.5">🏊 ว่ายน้ำ / ดำน้ำ</option>
+          <option value="เดินป่า / ปีนเขา" data-rate="8.0">🏔️ เดินป่า / ปีนเขา</option>
+          <option value="เวทเทรนนิ่งทั่วไป" data-rate="6.0">🏋️ เวทเทรนนิ่งทั่วไป</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-[10px] text-slate-400">ระยะเวลา (นาที)</label>
+          <input type="number" id="workout-duration" value="30" oninput="autoCalcWorkoutCal()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-0.5" />
+        </div>
+        <div>
+          <label class="text-[10px] text-orange-400">เผาผลาญ (kcal)</label>
+          <input type="number" id="workout-calories" value="165" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-300 font-bold mt-0.5" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeWorkoutModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300">ยกเลิก</button>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL รูปตัวอย่างท่าออกกำลังกาย ================= -->
+<div id="exercise-photo-modal" class="hidden fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-4 space-y-3 text-xs">
+    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+      <h3 id="ex-photo-title" class="text-sm font-bold text-white truncate pr-2">รูปสเต็ปท่าฝึก</h3>
+      <button type="button" onclick="closeExercisePhotoModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 shrink-0"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="file" id="ex-photo-input" accept="image/*" onchange="handleExercisePhotoSelected(event)" class="hidden" />
+    <div id="ex-photo-display-box" class="bg-slate-950 rounded-2xl border border-slate-800 min-h-[160px] flex items-center justify-center overflow-hidden"></div>
+    <div id="ex-photo-status" class="text-center text-[11px] text-sky-400"></div>
+    <button type="button" onclick="triggerExercisePhotoUpload()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl">
+      <i class="fa-solid fa-cloud-arrow-up mr-1"></i> อัปโหลด / เปลี่ยนรูปท่าฝึก
+    </button>
+  </div>
+</div>
