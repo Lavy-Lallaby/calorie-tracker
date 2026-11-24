@@ -2487,7 +2487,7 @@ function openCalendarModal() {
 }
 
 function closeCalendarModal() {
-    document.getElementById('calendar-modal').classList.add('hidden');
+    document.getElementById('calendar-modal')?.classList.add('hidden');
 }
 
 function changeCalendarMonth(delta) {
@@ -2681,10 +2681,21 @@ function renderCalendarDayDetail(dateKey) {
     `;
 }
 
+function toggleCalendarPage() {
+    if (activeMainPage === 'analytics') {
+        switchMainPage('nutrition');
+    } else {
+        switchMainPage('analytics');
+    }
+}
+
 function jumpToDate(dateKey) {
     currentDateKey = dateKey;
     hideMacroTip();
     closeCalendarModal();
+    if (typeof switchMainPage === 'function') {
+        switchMainPage('nutrition');
+    }
     renderUIOnly();
 }
 
@@ -2698,7 +2709,7 @@ function openReportModal() {
 }
 
 function closeReportModal() {
-    document.getElementById('report-modal').classList.add('hidden');
+    document.getElementById('report-modal')?.classList.add('hidden');
 }
 
 function switchReportPeriod(days) {
@@ -4072,7 +4083,7 @@ function openSkincareModal() {
 }
 
 function closeSkincareModal() {
-    document.getElementById('skincare-modal').classList.add('hidden');
+    document.getElementById('skincare-modal')?.classList.add('hidden');
 }
 
 function toggleSkincareDaysSelect() {
@@ -4821,11 +4832,11 @@ function switchMainPage(pageKey) {
     if (targetSec) targetSec.classList.remove('hidden');
 
     document.querySelectorAll('.nav-tab-btn').forEach(btn => {
-        btn.className = "nav-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition";
+        btn.className = "nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-300 hover:bg-slate-800 transition";
     });
     const activeBtn = document.getElementById(`nav-btn-${pageKey}`);
     if (activeBtn) {
-        activeBtn.className = "nav-tab-btn flex flex-col items-center justify-center py-1 text-indigo-400 font-bold transition";
+        activeBtn.className = "nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-300 font-bold transition";
     }
 
     if (pageKey === 'habits' && typeof renderSkincareContent === 'function') {
@@ -4866,6 +4877,13 @@ function renderIfTimerCard() {
     if (!card) return;
 
     const isBurnMode = userGoals.preset === 'fat_sugar_burn';
+    // ถ้าไม่ได้เลือกโปรแกรม IF 16/8 ให้ซ่อนการ์ดนี้ทันที ไม่บังคับทำ IF
+    if (!isBurnMode) {
+        card.classList.add('hidden');
+        return;
+    }
+    card.classList.remove('hidden');
+
     const now = new Date();
     const hour = now.getHours();
     const min = now.getMinutes();
@@ -4884,7 +4902,6 @@ function renderIfTimerCard() {
         statusSub = `อดมาแล้ว ${hrs} ชม. ${mins} นาที`;
         timerText = hrs >= 16 ? "00:00" : `${String(remHrs).padStart(2, '0')}:${String(remMins).padStart(2, '0')}`;
     } else {
-        // อ้างอิงกรอบเวลา 12:00 - 20:00 น.
         if (hour >= 12 && hour < 20) {
             const remH = 19 - hour;
             const remM = 59 - min;
@@ -4903,7 +4920,7 @@ function renderIfTimerCard() {
     card.innerHTML = `
         <div class="flex items-center justify-between gap-2">
             <div>
-                <div class="text-xs font-bold ${isBurnMode ? 'text-amber-400' : 'text-sky-300'}">${statusTitle}</div>
+                <div class="text-xs font-bold text-amber-400">${statusTitle}</div>
                 <div class="text-[10px] text-slate-400 mt-0.5">${statusSub}</div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
