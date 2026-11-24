@@ -932,6 +932,3 @@ window.addEventListener('DOMContentLoaded', async () => {
     await loadPageModule('foodtrack');
     await downloadFromGitHub(true);
 });
-```[cite: 23]
-
-วางทับได้เลยครับ คราวนี้ไม่มีตัวแปรซ้ำ ไม่มี `alert` กวนใจ และมีทั้ง Auto Push + ปุ่ม Upload / Download แยกครบในที่เดียวแล้วครับ
