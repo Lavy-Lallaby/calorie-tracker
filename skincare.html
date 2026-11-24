@@ -1,0 +1,118 @@
+<!-- ==========================================================================
+     skincare.html — โมดูลดูแลผิว, การดื่มน้ำ, อาหารเสริม & ซิงก์การนอน
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดซิงก์คุณภาพการนอน & ชีพจรจาก HUAWEI Watch -->
+  <section id="habits-sleep-banner" class="bg-slate-900 rounded-3xl p-4 border border-indigo-500/30 shadow-lg"></section>
+
+  <!-- 2. การ์ดตัวติดตามการดื่มน้ำประจำวัน -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-droplet text-sky-400"></i> ปริมาณน้ำดื่มวันนี้
+        </h3>
+        <span class="text-[10px] text-slate-400">เป้าหมาย: <span id="goal-water-label">2,000</span> ml</span>
+      </div>
+      <span id="water-summary-badge" class="text-xs font-extrabold text-sky-300 bg-sky-950/70 border border-sky-700/50 px-2.5 py-1 rounded-xl">
+        0 / 2,000 ml
+      </span>
+    </div>
+
+    <div class="space-y-1">
+      <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+        <div id="water-progress-bar" class="bg-gradient-to-r from-sky-400 to-cyan-300 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+      </div>
+      <div class="text-right text-[10px] text-slate-400"><span id="water-percent">0%</span> ของเป้าน้ำดื่ม</div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 text-xs pt-0.5">
+      <button type="button" onclick="addWater(250)" class="bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-200 font-bold py-2 rounded-xl transition">
+        +250 ml (1 แก้ว)
+      </button>
+      <button type="button" onclick="addWater(500)" class="bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-200 font-bold py-2 rounded-xl transition">
+        +500 ml (1 ขวด)
+      </button>
+      <button type="button" onclick="addWater(-250)" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 font-semibold py-2 rounded-xl transition">
+        -250 ml
+      </button>
+    </div>
+  </section>
+
+  <!-- 3. การ์ดวินัยต่อเนื่อง (Streak) & เช็กลิสต์อาหารเสริม -->
+  <section id="daily-habits-container" class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5"></section>
+
+  <!-- 4. การ์ดตารางดูแลผิวหน้า & ผิวกาย (Skincare & Body Care Routine) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-pink-500/30 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-sparkles text-pink-400"></i> ตารางดูแลผิวหน้า & ผิวกาย
+        </h3>
+        <span class="text-[10px] text-slate-400">ติ๊กเช็กขั้นตอนประจำวัน & เตือนสครับ/มาส์ก</span>
+      </div>
+      <button type="button" onclick="resetDefaultSkincare()" title="รีเซ็ตค่ารูทีนเริ่มต้น" class="text-[10px] bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 px-2.5 py-1 rounded-xl">
+        <i class="fa-solid fa-rotate-left mr-0.5"></i> ค่าเริ่มต้น
+      </button>
+    </div>
+
+    <!-- แถบปฏิทินเลือกวันในสัปดาห์ -->
+    <div id="skincare-week-strip"></div>
+
+    <!-- กล่องแจ้งเตือนคิวพิเศษประจำวัน -->
+    <div id="skincare-today-alert"></div>
+
+    <!-- รายการสกินแคร์ เช้า / ก่อนนอน / รายสัปดาห์ -->
+    <div id="skincare-list-container" class="space-y-3"></div>
+
+    <!-- ฟอร์มเพิ่มขั้นตอนดูแลผิวใหม่ -->
+    <details class="bg-slate-950/80 rounded-2xl border border-slate-800 p-3">
+      <summary class="text-xs font-bold text-pink-300 cursor-pointer select-none">
+        <i class="fa-solid fa-plus-circle mr-1"></i> เพิ่มขั้นตอนหรือผลิตภัณฑ์ใหม่
+      </summary>
+      <div class="pt-3 space-y-2 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <select id="skincare-new-period" onchange="toggleSkincareDaysSelect()" class="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-white">
+            <option value="morning">☀️ ตอนเช้า (ทุกวัน)</option>
+            <option value="night">🌙 ก่อนนอน (ทุกวัน)</option>
+            <option value="weekly">✨ เตือนรายสัปดาห์</option>
+          </select>
+          <button type="button" onclick="addSkincareItem()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl py-2">
+            + เพิ่มรายการ
+          </button>
+        </div>
+
+        <!-- เลือกวันในสัปดาห์ (แสดงเฉพาะเมื่อเลือกเตือนรายสัปดาห์) -->
+        <div id="skincare-days-picker" class="hidden flex flex-wrap gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 text-[11px]">
+          <label class="flex items-center gap-1"><input type="checkbox" value="0" class="sk-day-cb accent-pink-500"> อา</label>
+          <label class="flex items-center gap-1"><input type="checkbox" value="1" class="sk-day-cb accent-pink-500"> จ</label>
+          <label class="flex items-center gap-1"><input type="checkbox" value="2" class="sk-day-cb accent-pink-500"> อ</label>
+          <label class="flex items-center gap-1"><input type="checkbox" value="3" class="sk-day-cb accent-pink-500"> พ</label>
+          <label class="flex items-center gap-1"><input type="checkbox" value="4" class="sk-day-cb accent-pink-500"> พฤ</label>
+          <label class="flex items-center gap-1"><input type="checkbox" value="5" class="sk-day-cb accent-pink-500"> ศ</label>
+          <label class="flex items-center gap-1"><input type="checkbox" value="6" class="sk-day-cb accent-pink-500"> ส</label>
+        </div>
+
+        <input type="text" id="skincare-new-name" placeholder="ชื่อขั้นตอน / ผลิตภัณฑ์ (เช่น ทาเซรั่มวิตามินซี)"
+          class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-pink-500" />
+      </div>
+    </details>
+  </section>
+</div>
+
+<!-- ================= MODAL รูปตัวอย่างผลิตภัณฑ์ดูแลผิว ================= -->
+<div id="skincare-photo-modal" class="hidden fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-4 space-y-3 text-xs">
+    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+      <h3 id="sk-photo-title" class="text-sm font-bold text-white truncate pr-2">รูปผลิตภัณฑ์</h3>
+      <button type="button" onclick="closeSkincarePhotoModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 shrink-0"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="file" id="sk-photo-input" accept="image/*" onchange="handleSkincarePhotoSelected(event)" class="hidden" />
+    <div id="sk-photo-display-box" class="bg-slate-950 rounded-2xl border border-slate-800 min-h-[160px] flex items-center justify-center overflow-hidden"></div>
+    <div id="sk-photo-status" class="text-center text-[11px] text-pink-400"></div>
+    <button type="button" onclick="triggerSkincarePhotoUpload()" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-2.5 rounded-xl">
+      <i class="fa-solid fa-cloud-arrow-up mr-1"></i> อัปโหลด / เปลี่ยนรูปผลิตภัณฑ์
+    </button>
+  </div>
+</div>
