@@ -20,6 +20,7 @@ function renderFoodTrackPage() {
     if (userGoals.autoWeightMacro) {
         recalcGoalsByCurrentWeight(false);
     }
+    renderWaterUI();
     renderSummary();
     applyWorkoutAwareMacros();
     renderIfTimerCard();
