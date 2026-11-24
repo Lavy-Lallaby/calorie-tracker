@@ -696,7 +696,31 @@ function applyCalculatedCalories() {
     markPresetCustom();
 }
 
+// 1. ฟังก์ชันทำงานทันทีเมื่อกดสวิตช์ เปิด/ปิด ในหน้าตั้งค่า
+function onSettingsAutoWeightToggle(isChecked) {
+    if (isChecked) {
+        userGoals.autoWeightMacro = true;
+        if (!userGoals.autoWeightGoal) userGoals.autoWeightGoal = 'cut';
+        if (typeof recalcGoalsByCurrentWeight === 'function') {
+            recalcGoalsByCurrentWeight(false);
+            // อัปเดตตัวเลขในช่องกรอกให้เห็นค่าที่คำนวณใหม่ทันที
+            document.getElementById('goal-cal-input').value = userGoals.calories;
+            document.getElementById('goal-min-cal-input').value = userGoals.minCalories;
+            document.getElementById('goal-prot-min-input').value = userGoals.proteinMin;
+            document.getElementById('goal-prot-max-input').value = userGoals.proteinMax;
+            document.getElementById('goal-carbs-input').value = userGoals.carbsMax;
+            document.getElementById('goal-fat-input').value = userGoals.fatMax;
+        }
+    } else {
+        userGoals.autoWeightMacro = false;
+    }
+}
+
+// 2. ใน openSettingsModal() เพิ่มการดึงสถานะสวิตช์มาแสดง
 function openSettingsModal() {
+    const autoToggle = document.getElementById('goal-auto-weight-toggle');
+    if (autoToggle) autoToggle.checked = Boolean(userGoals.autoWeightMacro);
+
     const currentPreset = userGoals.preset || 'fat_loss';
     document.getElementById('goal-preset-select').value = goalPresets[currentPreset] ? currentPreset : 'custom';
     const descEl = document.getElementById('preset-desc-label');
@@ -723,23 +747,22 @@ function openSettingsModal() {
     document.getElementById('settings-modal').classList.remove('hidden');
 }
 
-function closeSettingsModal() {
-    document.getElementById('settings-modal').classList.add('hidden');
-}
-
+// 3. ใน saveAllSettings() บันทึกค่าตามสวิตช์ที่คุณเลือกไว้จริง
 async function saveAllSettings() {
     const selectedPreset = document.getElementById('goal-preset-select').value || 'custom';
     const presetObj = goalPresets[selectedPreset];
+    const isAutoWeight = Boolean(document.getElementById('goal-auto-weight-toggle')?.checked);
 
     const newMaxCal = Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500);
     const newMinCal = Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200);
 
-    // ล็อกค่าเก่าให้วันก่อนหน้า และใช้ค่าใหม่ตั้งแต่วันที่เลือกอยู่ (currentDateKey) เป็นต้นไป
+    // ล็อกค่าเก่าให้วันก่อนหน้า และใช้ค่าใหม่ตั้งแต่วันที่เลือกอยู่เป็นต้นไป
     applyGoalChangeFromDate(currentDateKey, newMinCal, newMaxCal);
 
     userGoals = {
         ...userGoals,
         preset: selectedPreset,
+        autoWeightMacro: isAutoWeight, // บันทึกตามสถานะสวิตช์ เปิด/ปิด จริง
         calories: newMaxCal,
         minCalories: newMinCal,
         proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
@@ -771,6 +794,10 @@ async function saveAllSettings() {
         setSyncStatus('local', 'บันทึกในเครื่อง');
         alert("บันทึกเป้าหมายเรียบร้อยแล้ว!");
     }
+}
+
+function closeSettingsModal() {
+    document.getElementById('settings-modal').classList.add('hidden');
 }
 
 function exportHistoryToCSV() {
