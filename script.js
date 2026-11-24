@@ -29,6 +29,15 @@ function formatDisplayDate(dateKey) {
     return date.toLocaleDateString('th-TH', options);
 }
 
+function goToToday() {
+    currentDateKey = getFormattedDateKey(new Date());
+    hideMacroTip();
+    if (typeof switchMainPage === 'function') {
+        switchMainPage('nutrition');
+    }
+    renderUIOnly();
+}
+
 // ==========================================
 // State Management, Programs & Flexible Goals
 // ==========================================
