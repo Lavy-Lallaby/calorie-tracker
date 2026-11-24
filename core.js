@@ -436,6 +436,67 @@ async function fetchRemoteDbMeta(token) {
     return { exists: true, sha: json.sha, data: parsed };
 }
 
+// ------------------------------------------
+// Manual Upload & Download (แยกปุ่มชัดเจน ไม่ auto push)
+// ------------------------------------------
+let _isSyncBusy = false;
+
+function setActionIconState(btnId, busy) {
+    const icon = document.getElementById(btnId);
+    if (!icon) return;
+    if (busy) icon.classList.add('fa-spin');
+    else icon.classList.remove('fa-spin');
+}
+
+function applyDownloadedDbToState(remoteDb) {
+    if (!remoteDb || typeof remoteDb !== 'object') return;
+
+    if (remoteDb.goals) {
+        userGoals = { ...defaultGoals, ...remoteDb.goals };
+        localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+    }
+    if (remoteDb.history && typeof remoteDb.history === 'object') {
+        allMealsHistory = remoteDb.history;
+        localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    }
+    if (Array.isArray(remoteDb.catalog)) {
+        foodCatalog = remoteDb.catalog;
+        localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+    }
+    if (Array.isArray(remoteDb.skincareItems)) {
+        window.skincareItems = remoteDb.skincareItems;
+        localStorage.setItem('fitTracker_skincare_items', JSON.stringify(remoteDb.skincareItems));
+    }
+    if (remoteDb.skincareLogs) {
+        window.skincareLogs = remoteDb.skincareLogs;
+        localStorage.setItem('fitTracker_skincare_logs', JSON.stringify(remoteDb.skincareLogs));
+    }
+    if (remoteDb.skincarePhotosMap) {
+        window.skincarePhotosMap = remoteDb.skincarePhotosMap;
+        localStorage.setItem('fitTracker_skincare_photos', JSON.stringify(remoteDb.skincarePhotosMap));
+    }
+    if (remoteDb.exercisePhotosMap) {
+        window.exercisePhotosMap = remoteDb.exercisePhotosMap;
+        localStorage.setItem('fitTracker_ex_photos', JSON.stringify(remoteDb.exercisePhotosMap));
+    }
+    if (Array.isArray(remoteDb.trips)) {
+        window.savedTrips = remoteDb.trips;
+        localStorage.setItem('fitTracker_trips', JSON.stringify(remoteDb.trips));
+    }
+    if (Array.isArray(remoteDb.pantry)) {
+        window.pantryItems = remoteDb.pantry;
+        localStorage.setItem('fitTracker_pantry', JSON.stringify(remoteDb.pantry));
+    }
+    if (remoteDb.gear) {
+        window.gearState = remoteDb.gear;
+        localStorage.setItem('fitTracker_gear_state', JSON.stringify(remoteDb.gear));
+    }
+    if (remoteDb.car) {
+        window.carData = remoteDb.car;
+        localStorage.setItem('fitTracker_car_data', JSON.stringify(remoteDb.car));
+    }
+}
+
 function buildDbPayload() {
     return {
         updatedAt: new Date().toISOString(),
@@ -452,6 +513,142 @@ function buildDbPayload() {
         car: window.carData
     };
 }
+
+// ปุ่ม DOWNLOAD: ดึง db.json จาก GitHub มาทับข้อมูลในเครื่อง
+async function downloadFromGitHub(silentOnLoad = false) {
+    const token = (localStorage.getItem('fitTracker_github_token') || '').trim();
+    if (!token) {
+        setSyncStatus('local', 'บันทึกในเครื่อง');
+        if (!silentOnLoad) alert('ยังไม่ได้ตั้งค่า GitHub Token ครับ');
+        return;
+    }
+    if (_isSyncBusy) return;
+
+    _isSyncBusy = true;
+    setActionIconState('btn-download-icon', true);
+    setSyncStatus('syncing', 'กำลัง Download...');
+
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
+        const res = await fetch(url, {
+            cache: 'no-store',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
+        });
+
+        if (res.status === 404) {
+            setSyncStatus('local', 'ยังไม่มีไฟล์ db.json');
+            if (!silentOnLoad) alert('ไม่พบไฟล์ db.json บน GitHub ครับ');
+            return;
+        }
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status} - ${errText.slice(0, 120)}`);
+        }
+
+        const data = await res.json();
+        currentFileSha = data.sha;
+        const remoteDb = JSON.parse(base64ToUtf8(data.content));
+
+        applyDownloadedDbToState(remoteDb);
+        renderActivePageUI();
+        setSyncStatus('synced', 'Download สำเร็จแล้ว');
+        if (!silentOnLoad) alert('Download ข้อมูลจาก GitHub เรียบร้อยแล้ว!');
+    } catch (err) {
+        console.error('[downloadFromGitHub]:', err);
+        setSyncStatus('error', `Download พลาด: ${err.message}`);
+        if (!silentOnLoad) alert('Download ไม่สำเร็จ:\n' + err.message);
+    } finally {
+        _isSyncBusy = false;
+        setActionIconState('btn-download-icon', false);
+    }
+}
+
+// ปุ่ม UPLOAD: ส่งข้อมูลปัจจุบันจากเครื่องขึ้นไปเขียนทับ db.json บน GitHub
+async function uploadToGitHub() {
+    const token = (localStorage.getItem('fitTracker_github_token') || '').trim();
+    if (!token) {
+        alert('ยังไม่ได้ตั้งค่า GitHub Token ครับ');
+        return;
+    }
+    if (_isSyncBusy) return;
+
+    _isSyncBusy = true;
+    setActionIconState('btn-upload-icon', true);
+    setSyncStatus('syncing', 'กำลัง Upload...');
+
+    try {
+        // ดึง SHA ล่าสุดก่อนเสมอเพื่อไม่ให้ติด 409
+        const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
+        const getRes = await fetch(getUrl, {
+            cache: 'no-store',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
+        });
+
+        if (getRes.ok) {
+            const getData = await getRes.json();
+            currentFileSha = getData.sha;
+        } else if (getRes.status !== 404) {
+            const errGet = await getRes.text().catch(() => '');
+            throw new Error(`เช็กไฟล์เดิมไม่สำเร็จ (HTTP ${getRes.status}) ${errGet.slice(0, 100)}`);
+        }
+
+        const contentBase64 = utf8ToBase64(JSON.stringify(buildDbPayload(), null, 2));
+        const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
+
+        const putRes = await fetch(putUrl, {
+            method: 'PUT',
+            cache: 'no-store',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Upload FitTracker DB (${currentDateKey})`,
+                content: contentBase64,
+                ...(currentFileSha ? { sha: currentFileSha } : {})
+            })
+        });
+
+        if (!putRes.ok) {
+            const errPut = await putRes.text().catch(() => '');
+            throw new Error(`HTTP ${putRes.status} - ${errPut.slice(0, 140)}`);
+        }
+
+        const putData = await putRes.json();
+        currentFileSha = putData.content?.sha || currentFileSha;
+        setSyncStatus('synced', 'Upload สำเร็จแล้ว');
+        alert('Upload ข้อมูลขึ้น GitHub เรียบร้อยแล้ว!');
+    } catch (err) {
+        console.error('[uploadToGitHub]:', err);
+        setSyncStatus('error', `Upload พลาด: ${err.message}`);
+        alert('Upload ไม่สำเร็จ:\n' + err.message);
+    } finally {
+        _isSyncBusy = false;
+        setActionIconState('btn-upload-icon', false);
+    }
+}
+
+// ใน saveDataAndSync() ให้บันทึกเฉพาะในเครื่อง ไม่ auto upload
+function saveDataAndSync() {
+    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+    renderActivePageUI();
+    setSyncStatus('local', 'บันทึกในเครื่อง (กด Upload เพื่อส่งขึ้น Cloud)');
+}
+
+// เผื่อโค้ดอื่นยังเรียกชื่อเดิมอยู่ ให้ชี้มาที่ฟังก์ชันแยกชัดเจน
+const syncFromGitHub = (showAlert = false) => downloadFromGitHub(!showAlert);
+const pushToGitHub = (_showAlert = false) => {
+    setSyncStatus('local', 'บันทึกในเครื่อง (กด Upload เพื่อส่งขึ้น Cloud)');
+};
 
 async function pushToGitHub(showAlert = false) {
     const token = (localStorage.getItem('fitTracker_github_token') || '').trim();
@@ -924,5 +1121,6 @@ applyAppTheme(localStorage.getItem('fitTracker_theme') || 'dark');
 // ------------------------------------------
 window.addEventListener('DOMContentLoaded', async () => {
     await loadPageModule('foodtrack');
-    await syncFromGitHub(false);
+    await downloadFromGitHub(true);
+    // await syncFromGitHub(false);
 });
