@@ -369,8 +369,10 @@ async function computeRouteAndRenderMap(stops, startTime) {
     const center = stops.length > 0 ? [stops[0].lat, stops[0].lng] : [13.5685, 100.8122];
     tripLeafletMap = L.map('trip-leaflet-map').setView(center, 9);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap'
+    // ✅ ใช้อันนี้แทน (OpenStreetMap ฟรี 100% ชื่อสถานที่ภาษาไทยชัด)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
     }).addTo(tripLeafletMap);
 
     tripLayerGroup = L.layerGroup().addTo(tripLeafletMap);
