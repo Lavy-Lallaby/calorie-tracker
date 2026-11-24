@@ -413,26 +413,24 @@
         </section>
     </main>
 
-    <!-- ========================================== -->
-    <!-- Bottom Navigation Bar (4 แท็บหลัก)         -->
-    <!-- ========================================== -->
-    <nav class="fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 z-40 flex justify-center">
-        <div class="w-full max-w-md grid grid-cols-4 py-1.5 px-2">
-            <button type="button" id="nav-btn-nutrition" onclick="switchMainPage('nutrition')" class="nav-tab-btn flex flex-col items-center justify-center py-1 text-indigo-400 font-bold">
+    <!-- Bottom Navigation Bar (4 แท็บหลัก - มองเห็นชัดทุกจอ) -->
+    <nav class="fixed bottom-0 inset-x-0 bg-slate-900 border-t-2 border-indigo-500/40 z-50 flex justify-center shadow-2xl pb-2">
+        <div class="w-full max-w-md grid grid-cols-4 gap-1 py-2 px-2">
+            <button type="button" id="nav-btn-nutrition" onclick="switchMainPage('nutrition')" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl bg-indigo-600/20 text-indigo-400 font-bold">
                 <i class="fa-solid fa-utensils text-base mb-0.5"></i>
-                <span class="text-[10px]">อาหาร</span>
+                <span class="text-[11px]">อาหาร</span>
             </button>
-            <button type="button" id="nav-btn-workout" onclick="switchMainPage('workout')" class="nav-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200">
-                <i class="fa-solid fa-dumbbell text-base mb-0.5"></i>
-                <span class="text-[10px]">เวท & หุ่น</span>
+            <button type="button" id="nav-btn-workout" onclick="switchMainPage('workout')" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-300 hover:bg-slate-800">
+                <i class="fa-solid fa-dumbbell text-base mb-0.5 text-amber-400"></i>
+                <span class="text-[11px]">เวท & หุ่น</span>
             </button>
-            <button type="button" id="nav-btn-habits" onclick="switchMainPage('habits')" class="nav-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200">
-                <i class="fa-solid fa-sparkles text-base mb-0.5"></i>
-                <span class="text-[10px]">นิสัย & ผิว</span>
+            <button type="button" id="nav-btn-habits" onclick="switchMainPage('habits')" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-300 hover:bg-slate-800">
+                <i class="fa-solid fa-sparkles text-base mb-0.5 text-pink-400"></i>
+                <span class="text-[11px]">ดูแลผิว</span>
             </button>
-            <button type="button" id="nav-btn-analytics" onclick="switchMainPage('analytics')" class="nav-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200">
-                <i class="fa-solid fa-chart-pie text-base mb-0.5"></i>
-                <span class="text-[10px]">สรุปผล</span>
+            <button type="button" id="nav-btn-analytics" onclick="switchMainPage('analytics')" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-300 hover:bg-slate-800">
+                <i class="fa-solid fa-chart-pie text-base mb-0.5 text-emerald-400"></i>
+                <span class="text-[11px]">สรุปผล</span>
             </button>
         </div>
     </nav>
@@ -697,6 +695,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=53"></script>
+    <script src="script.js?v=54"></script>
 </body>
 </html>
