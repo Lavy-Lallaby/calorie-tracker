@@ -104,6 +104,9 @@
 
             <div id="rollover-alert-box" class="hidden text-[11px] px-3 py-2 rounded-xl border flex items-start gap-2"></div>
 
+            <!-- กราฟหลอดเช็กสารอาหารวันนี้ (ตัวไหนใกล้เต็ม / เกินเป้า) -->
+            <section id="daily-macro-chart-card" class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm space-y-3"></section>
+
             <!-- Macros Grid 3x3 -->
             <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/60 text-center">
                 <div onclick="showMacroTip('carbs')" class="bg-slate-950/40 hover:bg-slate-800/70 p-2 rounded-xl border border-slate-800/40 cursor-pointer">
@@ -178,9 +181,6 @@
             </div>
             <div class="hidden"><div id="water-progress-bar"></div></div>
         </section>
-
-        <!-- กราฟหลอดเช็กสารอาหารวันนี้ (ตัวไหนใกล้เต็ม / เกินเป้า) -->
-        <section id="daily-macro-chart-card" class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm space-y-3"></section>
 
         <!-- Meals Container -->
         <div id="meals-container" class="space-y-3.5"></div>
