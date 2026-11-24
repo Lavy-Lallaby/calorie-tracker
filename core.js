@@ -142,6 +142,7 @@ function renderActivePageUI() {
     if (activeMainPage === 'skincare' && typeof renderSkincarePage === 'function') renderSkincarePage();
     if (activeMainPage === 'summary' && typeof renderSummaryPage === 'function') renderSummaryPage();
     if (activeMainPage === 'trip' && typeof renderTripPage === 'function') renderTripPage();
+    if (activeMainPage === 'addons' && typeof renderAddonsPage === 'function') renderAddonsPage();
 }
 
 // ------------------------------------------
