@@ -280,6 +280,32 @@ function getTotalBurned(dayData) {
     return { stepsCal, workoutCal, totalBurn: stepsCal + workoutCal };
 }
 
+function addWater(amount) {
+    const dayData = getDayData(currentDateKey);
+    const currentWater = Number(dayData.water) || 0;
+    const nextWater = Math.max(0, currentWater + Number(amount || 0));
+    dayData.water = nextWater;
+    saveDataAndSync();
+}
+
+function renderWaterUI() {
+    const badge = document.getElementById('water-summary-badge');
+    const goalLabel = document.getElementById('goal-water-label');
+    const bar = document.getElementById('water-progress-bar');
+    const pctEl = document.getElementById('water-percent');
+    if (!badge || !bar) return;
+
+    const dayData = getDayData(currentDateKey);
+    const water = Number(dayData.water) || 0;
+    const goal = Number(userGoals.water) || 2000;
+    const pct = Math.min(100, Math.round((water / Math.max(1, goal)) * 100));
+
+    if (goalLabel) goalLabel.innerText = goal.toLocaleString();
+    badge.innerText = `${water.toLocaleString()} / ${goal.toLocaleString()} ml`;
+    bar.style.width = `${pct}%`;
+    if (pctEl) pctEl.innerText = `${pct}%`;
+}
+
 // ------------------------------------------
 // 4. Calorie & Nutrient Rollover Compensation
 // ------------------------------------------
@@ -481,6 +507,9 @@ async function syncFromGitHub(showAlert = false) {
     }
 }
 
+let isPushingToGitHub = false;
+let pendingPushAfterCurrent = false;
+
 async function pushToGitHub(showAlert = false) {
     const token = localStorage.getItem('fitTracker_github_token');
     if (!token) {
@@ -488,11 +517,22 @@ async function pushToGitHub(showAlert = false) {
         return;
     }
 
+    if (isPushingToGitHub) {
+        pendingPushAfterCurrent = true;
+        return;
+    }
+
+    isPushingToGitHub = true;
     setSyncStatus('syncing', 'กำลังบันทึกขึ้น Cloud...');
+
     const fetchLatestSha = async () => {
         const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
         const getRes = await fetch(getUrl, {
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+            cache: 'no-store',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
         });
         if (getRes.ok) {
             const getData = await getRes.json();
@@ -501,7 +541,7 @@ async function pushToGitHub(showAlert = false) {
     };
 
     try {
-        if (!currentFileSha) await fetchLatestSha();
+        await fetchLatestSha();
 
         const payload = {
             updatedAt: new Date().toISOString(),
@@ -523,6 +563,7 @@ async function pushToGitHub(showAlert = false) {
 
         const sendPut = async () => fetch(putUrl, {
             method: 'PUT',
+            cache: 'no-store',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.github+json',
@@ -550,6 +591,12 @@ async function pushToGitHub(showAlert = false) {
         console.error(err);
         setSyncStatus('error', 'อัปโหลดล้มเหลว');
         if (showAlert) alert("ส่งข้อมูลขึ้น GitHub ไม่สำเร็จ: " + err.message);
+    } finally {
+        isPushingToGitHub = false;
+        if (pendingPushAfterCurrent) {
+            pendingPushAfterCurrent = false;
+            pushToGitHub(false);
+        }
     }
 }
 
