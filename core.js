@@ -111,11 +111,16 @@ async function loadPageModule(pageName) {
 
     // อัปเดตสีปุ่มเมนูด้านล่าง
     document.querySelectorAll('.nav-tab-btn').forEach(btn => {
-        btn.className = "nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition";
+        const isSummary = btn.id === 'nav-btn-summary';
+        btn.className = isSummary
+            ? "nav-tab-btn row-span-2 col-start-5 row-start-1 flex flex-col items-center justify-center rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:bg-slate-800 transition"
+            : "nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition";
     });
     const activeBtn = document.getElementById(`nav-btn-${pageName}`);
     if (activeBtn) {
-        activeBtn.className = "nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-300 font-bold transition";
+        activeBtn.className = pageName === 'summary'
+            ? "nav-tab-btn row-span-2 col-start-5 row-start-1 flex flex-col items-center justify-center rounded-2xl bg-indigo-600/30 border border-indigo-400 text-white font-bold shadow-lg transition"
+            : "nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-300 font-bold transition";
     }
 
     // โหลดไฟล์ HTML ย่อย (แคชไว้ในหน่วยความจำเพื่อให้เปิดซ้ำได้ทันที)
