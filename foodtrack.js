@@ -287,32 +287,6 @@ function applyWorkoutAwareMacros() {
     }
 }
 
-function addWater(amount) {
-    const dayData = getDayData(currentDateKey);
-    const currentWater = Number(dayData.water) || 0;
-    const nextWater = Math.max(0, currentWater + Number(amount || 0));
-    dayData.water = nextWater;
-    saveDataAndSync();
-}
-
-function renderWaterUI() {
-    const badge = document.getElementById('water-summary-badge');
-    const goalLabel = document.getElementById('goal-water-label');
-    const bar = document.getElementById('water-progress-bar');
-    const pctEl = document.getElementById('water-percent');
-    if (!badge || !bar) return;
-
-    const dayData = getDayData(currentDateKey);
-    const water = Number(dayData.water) || 0;
-    const goal = Number(userGoals.water) || 2000;
-    const pct = Math.min(100, Math.round((water / Math.max(1, goal)) * 100));
-
-    if (goalLabel) goalLabel.innerText = goal.toLocaleString();
-    badge.innerText = `${water.toLocaleString()} / ${goal.toLocaleString()} ml`;
-    bar.style.width = `${pct}%`;
-    if (pctEl) pctEl.innerText = `${pct}%`;
-}
-
 // ------------------------------------------
 // 3. Smart Auto-Sync Macro ตามน้ำหนักจริง & Quick Meal Presets
 // ------------------------------------------
