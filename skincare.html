@@ -6,40 +6,6 @@
   <!-- 1. การ์ดซิงก์คุณภาพการนอน & ชีพจรจาก HUAWEI Watch -->
   <section id="habits-sleep-banner" class="bg-slate-900 rounded-3xl p-4 border border-indigo-500/30 shadow-lg"></section>
 
-  <!-- 2. การ์ดตัวติดตามการดื่มน้ำประจำวัน -->
-  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
-    <div class="flex items-center justify-between">
-      <div>
-        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
-          <i class="fa-solid fa-droplet text-sky-400"></i> ปริมาณน้ำดื่มวันนี้
-        </h3>
-        <span class="text-[10px] text-slate-400">เป้าหมาย: <span id="goal-water-label">2,000</span> ml</span>
-      </div>
-      <span id="water-summary-badge" class="text-xs font-extrabold text-sky-300 bg-sky-950/70 border border-sky-700/50 px-2.5 py-1 rounded-xl">
-        0 / 2,000 ml
-      </span>
-    </div>
-
-    <div class="space-y-1">
-      <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-        <div id="water-progress-bar" class="bg-gradient-to-r from-sky-400 to-cyan-300 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-      </div>
-      <div class="text-right text-[10px] text-slate-400"><span id="water-percent">0%</span> ของเป้าน้ำดื่ม</div>
-    </div>
-
-    <div class="grid grid-cols-3 gap-2 text-xs pt-0.5">
-      <button type="button" onclick="addWater(250)" class="bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-200 font-bold py-2 rounded-xl transition">
-        +250 ml (1 แก้ว)
-      </button>
-      <button type="button" onclick="addWater(500)" class="bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-200 font-bold py-2 rounded-xl transition">
-        +500 ml (1 ขวด)
-      </button>
-      <button type="button" onclick="addWater(-250)" class="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 font-semibold py-2 rounded-xl transition">
-        -250 ml
-      </button>
-    </div>
-  </section>
-
   <!-- 3. การ์ดวินัยต่อเนื่อง (Streak) & เช็กลิสต์อาหารเสริม -->
   <section id="daily-habits-container" class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5"></section>
 
