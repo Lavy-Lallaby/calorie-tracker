@@ -580,7 +580,6 @@ async function uploadToGitHub() {
     setSyncStatus('syncing', 'กำลัง Upload...');
 
     try {
-        // ดึง SHA ล่าสุดก่อนเสมอเพื่อไม่ให้ติด 409
         const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}?t=${Date.now()}`;
         const getRes = await fetch(getUrl, {
             cache: 'no-store',
@@ -635,7 +634,6 @@ async function uploadToGitHub() {
     }
 }
 
-// ใน saveDataAndSync() ให้บันทึกเฉพาะในเครื่อง ไม่ auto upload
 function saveDataAndSync() {
     localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
     localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
@@ -644,84 +642,10 @@ function saveDataAndSync() {
     setSyncStatus('local', 'บันทึกในเครื่อง (กด Upload เพื่อส่งขึ้น Cloud)');
 }
 
-// เผื่อโค้ดอื่นยังเรียกชื่อเดิมอยู่ ให้ชี้มาที่ฟังก์ชันแยกชัดเจน
 const syncFromGitHub = (showAlert = false) => downloadFromGitHub(!showAlert);
 const pushToGitHub = (_showAlert = false) => {
     setSyncStatus('local', 'บันทึกในเครื่อง (กด Upload เพื่อส่งขึ้น Cloud)');
 };
-
-async function pushToGitHub(showAlert = false) {
-    const token = (localStorage.getItem('fitTracker_github_token') || '').trim();
-    if (!token) {
-        setSyncStatus('local', 'บันทึกในเครื่อง');
-        return;
-    }
-
-    // ถ้ากำลังอัปโหลดอยู่ ให้ต่อคิวไว้ทำรอบถัดไป ไม่ยิงชนกัน
-    if (_isPushingToGitHub) {
-        _queuedPushShowAlert = _queuedPushShowAlert || showAlert;
-        return;
-    }
-
-    _isPushingToGitHub = true;
-    setSyncStatus('syncing', 'กำลังบันทึกขึ้น Cloud...');
-
-    try {
-        // ดึง SHA ล่าสุดก่อนเสมอเพื่อลดโอกาสติด 409
-        const remoteMeta = await fetchRemoteDbMeta(token);
-        if (remoteMeta.sha) {
-            currentFileSha = remoteMeta.sha;
-        }
-
-        const contentBase64 = utf8ToBase64(JSON.stringify(buildDbPayload(), null, 2));
-        const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
-
-        const sendPut = async (shaToUse) => fetch(putUrl, {
-            method: 'PUT',
-            cache: 'no-store',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: `Update FitTracker DB (${currentDateKey})`,
-                content: contentBase64,
-                ...(shaToUse ? { sha: shaToUse } : {})
-            })
-        });
-
-        let putRes = await sendPut(currentFileSha);
-
-        // ถ้ายังติด 409 ให้รีเฟรช SHA อีกรอบแล้วยิงซ้ำทันที
-        if (putRes.status === 409) {
-            const refreshed = await fetchRemoteDbMeta(token);
-            currentFileSha = refreshed.sha || null;
-            putRes = await sendPut(currentFileSha);
-        }
-
-        if (!putRes.ok) {
-            const errBody = await putRes.text().catch(() => '');
-            throw new Error(`HTTP ${putRes.status} - ${errBody.slice(0, 140)}`);
-        }
-
-        const putData = await putRes.json();
-        currentFileSha = putData.content?.sha || currentFileSha;
-        setSyncStatus('synced', 'ซิงก์ GitHub แล้ว');
-        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub เรียบร้อยแล้ว!");
-    } catch (err) {
-        console.error('[pushToGitHub error]:', err);
-        setSyncStatus('error', `อัปโหลดไม่สำเร็จ: ${err.message}`);
-        if (showAlert) alert("ส่งข้อมูลขึ้น GitHub ไม่สำเร็จ:\n" + err.message);
-    } finally {
-        _isPushingToGitHub = false;
-        if (_queuedPushShowAlert) {
-            const nextAlert = _queuedPushShowAlert;
-            _queuedPushShowAlert = false;
-            pushToGitHub(nextAlert);
-        }
-    }
-}
 
 async function syncFromGitHub(showAlert = false) {
     const token = localStorage.getItem('fitTracker_github_token');
