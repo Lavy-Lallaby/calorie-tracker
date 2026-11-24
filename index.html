@@ -88,32 +88,49 @@
   <!-- ================= MAIN MODULE SLOT (โหลด HTML ย่อยมาวางตรงนี้) ================= -->
   <main id="page-slot" class="max-w-lg mx-auto p-3 space-y-3"></main>
 
-  <!-- ================= BOTTOM 5-TAB NAVIGATION ================= -->
+  <!-- ================= BOTTOM 2-ROW PRO NAVIGATION (สรุปผลขวาสุดสูง 2 บรรทัด) ================= -->
   <nav class="fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 border-t border-slate-800 backdrop-blur px-2 py-1.5">
-    <div class="max-w-lg mx-auto grid grid-cols-5 gap-1">
+    <div class="max-w-lg mx-auto grid grid-cols-5 grid-rows-2 gap-1">
+      <!-- แถวบน (4 ปุ่มซ้าย) -->
       <button type="button" onclick="loadPageModule('foodtrack')" id="nav-btn-foodtrack" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-300 font-bold transition">
-        <i class="fa-solid fa-utensils text-sm mb-0.5"></i>
-        <span class="text-[10px]">อาหาร</span>
+        <i class="fa-solid fa-utensils text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">อาหาร</span>
       </button>
       <button type="button" onclick="loadPageModule('train')" id="nav-btn-train" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
-        <i class="fa-solid fa-dumbbell text-sm mb-0.5"></i>
-        <span class="text-[10px]">เวท & หุ่น</span>
+        <i class="fa-solid fa-dumbbell text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">เวท & หุ่น</span>
       </button>
       <button type="button" onclick="loadPageModule('skincare')" id="nav-btn-skincare" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
-        <i class="fa-solid fa-sun text-sm mb-0.5"></i>
-        <span class="text-[10px]">ดูแลผิว</span>
+        <i class="fa-solid fa-sun text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">ดูแลผิว</span>
       </button>
       <button type="button" onclick="loadPageModule('trip')" id="nav-btn-trip" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
-        <i class="fa-solid fa-route text-sm mb-0.5"></i>
-        <span class="text-[10px]">แผนเที่ยว</span>
+        <i class="fa-solid fa-route text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">แผนเที่ยว</span>
       </button>
+
+      <!-- คอลัมน์ขวาสุด: ปุ่ม "สรุปผล" ยาวเต็ม 2 บรรทัด (row-span-2) -->
+      <button type="button" onclick="loadPageModule('summary')" id="nav-btn-summary" class="nav-tab-btn row-span-2 col-start-5 row-start-1 flex flex-col items-center justify-center rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:bg-slate-800 transition">
+        <i class="fa-solid fa-chart-pie text-lg mb-1 text-emerald-400"></i>
+        <span class="text-[11px] font-bold">สรุปผล</span>
+      </button>
+
+      <!-- แถวล่าง (4 ปุ่มซ้าย: ตัวช่วย + 3 ฟังก์ชันใหม่) -->
       <button type="button" onclick="loadPageModule('addons')" id="nav-btn-addons" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
-        <i class="fa-solid fa-wand-magic-sparkles text-sm mb-0.5"></i>
-        <span class="text-[10px]">ตัวช่วย</span>
+        <i class="fa-solid fa-wand-magic-sparkles text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">ตัวช่วย</span>
       </button>
-      <button type="button" onclick="loadPageModule('summary')" id="nav-btn-summary" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
-        <i class="fa-solid fa-chart-pie text-sm mb-0.5"></i>
-        <span class="text-[10px]">สรุปผล</span>
+      <button type="button" onclick="loadPageModule('finance')" id="nav-btn-finance" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-wallet text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">รายจ่าย</span>
+      </button>
+      <button type="button" onclick="loadPageModule('gear')" id="nav-btn-gear" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-suitcase-rolling text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">จัดกระเป๋า</span>
+      </button>
+      <button type="button" onclick="loadPageModule('focus')" id="nav-btn-focus" class="nav-tab-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:bg-slate-900 transition">
+        <i class="fa-solid fa-stopwatch text-xs mb-0.5"></i>
+        <span class="text-[10px] leading-none">โฟกัส</span>
       </button>
     </div>
   </nav>
