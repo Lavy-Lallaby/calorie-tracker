@@ -613,14 +613,6 @@ async function downloadFromGitHub(_silentOnLoad = true) {
 const uploadToGitHub = () => pushToGitHub(false);
 const syncFromGitHub = (_showAlert = false) => downloadFromGitHub(true);
 
-function saveDataAndSync() {
-    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
-    localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
-    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
-    renderActivePageUI();
-    pushToGitHub(false);
-}
-
 // ------------------------------------------
 // 6. Image Resize & GitHub Image Upload Helper
 // ------------------------------------------
@@ -810,6 +802,23 @@ function openSettingsModal() {
     document.getElementById('settings-modal').classList.remove('hidden');
 }
 
+function hasLocalData() {
+    const rawHistory = JSON.parse(localStorage.getItem('fitTracker_history') || '{}');
+    const hasHistory = Object.keys(rawHistory).some((dateKey) => {
+        const day = rawHistory[dateKey];
+        if (!day) return false;
+        const hasMeals = day.meals && Object.values(day.meals).some((arr) => Array.isArray(arr) && arr.length > 0);
+        const hasWorkouts = Array.isArray(day.workouts) && day.workouts.length > 0;
+        const hasMetrics = (Number(day.steps) > 0) || (Number(day.water) > 0) || (day.weight !== null && day.weight !== undefined && day.weight !== '');
+        return hasMeals || hasWorkouts || hasMetrics;
+    });
+
+    const rawCatalog = JSON.parse(localStorage.getItem('fitTracker_catalog') || '[]');
+    const hasCustomCatalog = Array.isArray(rawCatalog) && rawCatalog.length > 3;
+
+    return hasHistory || hasCustomCatalog;
+}
+
 async function saveAllSettings() {
     const selectedPreset = document.getElementById('goal-preset-select').value || 'custom';
     const presetObj = goalPresets[selectedPreset];
@@ -853,10 +862,30 @@ async function saveAllSettings() {
     closeSettingsModal();
     renderActivePageUI();
 
-    if (ghToken) {
-        await pushToGitHub(false);
-    } else {
+    if (!ghToken) {
         setSyncStatus('local', 'บันทึกในเครื่อง');
+        return;
+    }
+
+    // ถ้าในเครื่องยังไม่มีข้อมูลจริง -> ดึงจาก db.json ก่อน ไม่เอาค่าว่างไปทับ
+    if (!hasLocalData()) {
+        await downloadFromGitHub(true);
+    } else {
+        await pushToGitHub(false);
+    }
+}
+
+function saveDataAndSync() {
+    localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    localStorage.setItem('fitTracker_catalog', JSON.stringify(foodCatalog));
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+    renderActivePageUI();
+
+    // Auto push เฉพาะตอนที่ในเครื่องมีข้อมูลจริงแล้วเท่านั้น
+    if (hasLocalData()) {
+        pushToGitHub(false);
+    } else {
+        setSyncStatus('local', 'ยังไม่มีข้อมูลในเครื่อง (กด Download เพื่อดึง)');
     }
 }
 
