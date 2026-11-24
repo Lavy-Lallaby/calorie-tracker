@@ -922,79 +922,142 @@ function saveMealAsCombo(mealType) {
     alert(`บันทึก "${comboItem.name}" (${comboItem.calories} kcal, โปรตีน ${comboItem.protein}g) เข้าคลังเมนูเรียบร้อยแล้ว!`);
 }
 
+// เก็บสถานะว่าตอนนี้กำลังเปิดดูมื้อไหนอยู่ (เริ่มต้นที่ มื้อเช้า หรือเลือกตามช่วงเวลาอัตโนมัติ)
+let activeMealTab = null;
+
+function selectMealTab(mealType) {
+    activeMealTab = mealType;
+    renderMeals();
+}
+
 function renderMeals() {
     const container = document.getElementById('meals-container');
     if (!container) return;
     container.innerHTML = '';
     const dayData = getDayData(currentDateKey);
 
+    // ถ้ายังไม่เคยกดเลือก ให้เปิดมื้อตามช่วงเวลาปัจจุบันอัตโนมัติ (หรือมื้อเช้าถ้าดูวันอื่น)
+    if (!activeMealTab || !mealTypes.includes(activeMealTab)) {
+        const todayKey = getFormattedDateKey(new Date());
+        if (currentDateKey === todayKey) {
+            const hr = new Date().getHours();
+            if (hr < 11) activeMealTab = "มื้อเช้า";
+            else if (hr < 15) activeMealTab = "มื้อเที่ยง";
+            else if (hr < 20) activeMealTab = "มื้อเย็น";
+            else activeMealTab = "มื้อว่าง/อื่นๆ";
+        } else {
+            activeMealTab = "มื้อเช้า";
+        }
+    }
+
+    const shortLabels = {
+        "มื้อเช้า": { title: "เช้า", icon: "☀️" },
+        "มื้อเที่ยง": { title: "กลางวัน", icon: "🌤️" },
+        "มื้อเย็น": { title: "เย็น", icon: "🌙" },
+        "มื้อว่าง/อื่นๆ": { title: "ว่าง", icon: "🍎" }
+    };
+
+    // 1. แถบ 4 ช่องด้านบน (☐ ☐ ⏹︎ ☐)
+    const tabsHtml = `
+        <div class="grid grid-cols-4 gap-1.5">
+            ${mealTypes.map(mType => {
+                const items = dayData.meals[mType] || [];
+                const cal = items.reduce((sum, item) => sum + Number(item.calories || 0), 0);
+                const prot = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
+                const isActive = (mType === activeMealTab);
+                const info = shortLabels[mType] || { title: mType, icon: "🍽️" };
+
+                return `
+                    <button type="button" onclick="selectMealTab('${mType}')"
+                        class="p-2 rounded-2xl border text-center transition flex flex-col items-center justify-center relative ${
+                            isActive
+                                ? 'bg-indigo-950/90 border-indigo-400 text-white shadow-lg shadow-indigo-500/20 -translate-y-0.5'
+                                : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
+                        }">
+                        <span class="text-[11px] font-bold flex items-center gap-1 ${isActive ? 'text-indigo-300' : ''}">
+                            <span>${info.icon}</span><span>${info.title}</span>
+                        </span>
+                        <span class="text-xs font-extrabold mt-0.5 ${cal > 0 ? (isActive ? 'text-white' : 'text-slate-200') : 'text-slate-600'}">
+                            ${cal} <span class="text-[9px] font-normal">kcal</span>
+                        </span>
+                        <span class="text-[9px] ${prot > 0 ? 'text-emerald-400' : 'text-slate-600'}">
+                            P ${prot.toFixed(0)}g
+                        </span>
+                        ${isActive ? '<span class="w-4 h-1 rounded-full bg-indigo-400 mt-1"></span>' : '<span class="w-4 h-1 mt-1"></span>'}
+                    </button>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    // 2. การ์ดรายละเอียดของมื้อที่กดเลือก (|▔▔▔▔|)
+    const mealType = activeMealTab;
+    const items = dayData.meals[mealType] || [];
+    const totalCal = items.reduce((sum, item) => sum + Number(item.calories), 0);
+    const totalProt = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
+
     const yesterdayKey = getPreviousDateKey(currentDateKey);
     const yesterdayData = allMealsHistory[yesterdayKey];
+    const hasYesterday = yesterdayData && yesterdayData.meals && (yesterdayData.meals[mealType] || []).length > 0;
 
-    mealTypes.forEach(mealType => {
-        const items = dayData.meals[mealType] || [];
-        const totalCal = items.reduce((sum, item) => sum + Number(item.calories), 0);
-        const totalProt = items.reduce((sum, item) => sum + Number(item.protein || 0), 0);
+    const copyBtnHtml = hasYesterday
+        ? `<button type="button" onclick="copyMealFromYesterday('${mealType}')" title="ดึงรายการมื้อนี้จากเมื่อวาน" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
+               <i class="fa-regular fa-copy"></i> เมื่อวาน
+           </button>`
+        : '';
 
-        const hasYesterday = yesterdayData && yesterdayData.meals && (yesterdayData.meals[mealType] || []).length > 0;
-        const copyBtnHtml = hasYesterday
-            ? `<button type="button" onclick="copyMealFromYesterday('${mealType}')" title="ดึงรายการมื้อนี้จากเมื่อวาน" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
-                   <i class="fa-regular fa-copy"></i> เมื่อวาน
-               </button>`
-            : '';
+    const comboBtnHtml = items.length >= 2
+        ? `<button type="button" onclick="saveMealAsCombo('${mealType}')" title="มัดรวมรายการในมื้อนี้เป็นเซตเดียวเข้าคลัง" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-teal-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
+               <i class="fa-solid fa-layer-group"></i> รวมเซต
+           </button>`
+        : '';
 
-        const comboBtnHtml = items.length >= 2
-            ? `<button type="button" onclick="saveMealAsCombo('${mealType}')" title="มัดรวมรายการในมื้อนี้เป็นเซตเดียวเข้าคลัง" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-teal-300 px-2 py-0.5 rounded-lg border border-slate-700 transition">
-                   <i class="fa-solid fa-layer-group"></i> รวมเซต
-               </button>`
-            : '';
-
-        let itemsHtml = items.map((item, idx) => {
-            const qtyDisplay = item.qty ? (isNaN(item.qty) ? item.qty : `x${item.qty}`) : '';
-            return `
-            <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
-                <div>
-                    <span class="text-white font-medium">${item.name}</span>
-                    ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[11px] ml-1" title="มีรูปอ้างอิง (กดรูปดินสอเพื่อดู)"></i>` : ''}
-                    <span class="text-xs text-slate-400 ml-1.5">${qtyDisplay}</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-slate-300 font-medium">${item.calories} kcal <span class="text-xs text-emerald-400">(${item.protein || 0}g)</span></span>
-                    <div class="flex space-x-1.5">
-                        <button onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 transition p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-                        <button onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 transition p-1"><i class="fa-solid fa-trash text-xs"></i></button>
-                    </div>
+    let itemsHtml = items.map((item, idx) => {
+        const qtyDisplay = item.qty ? (isNaN(item.qty) ? item.qty : `x${item.qty}`) : '';
+        return `
+        <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
+            <div>
+                <span class="text-white font-medium">${item.name}</span>
+                ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[11px] ml-1" title="มีรูปอ้างอิง"></i>` : ''}
+                <span class="text-xs text-slate-400 ml-1.5">${qtyDisplay}</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="text-slate-300 font-medium">${item.calories} kcal <span class="text-xs text-emerald-400">(${item.protein || 0}g)</span></span>
+                <div class="flex space-x-1.5">
+                    <button onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 transition p-1"><i class="fa-solid fa-pen text-xs"></i></button>
+                    <button onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 transition p-1"><i class="fa-solid fa-trash text-xs"></i></button>
                 </div>
             </div>
-        `}).join('');
+        </div>
+    `}).join('');
 
-        if (items.length === 0) {
-            itemsHtml = `<div class="text-xs text-slate-500 py-1">ยังไม่มีรายการอาหารในมื้อนี้</div>`;
-        }
+    if (items.length === 0) {
+        itemsHtml = `<div class="text-xs text-slate-500 py-2 text-center">ยังไม่มีรายการอาหารใน${mealType}</div>`;
+    }
 
-        const card = document.createElement('div');
-        card.className = "bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3";
-        card.innerHTML = `
+    const detailCardHtml = `
+        <div class="bg-slate-900 rounded-2xl p-4 border border-indigo-500/40 shadow-md space-y-3">
             <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5 gap-1.5">
                 <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
-                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                    <h4 class="font-semibold text-white text-sm">${mealType}</h4>
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+                    <h4 class="font-bold text-white text-sm">${mealType}</h4>
                     ${copyBtnHtml}
                     ${comboBtnHtml}
                 </div>
-                <div class="text-xs text-slate-400 font-medium shrink-0">
-                    ${totalCal} kcal | P ${totalProt.toFixed(1)}g
+                <div class="text-xs text-slate-300 font-semibold shrink-0">
+                    ${totalCal} kcal | <span class="text-emerald-400">P ${totalProt.toFixed(1)}g</span>
                 </div>
             </div>
             <div class="space-y-1">
                 ${itemsHtml}
             </div>
-            <button onclick="openFoodModal('${mealType}')" class="w-full mt-2 bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 text-slate-300 text-xs font-medium py-2 rounded-xl transition flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-plus text-indigo-400"></i> เพิ่ม ${mealType}
+            <button onclick="openFoodModal('${mealType}')" class="w-full mt-2 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-plus text-indigo-400"></i> เพิ่มรายการใน${mealType}
             </button>
-        `;
-        container.appendChild(card);
-    });
+        </div>
+    `;
+
+    container.innerHTML = `<div class="space-y-2.5">${tabsHtml}${detailCardHtml}</div>`;
 }
 
 // ==========================================
