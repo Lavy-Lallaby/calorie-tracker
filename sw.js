@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fittracker-cache-v60';
+const CACHE_NAME = 'fittracker-cache-v61';
 
 const urlsToCache = [
   './',
