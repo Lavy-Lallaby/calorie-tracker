@@ -276,6 +276,19 @@
         </div>
 
         <!-- เป้าหมายรายวัน -->
+        <div class="flex items-center justify-between bg-slate-950/90 border border-emerald-500/30 rounded-2xl px-3 py-2.5">
+          <div>
+            <div class="font-bold text-emerald-300 text-xs">
+              <i class="fa-solid fa-scale-balanced mr-1"></i> Auto-Sync เป้าหมายตามน้ำหนักจริง
+            </div>
+            <div class="text-[10px] text-slate-400">ปรับแคลอรีและโปรตีนอัตโนมัติเมื่อกรอกน้ำหนักใหม่ (ปิดเพื่อใช้ตัวเลขด้านล่าง)</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+            <input type="checkbox" id="goal-auto-weight-toggle" onchange="onSettingsAutoWeightToggle(this.checked)" class="sr-only peer" />
+            <div class="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+          </label>
+        </div>
+        
         <div class="grid grid-cols-2 gap-2">
           <div><label class="text-[10px] text-slate-400">แคลอรีขั้นต่ำ (Min)</label><input type="number" id="goal-min-cal-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
           <div><label class="text-[10px] text-slate-400">แคลอรีสูงสุด (Max)</label><input type="number" id="goal-cal-input" oninput="markPresetCustom()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
@@ -316,15 +329,15 @@
   </div>
 
   <!-- ================= LOAD CORE & MODULE SCRIPTS ================= -->
-  <script src="core.js?v=67"></script>
-  <script src="foodtrack.js?v=67"></script>
-  <script src="train.js?v=67"></script>
-  <script src="skincare.js?v=67"></script>
-  <script src="summary.js?v=67"></script>
-  <script src="trip.js?v=67"></script>
-  <script src="addons.js?v=67"></script>
-  <script src="finance.js?v=67"></script>
-  <script src="gear.js?v=67"></script>
-  <script src="focus.js?v=67"></script>
+  <script src="core.js?v=68"></script>
+  <script src="foodtrack.js?v=68"></script>
+  <script src="train.js?v=68"></script>
+  <script src="skincare.js?v=68"></script>
+  <script src="summary.js?v=68"></script>
+  <script src="trip.js?v=68"></script>
+  <script src="addons.js?v=68"></script>
+  <script src="finance.js?v=68"></script>
+  <script src="gear.js?v=68"></script>
+  <script src="focus.js?v=68"></script>
 </body>
 </html>
