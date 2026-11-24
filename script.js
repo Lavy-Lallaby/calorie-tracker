@@ -5678,6 +5678,444 @@ function renderGuidedWorkoutPlayerModal() {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
+// ==========================================================================
+// FitTracker v59 Add-on Module (ต่อท้าย script.js เดิม 100% + ซิงก์ GitHub DB)
+// 1. บันทึกการนอน & ชีพจร (HUAWEI Watch Sleep & Resting HR Sync)
+// 2. คำนวณแคลอรี & โปรตีนอัตโนมัติตามน้ำหนักจริง (Smart Auto-Sync Macro)
+// 3. ปุ่มดึงเมนูประจำ / เซตอาหารโปรด 1 คลิก (Quick Meal Presets)
+// 4. กราฟแนวโน้ม 7 วัน น้ำหนักตัว vs แคลอรีสุทธิ / ชั่วโมงนอน (7-Day Dual Trend)
+// ==========================================================================
+
+let v59TrendMode = 'cal'; // 'cal' | 'sleep'
+
+// ------------------------------------------
+// 1. Watch Sleep & RHR Data Helpers (บันทึกลง allMealsHistory & GitHub db.json)
+// ------------------------------------------
+function getWatchHealth(dateKey) {
+    const dayObj = getDayData(dateKey);
+    if (!dayObj.watchHealth) {
+        dayObj.watchHealth = { sleepHours: '', sleepScore: '', rhr: '' };
+    }
+    return dayObj.watchHealth;
+}
+
+function updateWatchHealthField(field, value) {
+    const wh = getWatchHealth(currentDateKey);
+    wh[field] = value;
+    saveDataAndSync();
+}
+
+// ------------------------------------------
+// 2. Smart Auto-Sync Macro ตามน้ำหนักจริงล่าสุด
+// ------------------------------------------
+function getLatestRecordedWeightUpTo(dateKey) {
+    const todayObj = allMealsHistory[dateKey];
+    if (todayObj && todayObj.weight) return Number(todayObj.weight);
+
+    const keys = Object.keys(allMealsHistory).filter(k => k <= dateKey).sort();
+    for (let i = keys.length - 1; i >= 0; i--) {
+        const w = allMealsHistory[keys[i]]?.weight;
+        if (w !== null && w !== undefined && w !== '') return Number(w);
+    }
+    return null;
+}
+
+function toggleSmartWeightMacroSync() {
+    userGoals.autoWeightMacro = !userGoals.autoWeightMacro;
+    if (userGoals.autoWeightMacro) {
+        if (!userGoals.autoWeightGoal) userGoals.autoWeightGoal = 'cut';
+        recalcGoalsByCurrentWeight(true);
+    } else {
+        localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+        saveDataAndSync();
+    }
+}
+
+function setSmartWeightGoalMode(mode) {
+    userGoals.autoWeightMacro = true;
+    userGoals.autoWeightGoal = mode;
+    recalcGoalsByCurrentWeight(true);
+}
+
+function recalcGoalsByCurrentWeight(triggerSave = false) {
+    if (!userGoals.autoWeightMacro) return;
+    const w = getLatestRecordedWeightUpTo(currentDateKey);
+    if (!w || w <= 0) return;
+
+    const mode = userGoals.autoWeightGoal || 'cut';
+    let targetCal = Math.round(w * 28);
+    let protMin = Math.round(w * 1.8);
+    let protMax = Math.round(w * 2.0);
+
+    if (mode === 'cut') {
+        targetCal = Math.max(1200, Math.round(w * 28 - 350));
+        protMin = Math.round(w * 1.9);
+        protMax = Math.round(w * 2.1);
+    } else if (mode === 'bulk') {
+        targetCal = Math.round(w * 30 + 250);
+        protMin = Math.round(w * 1.8);
+        protMax = Math.round(w * 2.0);
+    } else {
+        targetCal = Math.round(w * 29);
+        protMin = Math.round(w * 1.7);
+        protMax = Math.round(w * 1.9);
+    }
+
+    const fatMax = Math.max(40, Math.round((targetCal * 0.28) / 9));
+    const carbsMax = Math.max(50, Math.round((targetCal - (protMin * 4) - (fatMax * 9)) / 4));
+
+    userGoals.calories = targetCal;
+    userGoals.minCalories = Math.max(1150, targetCal - 250);
+    userGoals.proteinMin = protMin;
+    userGoals.proteinMax = protMax;
+    userGoals.carbsMax = carbsMax;
+    userGoals.fatMax = fatMax;
+
+    const dayObj = getDayData(currentDateKey);
+    dayObj.targetMin = userGoals.minCalories;
+    dayObj.targetMax = userGoals.calories;
+
+    localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
+    if (triggerSave) {
+        saveDataAndSync();
+    }
+}
+
+// ------------------------------------------
+// 3. Quick Meal Presets (ดึงเมนูโปรดจาก foodCatalog ลงมื้อปัจจุบันทันที)
+// ------------------------------------------
+function quickAddCatalogItemToActiveMeal(catalogIdx) {
+    const item = foodCatalog[catalogIdx];
+    if (!item) return;
+
+    const targetMeal = (typeof activeMealTab === 'string' && mealTypes.includes(activeMealTab))
+        ? activeMealTab
+        : "มื้อเช้า";
+
+    const dayData = getDayData(currentDateKey);
+    dayData.meals[targetMeal].push({
+        name: item.name,
+        qty: 1,
+        photo: item.photo || null,
+        calories: Number(item.calories || 0),
+        protein: Number(item.protein || 0),
+        carbs: Number(item.carbs || 0),
+        sugar: Number(item.sugar || 0),
+        fiber: Number(item.fiber || 0),
+        fat: Number(item.fat || 0),
+        satFat: Number(item.satFat || 0),
+        transFat: Number(item.transFat || 0),
+        sodium: Number(item.sodium || 0),
+        potassium: Number(item.potassium || 0),
+        cholesterol: Number(item.cholesterol || 0)
+    });
+
+    saveDataAndSync();
+}
+
+// ------------------------------------------
+// 4. Inject UI เข้ากับหน้าเดิม (Nutrition / Habits / Analytics)
+// ------------------------------------------
+function renderV59Addons() {
+    // อัปเดตเป้าอัตโนมัติตามน้ำหนักล่าสุดก่อนแสดงผล (ถ้าเปิดโหมด Auto-Sync ไว้)
+    if (userGoals.autoWeightMacro) {
+        recalcGoalsByCurrentWeight(false);
+    }
+
+    renderV59NutritionWidgets();
+    renderV59HabitsSleepBanner();
+    renderV59AnalyticsWidgets();
+}
+
+// 4.1 หน้าอาหาร: การ์ด Smart Auto-Macro + แถบกดเมนูประจำไว 1 คลิก
+function renderV59NutritionWidgets() {
+    const mealsContainer = document.getElementById('meals-container');
+    if (!mealsContainer) return;
+
+    let wrapper = document.getElementById('v59-nutrition-addon');
+    if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.id = 'v59-nutrition-addon';
+        wrapper.className = 'space-y-2.5 mt-2.5';
+        mealsContainer.parentNode.insertBefore(wrapper, mealsContainer);
+    }
+
+    const latestW = getLatestRecordedWeightUpTo(currentDateKey);
+    const isAuto = Boolean(userGoals.autoWeightMacro);
+    const mode = userGoals.autoWeightGoal || 'cut';
+    const currentMealLabel = (typeof activeMealTab === 'string' && mealTypes.includes(activeMealTab)) ? activeMealTab : 'มื้อเช้า';
+
+    // คัดเมนูแนะนำจากคลัง foodCatalog สูงสุด 8 รายการแรก
+    const quickItems = (foodCatalog || []).slice(0, 8);
+
+    wrapper.innerHTML = `
+        <!-- แผงคำนวณมาโครตามน้ำหนักจริงอัตโนมัติ -->
+        <div class="bg-slate-900/95 rounded-2xl p-3 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+                <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-scale-balanced text-emerald-400"></i>
+                    ปรับโปรตีน & แคลตามน้ำหนักจริง
+                    <span class="text-[10px] text-emerald-300 font-semibold">${latestW ? `(${latestW} kg)` : '(ยังไม่กรอก นน.)'}</span>
+                </div>
+                <button type="button" onclick="toggleSmartWeightMacroSync()"
+                    class="text-[10px] px-2.5 py-1 rounded-full font-semibold border transition ${isAuto
+                        ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}">
+                    ${isAuto ? 'Auto-Sync: เปิด' : 'Auto-Sync: ปิด'}
+                </button>
+            </div>
+
+            ${isAuto ? `
+                <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+                    <button type="button" onclick="setSmartWeightGoalMode('cut')"
+                        class="py-1.5 rounded-xl border transition ${mode === 'cut' ? 'bg-rose-500/20 border-rose-500/60 text-rose-200 font-bold' : 'bg-slate-950/70 border-slate-800 text-slate-400'}">
+                        🔥 ลดไขมัน (2g/kg)
+                    </button>
+                    <button type="button" onclick="setSmartWeightGoalMode('recomp')"
+                        class="py-1.5 rounded-xl border transition ${mode === 'recomp' ? 'bg-sky-500/20 border-sky-500/60 text-sky-200 font-bold' : 'bg-slate-950/70 border-slate-800 text-slate-400'}">
+                        ⚖️ คงหุ่น (1.8g/kg)
+                    </button>
+                    <button type="button" onclick="setSmartWeightGoalMode('bulk')"
+                        class="py-1.5 rounded-xl border transition ${mode === 'bulk' ? 'bg-amber-500/20 border-amber-500/60 text-amber-200 font-bold' : 'bg-slate-950/70 border-slate-800 text-slate-400'}">
+                        💪 เพิ่มกล้าม (1.9g/kg)
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+
+        <!-- แถบปุ่มกดเพิ่มเมนูประจำไว (Quick Meal Presets) -->
+        ${quickItems.length > 0 ? `
+            <div class="bg-slate-900/95 rounded-2xl p-2.5 border border-slate-800 space-y-1.5">
+                <div class="flex items-center justify-between text-[11px] px-0.5">
+                    <span class="font-bold text-amber-300"><i class="fa-solid fa-star mr-1"></i> เมนูประจำ (แตะใส่ <b class="text-white">${currentMealLabel}</b> ทันที)</span>
+                    <button type="button" onclick="openCatalogManagerModal()" class="text-[10px] text-slate-400 hover:text-white underline">จัดการคลัง (${foodCatalog.length})</button>
+                </div>
+                <div class="flex gap-1.5 overflow-x-auto pb-1">
+                    ${quickItems.map((item, idx) => `
+                        <button type="button" onclick="quickAddCatalogItemToActiveMeal(${idx})"
+                            class="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 rounded-xl px-2.5 py-1.5 text-left transition">
+                            <div class="text-[11px] font-semibold text-slate-100 max-w-[140px] truncate">+ ${item.name}</div>
+                            <div class="text-[9px] text-emerald-400">${item.calories} kcal • P ${item.protein}g</div>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        ` : ''}
+    `;
+}
+
+// 4.2 หน้าดูแลผิว: แถบซิงก์คุณภาพการนอนจาก HUAWEI Watch
+function renderV59HabitsSleepBanner() {
+    const habitsBox = document.getElementById('daily-habits-container');
+    if (!habitsBox) return;
+
+    let sleepCard = document.getElementById('v59-habits-sleep-card');
+    if (!sleepCard) {
+        sleepCard = document.createElement('div');
+        sleepCard.id = 'v59-habits-sleep-card';
+        sleepCard.className = 'bg-slate-900 rounded-2xl p-3.5 border border-indigo-500/30 space-y-2 mb-3';
+        habitsBox.parentNode.insertBefore(sleepCard, habitsBox);
+    }
+
+    const wh = getWatchHealth(currentDateKey);
+    const h = parseFloat(wh.sleepHours) || 0;
+    const score = parseInt(wh.sleepScore) || 0;
+
+    let skinSleepAdvice = 'กรอกชั่วโมงนอนจาก HUAWEI Watch เพื่อเช็กการฟื้นฟูผิวและฮอร์โมน';
+    if (h >= 7) skinSleepAdvice = '✨ นอนเต็มอิ่ม! ผิวและกล้ามเนื้อซ่อมแซมได้เต็มประสิทธิภาพ';
+    else if (h > 0 && h < 6) skinSleepAdvice = '⚠️ นอนน้อยกว่า 6 ชม. ระวังผิวโทรม บวมน้ำ และหิวของหวานง่ายขึ้น';
+
+    sleepCard.innerHTML = `
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-300"><i class="fa-solid fa-bed mr-1.5"></i> คุณภาพการนอน & ชีพจร (HUAWEI Watch)</span>
+            <span class="text-[10px] text-slate-400">${currentDateKey}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+            <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block">ชั่วโมงนอน</span>
+                <input type="number" step="0.1" value="${wh.sleepHours}" onchange="updateWatchHealthField('sleepHours', this.value)" placeholder="7.5"
+                    class="w-full bg-transparent text-sm font-bold text-indigo-300 mt-0.5 focus:outline-none">
+            </div>
+            <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block">Sleep Score</span>
+                <input type="number" value="${wh.sleepScore}" onchange="updateWatchHealthField('sleepScore', this.value)" placeholder="85"
+                    class="w-full bg-transparent text-sm font-bold text-emerald-300 mt-0.5 focus:outline-none">
+            </div>
+            <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block">Resting HR</span>
+                <input type="number" value="${wh.rhr}" onchange="updateWatchHealthField('rhr', this.value)" placeholder="58"
+                    class="w-full bg-transparent text-sm font-bold text-rose-400 mt-0.5 focus:outline-none">
+            </div>
+        </div>
+        <div class="text-[11px] text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
+            ${skinSleepAdvice} ${score > 0 ? `(คะแนน TruSleep: <b class="text-emerald-400">${score}</b>)` : ''}
+        </div>
+    `;
+}
+
+// 4.3 หน้าสรุปผล (Analytics): การ์ดบันทึก HUAWEI Watch + กราฟแนวโน้ม 7 วัน
+function renderV59AnalyticsWidgets() {
+    const weeklyChartEl = document.getElementById('weekly-chart-container');
+    if (!weeklyChartEl) return;
+
+    let analyticsBox = document.getElementById('v59-analytics-addon');
+    if (!analyticsBox) {
+        analyticsBox = document.createElement('div');
+        analyticsBox.id = 'v59-analytics-addon';
+        analyticsBox.className = 'space-y-3 mt-3';
+        weeklyChartEl.parentNode.appendChild(analyticsBox);
+    }
+
+    const wh = getWatchHealth(currentDateKey);
+    const parts = currentDateKey.split('-');
+    const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    // รวบรวมข้อมูลย้อนหลัง 7 วัน
+    const trendDays = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i);
+        const key = getFormattedDateKey(d);
+        const dayObj = allMealsHistory[key];
+
+        let cal = 0;
+        if (dayObj?.meals) {
+            Object.values(dayObj.meals).forEach(list => list.forEach(m => { cal += Number(m.calories || 0); }));
+        }
+        const burn = dayObj ? getTotalBurned(dayObj).totalBurn : 0;
+        const netCal = cal > 0 ? Math.max(0, cal - burn) : 0;
+        const w = (dayObj?.weight !== null && dayObj?.weight !== undefined && dayObj?.weight !== '') ? Number(dayObj.weight) : null;
+        const slp = dayObj?.watchHealth?.sleepHours ? Number(dayObj.watchHealth.sleepHours) : null;
+
+        trendDays.push({
+            label: `${d.getDate()}/${d.getMonth() + 1}`,
+            weight: w,
+            netCal,
+            sleep: slp
+        });
+    }
+
+    const validW = trendDays.filter(d => d.weight !== null);
+    const avgW = validW.length ? (validW.reduce((s, d) => s + d.weight, 0) / validW.length).toFixed(1) : '-';
+    const validNet = trendDays.filter(d => d.netCal > 0);
+    const avgNet = validNet.length ? Math.round(validNet.reduce((s, d) => s + d.netCal, 0) / validNet.length) : 0;
+    const validSlp = trendDays.filter(d => d.sleep !== null);
+    const avgSlp = validSlp.length ? (validSlp.reduce((s, d) => s + d.sleep, 0) / validSlp.length).toFixed(1) : '-';
+
+    // สร้างกราฟเส้นคู่ SVG
+    const minW = validW.length ? Math.min(...validW.map(d => d.weight)) - 0.5 : 60;
+    const maxW = validW.length ? Math.max(...validW.map(d => d.weight)) + 0.5 : 70;
+    const secMax = Math.max(...trendDays.map(d => v59TrendMode === 'cal' ? d.netCal : (d.sleep || 0)), v59TrendMode === 'cal' ? 1800 : 9);
+
+    const svgW = 320, svgH = 115, padX = 22, padY = 16;
+    const stepX = (svgW - padX * 2) / 6;
+
+    const wPts = [];
+    const sPts = [];
+    trendDays.forEach((d, i) => {
+        const x = padX + i * stepX;
+        if (d.weight !== null) {
+            const yW = svgH - padY - ((d.weight - minW) / (maxW - minW || 1)) * (svgH - padY * 2);
+            wPts.push(`${x},${yW.toFixed(1)}`);
+        }
+        const sv = v59TrendMode === 'cal' ? d.netCal : (d.sleep || 0);
+        const yS = svgH - padY - (sv / (secMax || 1)) * (svgH - padY * 2);
+        sPts.push(`${x},${yS.toFixed(1)}`);
+    });
+
+    const svgChart = `
+        <svg viewBox="0 0 ${svgW} ${svgH + 18}" class="w-full h-36">
+            <line x1="${padX}" y1="${svgH - padY}" x2="${svgW - padX}" y2="${svgH - padY}" stroke="#334155" stroke-width="1"/>
+            <polyline fill="none" stroke="${v59TrendMode === 'cal' ? '#fbbf24' : '#818cf8'}" stroke-width="2" stroke-dasharray="3,3" points="${sPts.join(' ')}"/>
+            ${wPts.length > 1 ? `<polyline fill="none" stroke="#34d399" stroke-width="2.5" points="${wPts.join(' ')}"/>` : ''}
+            ${trendDays.map((d, i) => {
+                const x = padX + i * stepX;
+                const sv = v59TrendMode === 'cal' ? d.netCal : (d.sleep || 0);
+                const yS = svgH - padY - (sv / (secMax || 1)) * (svgH - padY * 2);
+                const yW = d.weight !== null ? svgH - padY - ((d.weight - minW) / (maxW - minW || 1)) * (svgH - padY * 2) : null;
+                return `
+                    <circle cx="${x}" cy="${yS.toFixed(1)}" r="2.8" fill="${v59TrendMode === 'cal' ? '#fbbf24' : '#818cf8'}"/>
+                    ${yW !== null ? `<circle cx="${x}" cy="${yW.toFixed(1)}" r="3.5" fill="#34d399"/>` : ''}
+                    <text x="${x}" y="${svgH + 10}" text-anchor="middle" fill="#94a3b8" font-size="9">${d.label}</text>
+                `;
+            }).join('')}
+        </svg>
+    `;
+
+    analyticsBox.innerHTML = `
+        <!-- การ์ดบันทึก HUAWEI Watch ประจำวัน -->
+        <div class="bg-slate-950/90 rounded-2xl p-3 border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-indigo-300 flex items-center justify-between">
+                <span><i class="fa-solid fa-watch-fitness mr-1.5"></i> บันทึก HUAWEI Watch (${currentDateKey})</span>
+                <span class="text-[10px] text-slate-400">ซิงก์ลง Cloud อัตโนมัติ</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">ชั่วโมงนอน</span>
+                    <input type="number" step="0.1" value="${wh.sleepHours}" onchange="updateWatchHealthField('sleepHours', this.value)" placeholder="7.5"
+                        class="w-full bg-transparent text-sm font-bold text-indigo-300 mt-0.5 focus:outline-none">
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">TruSleep Score</span>
+                    <input type="number" value="${wh.sleepScore}" onchange="updateWatchHealthField('sleepScore', this.value)" placeholder="85"
+                        class="w-full bg-transparent text-sm font-bold text-emerald-300 mt-0.5 focus:outline-none">
+                </div>
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">Resting HR (bpm)</span>
+                    <input type="number" value="${wh.rhr}" onchange="updateWatchHealthField('rhr', this.value)" placeholder="58"
+                        class="w-full bg-transparent text-sm font-bold text-rose-400 mt-0.5 focus:outline-none">
+                </div>
+            </div>
+        </div>
+
+        <!-- กราฟแนวโน้ม 7 วัน (น้ำหนักตัว vs แคลอรีสุทธิ / ชั่วโมงนอน) -->
+        <div class="bg-slate-950/90 rounded-2xl p-3 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-chart-line mr-1"></i> แนวโน้ม 7 วัน (เฉลี่ย)</span>
+                <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px]">
+                    <button type="button" onclick="v59TrendMode='cal'; renderV59AnalyticsWidgets();"
+                        class="px-2 py-0.5 rounded ${v59TrendMode === 'cal' ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-400'}">นน. vs Net Kcal</button>
+                    <button type="button" onclick="v59TrendMode='sleep'; renderV59AnalyticsWidgets();"
+                        class="px-2 py-0.5 rounded ${v59TrendMode === 'sleep' ? 'bg-indigo-500/20 text-indigo-300 font-bold' : 'text-slate-400'}">นน. vs การนอน</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
+                <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                    <span class="text-[9px] text-slate-400 block">น้ำหนักเฉลี่ย</span>
+                    <b class="text-emerald-400">${avgW} kg</b>
+                </div>
+                <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                    <span class="text-[9px] text-slate-400 block">Net Kcal เฉลี่ย</span>
+                    <b class="text-amber-300">${avgNet} kcal</b>
+                </div>
+                <div class="bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                    <span class="text-[9px] text-slate-400 block">นอนเฉลี่ย</span>
+                    <b class="text-indigo-300">${avgSlp} ชม.</b>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/90 rounded-xl p-2 border border-slate-800">
+                <div class="flex justify-end gap-3 text-[10px] px-1">
+                    <span class="text-emerald-400">● น้ำหนัก (kg)</span>
+                    <span class="${v59TrendMode === 'cal' ? 'text-amber-400' : 'text-indigo-400'}">-- ${v59TrendMode === 'cal' ? 'แคลอรีสุทธิ' : 'ชั่วโมงนอน'}</span>
+                </div>
+                ${svgChart}
+            </div>
+        </div>
+    `;
+}
+
+// Hook เข้ากับ renderUIOnly ของระบบเดิมเพื่อไม่ให้ทับฟังก์ชันเก่า
+const _v58RenderUIOnly = renderUIOnly;
+renderUIOnly = function() {
+    _v58RenderUIOnly();
+    renderV59Addons();
+};
+
+// เรียกทำงานทันทีเมื่อโหลดสคริปต์เสร็จ
+setTimeout(renderV59Addons, 100);
+
 // ==========================================
 // Initialize on DOM Load
 // ==========================================
