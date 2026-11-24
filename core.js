@@ -218,15 +218,59 @@ function getDayData(dateKey) {
     return allMealsHistory[dateKey];
 }
 
+// ตัวช่วยบันทึกประวัติการเปลี่ยนเป้าหมาย (มีผลเฉพาะวันที่ effectiveDateKey เป็นต้นไป)
+function applyGoalChangeFromDate(effectiveDateKey, newMin, newMax) {
+    const oldMin = Number(userGoals.minCalories) || 1200;
+    const oldMax = Number(userGoals.calories) || 1500;
+
+    // 1. ล็อกค่าเดิมให้วันก่อนหน้าทั้งหมดในประวัติ เพื่อไม่ให้กราฟย้อนหลังเปลี่ยนตาม
+    Object.keys(allMealsHistory).forEach(k => {
+        if (k < effectiveDateKey) {
+            const d = allMealsHistory[k];
+            if (d && (d.targetMax === undefined || d.targetMax === null)) {
+                d.targetMin = oldMin;
+                d.targetMax = oldMax;
+            }
+        }
+    });
+
+    // 2. บันทึกลงประวัติช่วงวันที่ (goalHistory)
+    if (!Array.isArray(userGoals.goalHistory)) {
+        userGoals.goalHistory = [{ from: '2000-01-01', min: oldMin, max: oldMax }];
+    }
+    userGoals.goalHistory = userGoals.goalHistory.filter(g => g.from !== effectiveDateKey);
+    userGoals.goalHistory.push({ from: effectiveDateKey, min: newMin, max: newMax });
+    userGoals.goalHistory.sort((a, b) => a.from.localeCompare(b.from));
+
+    // 3. อัปเดตเป้าหมายหลักและวันที่ปัจจุบัน
+    userGoals.minCalories = newMin;
+    userGoals.calories = newMax;
+
+    const curDay = getDayData(effectiveDateKey);
+    curDay.targetMin = newMin;
+    curDay.targetMax = newMax;
+}
+
 function getDayCalorieGoals(dateKey) {
     const dayObj = allMealsHistory[dateKey];
-    const fallbackMax = Number(userGoals.calories) || 1500;
-    const fallbackMin = Number(userGoals.minCalories) || 1200;
-
     if (dayObj && dayObj.targetMax !== undefined && dayObj.targetMax !== null) {
-        return { min: Number(dayObj.targetMin ?? fallbackMin), max: Number(dayObj.targetMax) };
+        return { min: Number(dayObj.targetMin ?? 1200), max: Number(dayObj.targetMax) };
     }
-    return { min: fallbackMin, max: fallbackMax };
+
+    // ค้นหาจากประวัติการเปลี่ยนเป้าหมายที่ตรงกับวันนั้น
+    if (Array.isArray(userGoals.goalHistory) && userGoals.goalHistory.length > 0) {
+        let matched = userGoals.goalHistory[0];
+        for (const entry of userGoals.goalHistory) {
+            if (entry.from <= dateKey) matched = entry;
+            else break;
+        }
+        return { min: Number(matched.min), max: Number(matched.max) };
+    }
+
+    return {
+        min: Number(userGoals.minCalories) || 1200,
+        max: Number(userGoals.calories) || 1500
+    };
 }
 
 function getTotalBurned(dayData) {
@@ -687,11 +731,17 @@ async function saveAllSettings() {
     const selectedPreset = document.getElementById('goal-preset-select').value || 'custom';
     const presetObj = goalPresets[selectedPreset];
 
+    const newMaxCal = Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500);
+    const newMinCal = Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200);
+
+    // ล็อกค่าเก่าให้วันก่อนหน้า และใช้ค่าใหม่ตั้งแต่วันที่เลือกอยู่ (currentDateKey) เป็นต้นไป
+    applyGoalChangeFromDate(currentDateKey, newMinCal, newMaxCal);
+
     userGoals = {
         ...userGoals,
         preset: selectedPreset,
-        calories: Math.max(500, Number(document.getElementById('goal-cal-input').value) || 1500),
-        minCalories: Math.max(500, Number(document.getElementById('goal-min-cal-input').value) || 1200),
+        calories: newMaxCal,
+        minCalories: newMinCal,
         proteinMin: Math.max(10, Number(document.getElementById('goal-prot-min-input').value) || 96),
         proteinMax: Math.max(10, Number(document.getElementById('goal-prot-max-input').value) || 128),
         carbsMax: Math.max(10, Number(document.getElementById('goal-carbs-input').value) || 150),
@@ -703,10 +753,6 @@ async function saveAllSettings() {
         targetWeight: parseFloat(document.getElementById('goal-weight-input').value) || null
     };
     localStorage.setItem('fitTracker_goals', JSON.stringify(userGoals));
-
-    const currentDayObj = getDayData(currentDateKey);
-    currentDayObj.targetMin = userGoals.minCalories;
-    currentDayObj.targetMax = userGoals.calories;
     localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
 
     const ghToken = document.getElementById('github-token-input').value.trim();
