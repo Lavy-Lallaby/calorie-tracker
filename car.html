@@ -1,0 +1,108 @@
+<!-- ==========================================================================
+     car.html — โมดูลดูแลรถ, ระยะซ่อมบำรุง & บันทึกเติมน้ำมัน (km/L)
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดเลขไมล์ปัจจุบัน & อัตราสิ้นเปลืองเฉลี่ย -->
+  <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/30 rounded-3xl p-4 border border-amber-500/30 shadow-lg space-y-3">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-car-side text-amber-400"></i> ดูแลรถ & ระยะซ่อมบำรุง
+        </h3>
+        <span class="text-[10px] text-slate-400">แจ้งเตือนเช็กระยะ & คำนวณอัตราสิ้นเปลืองจริง</span>
+      </div>
+
+      <button type="button" onclick="updateCarOdometerPrompt()" class="bg-slate-950/90 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs font-bold px-3 py-1.5 rounded-xl transition shrink-0">
+        ไมล์: <span id="car-odometer-display">0</span> กม. <i class="fa-solid fa-pen text-[9px] ml-1"></i>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block">อัตราสิ้นเปลือง</span>
+        <b id="car-avg-kml" class="text-emerald-400 text-sm">- กม./ล.</b>
+      </div>
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block">ต้นทุนน้ำมัน</span>
+        <b id="car-avg-baht-km" class="text-sky-400 text-sm">- บ./กม.</b>
+      </div>
+      <div class="bg-slate-950/80 p-2 rounded-2xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block">ค่าน้ำมันเดือนนี้</span>
+        <b id="car-month-fuel-cost" class="text-amber-300 text-sm">0 บ.</b>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. ตารางเช็กระยะ & ซ่อมบำรุง (Maintenance Tracker) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-wrench text-orange-400"></i> รอบเปลี่ยนอะไหล่ & เช็กระยะ
+      </h3>
+      <button type="button" onclick="addCustomCarService()" class="text-[11px] bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-xl">
+        + เพิ่มรายการ
+      </button>
+    </div>
+
+    <div id="car-maintenance-list" class="space-y-2"></div>
+  </section>
+
+  <!-- 3. บันทึกเติมน้ำมัน & คำนวณ km/L -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-gas-pump text-sky-400"></i> บันทึกเติมน้ำมัน
+      </h3>
+      <label class="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+        <input type="checkbox" id="car-fuel-sync-finance" checked class="accent-emerald-500 rounded" />
+        <span>ลงบัญชีรายจ่ายด้วย</span>
+      </label>
+    </div>
+
+    <form onsubmit="handleCarFuelSubmit(event)" class="space-y-2 text-xs">
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+          <span class="text-[9px] text-slate-400 block">เลขไมล์ตอนเติม</span>
+          <input type="number" id="car-fuel-odo" required placeholder="เช่น 54200"
+            class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+          <span class="text-[9px] text-amber-300 block">จำนวนเงิน (บาท)</span>
+          <input type="number" step="any" id="car-fuel-baht" required placeholder="800"
+            class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
+          <span class="text-[9px] text-sky-300 block">จำนวนลิตร (L)</span>
+          <input type="number" step="any" id="car-fuel-liters" required placeholder="22.5"
+            class="w-full bg-transparent text-white font-bold mt-0.5 focus:outline-none" />
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <input type="text" id="car-fuel-note" placeholder="ปั๊ม / ชนิดน้ำมัน (เช่น PTT Gasohol 95)"
+          class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none" />
+        <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 rounded-xl shrink-0">
+          บันทึกเติมน้ำมัน
+        </button>
+      </div>
+    </form>
+
+    <div id="car-fuel-history-list" class="space-y-1.5 pt-1"></div>
+  </section>
+
+  <!-- 4. เช็กลิสต์ตรวจรถก่อนออกทริป (Pre-Trip Quick Check) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-shield-halved text-emerald-400"></i> ตรวจสภาพรถก่อนออกทริป
+      </h3>
+      <button type="button" onclick="resetCarPreTripChecks()" class="text-[10px] text-amber-300 hover:underline">
+        รีเซ็ตติ๊ก
+      </button>
+    </div>
+
+    <div id="car-pretrip-list" class="grid grid-cols-1 gap-1.5 text-xs"></div>
+  </section>
+
+</div>
