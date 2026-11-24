@@ -1,0 +1,77 @@
+<!-- ==========================================================================
+     focus.html — โมดูลจับเวลาโฟกัส (Pomodoro), To-Do List & จดบันทึกด่วน
+     ========================================================================== -->
+<div class="space-y-3">
+
+  <!-- 1. การ์ดจับเวลาโฟกัส (Pomodoro Timer) -->
+  <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 rounded-3xl p-4 border border-indigo-500/30 shadow-lg space-y-3 text-center">
+    <div class="flex items-center justify-between text-left">
+      <div>
+        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-solid fa-stopwatch text-indigo-400"></i> ตัวจับเวลาโฟกัส (Pomodoro)
+        </h3>
+        <span class="text-[10px] text-slate-400">โฟกัสวันนี้สะสม: <b id="focus-today-minutes" class="text-emerald-400">0 นาที</b></span>
+      </div>
+
+      <!-- ปุ่มเลือกโหมดเวลา -->
+      <div class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[10px]">
+        <button type="button" id="focus-mode-25" onclick="setFocusPreset(25, 'focus')" class="px-2 py-1 rounded-lg bg-indigo-600 text-white font-bold">25 น.</button>
+        <button type="button" id="focus-mode-45" onclick="setFocusPreset(45, 'focus')" class="px-2 py-1 rounded-lg text-slate-400">45 น.</button>
+        <button type="button" id="focus-mode-5" onclick="setFocusPreset(5, 'break')" class="px-2 py-1 rounded-lg text-slate-400">พัก 5 น.</button>
+      </div>
+    </div>
+
+    <!-- นาฬิกานับถอยหลัง -->
+    <div class="bg-slate-950/90 border border-slate-800 rounded-2xl py-4 px-3 space-y-1">
+      <div id="focus-status-label" class="text-[11px] font-semibold text-indigo-300">🎯 พร้อมลุยงาน / อ่านหนังสือ</div>
+      <div id="focus-clock-display" class="text-5xl font-extrabold font-mono text-white tracking-wider">25:00</div>
+    </div>
+
+    <!-- ปุ่มควบคุม เริ่ม / หยุด / รีเซ็ต -->
+    <div class="grid grid-cols-12 gap-2 text-xs">
+      <button type="button" id="focus-toggle-btn" onclick="toggleFocusTimer()"
+        class="col-span-8 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+        <i class="fa-solid fa-play"></i> เริ่มจับเวลา
+      </button>
+      <button type="button" onclick="resetFocusTimer()"
+        class="col-span-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-xl transition">
+        <i class="fa-solid fa-rotate-left mr-1"></i> รีเซ็ต
+      </button>
+    </div>
+  </section>
+
+  <!-- 2. เช็กลิสต์สิ่งที่ต้องทำวันนี้ (Daily To-Do List) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-list-check text-emerald-400"></i> สิ่งที่ต้องทำวันนี้ (To-Do)
+      </h3>
+      <span id="focus-todo-badge" class="text-[10px] text-slate-400">0/0 งาน</span>
+    </div>
+
+    <form onsubmit="handleAddFocusTodo(event)" class="flex gap-1.5 text-xs">
+      <input type="text" id="focus-todo-input" required placeholder="+ เพิ่มงานหรือสิ่งที่ต้องทำวันนี้..."
+        class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500" />
+      <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 rounded-xl shrink-0">
+        เพิ่ม
+      </button>
+    </form>
+
+    <div id="focus-todo-list" class="space-y-1.5 pt-1"></div>
+  </section>
+
+  <!-- 3. สมุดจดบันทึกด่วนประจำวัน (Quick Notes) -->
+  <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-2">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-note-sticky text-amber-400"></i> บันทึกด่วนประจำวัน (Quick Note)
+      </h3>
+      <span id="focus-note-saved-badge" class="text-[10px] text-slate-500">บันทึกอัตโนมัติ</span>
+    </div>
+
+    <textarea id="focus-daily-note" rows="4" onchange="saveFocusDailyNote(this.value)"
+      placeholder="จดไอเดีย, สรุปงาน, หรือบันทึกสั้นๆ ของวันนี้ (ซิงก์ขึ้น GitHub Cloud อัตโนมัติ)..."
+      class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-slate-100 placeholder-slate-500 leading-relaxed focus:outline-none focus:border-amber-500"></textarea>
+  </section>
+
+</div>
