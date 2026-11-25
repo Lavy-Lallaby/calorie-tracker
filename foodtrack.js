@@ -1218,7 +1218,9 @@ async function scanFoodWithGemini(file) {
     try {
         const base64Data = await resizeImageToBase64(file, 800);
         const apiKey = localStorage.getItem('fitTracker_gemini_key');
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        if (!apiKey) throw new Error("ไม่พบ Gemini API Key กรุณาตั้งค่าใหม่");
+
+        const url = `[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$){apiKey}`;
         const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
            {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
 
@@ -1230,9 +1232,18 @@ async function scanFoodWithGemini(file) {
                 generationConfig: { response_mime_type: "application/json" }
             })
         });
-        if (!res.ok) throw new Error("เชื่อมต่อ Gemini API ไม่สำเร็จ");
+
         const data = await res.json();
-        fillFormWithNutritionData(JSON.parse(data.candidates[0].content.parts[0].text));
+        if (!res.ok) {
+            const errMsg = data?.error?.message || `HTTP ${res.status}`;
+            throw new Error(errMsg);
+        }
+
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("AI ไม่ได้ส่งข้อมูลสารอาหารกลับมาในรูปแบบที่ถูกต้อง");
+
+        fillFormWithNutritionData(JSON.parse(jsonMatch[0]));
     } catch (error) {
         alert("AI วิเคราะห์ไม่สำเร็จ: " + error.message);
     } finally {
