@@ -402,3 +402,58 @@ async function computeRouteAndRenderMap(stops, startTime) {
         tripLeafletMap.setView(bounds[0], 13);
     }
 }
+
+// ------------------------------------------
+// ส่งยอดค่าใช้จ่าย / เติมน้ำมัน จากจุดแวะในทริปเข้าบัญชีและดูแลรถ
+// ------------------------------------------
+function quickLogTripStopExpense(stopIdx) {
+    const trip = getActiveTrip();
+    const stop = trip?.days?.[activeTripDayIdx]?.stops?.[stopIdx];
+    if (!stop) return;
+
+    const baht = parseFloat(prompt(`บันทึกค่าใช้จ่ายที่ "${stop.name}" (บาท):`, stop.type === 'gas' ? '800' : '150'));
+    if (isNaN(baht) || baht <= 0) return;
+
+    const catMap = { gas: 'transport', food: 'food', gift: 'trip', spot: 'trip', start: 'transport' };
+    const category = catMap[stop.type] || 'trip';
+
+    // 1. บันทึกลงรายจ่ายวันนี้
+    const dayData = getDayData(currentDateKey);
+    if (!Array.isArray(dayData.finances)) dayData.finances = [];
+    dayData.finances.unshift({
+        type: 'expense',
+        category,
+        title: `${stop.name}`,
+        amount: fmtPrecise(baht, 2)
+    });
+
+    // 2. ถ้าเป็นปั๊มน้ำมัน ถามเลขไมล์และลิตรเพิ่มเพื่อบันทึกเข้าหน้า "ดูแลรถ" ด้วย
+    if (stop.type === 'gas' && window.carData) {
+        const liters = parseFloat(prompt('เติมไปกี่ลิตร? (กด Cancel หากไม่ต้องการบันทึก กม./ลิตร):', '22'));
+        const odo = parseInt(prompt('เลขไมล์รถปัจจุบัน (กม.):', window.carData.odometer || 50000), 10);
+
+        if (!isNaN(liters) && liters > 0 && !isNaN(odo) && odo > 0) {
+            let kml = null, bahtPerKm = null;
+            const prevLog = window.carData.fuelLogs?.[0];
+            if (prevLog && odo > prevLog.odo) {
+                const dist = odo - prevLog.odo;
+                kml = fmtPrecise(dist / liters, 2);
+                bahtPerKm = fmtPrecise(baht / dist, 2);
+            }
+            window.carData.fuelLogs.unshift({
+                date: currentDateKey,
+                odo,
+                baht: fmtPrecise(baht, 2),
+                liters: fmtPrecise(liters, 2),
+                note: stop.name,
+                kml,
+                bahtPerKm
+            });
+            if (odo > window.carData.odometer) window.carData.odometer = odo;
+            if (typeof saveCarAndSync === 'function') saveCarAndSync();
+        }
+    }
+
+    if (typeof saveDataAndSync === 'function') saveDataAndSync();
+    alert(`บันทึก "${stop.name}" (${baht.toLocaleString()} บ.) ลงบัญชีเรียบร้อยครับ!`);
+}
