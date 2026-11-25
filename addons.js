@@ -137,7 +137,7 @@ async function handleWheyScanFile(inputEl) {
         statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-purple-400"></i> กำลังอ่านข้อมูลฉลาก/บาร์โค้ดเวย์...`;
     }
 
-    // 1. ลองสแกนบาร์โค้ดจากรูปภาพผ่าน BarcodeDetector (ถ้าบราวเซอร์รองรับ) + OpenFoodFacts
+    // 1. ลองสแกนบาร์โค้ดจากรูปภาพผ่าน BarcodeDetector + OpenFoodFacts
     let barcodeFound = '';
     if ('BarcodeDetector' in window) {
         try {
@@ -170,25 +170,29 @@ async function handleWheyScanFile(inputEl) {
         }
     }
 
-    // 2. Fallback: ใช้ Gemini Vision API ของระบบอ่านฉลากโภชนาการจากรูปภาพ (ถ้ามี apiKey ตั้งค่าไว้)
+    // 2. Fallback: ใช้ Gemini Vision API อ่านฉลากโภชนาการจากรูปภาพ
     try {
-        // แก้จาก localStorage.getItem('gemini_api_key') เป็น:
-        const apiKey = localStorage.getItem('fitTracker_gemini_key') || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '');
+        const apiKey = (localStorage.getItem('fitTracker_gemini_key') || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '')).trim();
         if (apiKey) {
-            const base64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.readAsDataURL(file);
-            });
-            const prompt = `อ่านข้อมูลฉลากโภชนาการเวย์โปรตีนในรูปนี้ แล้วตอบเป็น JSON เท่านั้น: {"name":"ชื่อยี่ห้อ/รส","scoopGrams":30,"protein":27,"calories":120,"carbs":1,"sugar":0,"fat":0,"sodium":80}`;
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            const base64 = await resizeImageToBase64(file, 800);
+            const modelName = (typeof resolveWorkingGeminiModel === 'function')
+                ? await resolveWorkingGeminiModel(apiKey)
+                : 'gemini-2.5-flash';
+
+            const prompt = `อ่านข้อมูลฉลากโภชนาการเวย์โปรตีนในรูปนี้ แล้วตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่น: {"name":"ชื่อยี่ห้อ/รส","scoopGrams":30,"protein":27,"calories":120,"carbs":1,"sugar":0,"fat":0,"sodium":80}`;
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || 'image/jpeg', data: base64 } }] }]
+                    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: base64 } }] }],
+                    generationConfig: { response_mime_type: "application/json" }
                 })
             });
-            const data = await resp.json();
+
+            const rawText = await resp.text();
+            const data = JSON.parse(rawText);
+            if (!resp.ok) throw new Error(data?.error?.message || `HTTP ${resp.status}`);
+
             const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             const jsonMatch = txt.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
@@ -207,10 +211,14 @@ async function handleWheyScanFile(inputEl) {
         }
     } catch (e) {
         console.warn('Vision label scan error:', e);
+        if (statusEl) {
+            statusEl.innerHTML = `⚠️ อ่านฉลากอัตโนมัติไม่สำเร็จ (${e.message}) — กรอกค่าโปรตีน/สกู๊ปด้านล่าง 1 ครั้ง ระบบจะจำไว้ให้เลือกใช้ตลอดครับ`;
+            return;
+        }
     }
 
     if (statusEl) {
-        statusEl.innerHTML = `⚠️ ไม่พบข้อมูลอัตโนมัติจากบาร์โค้ดนี้ กรุณากรอกค่าโปรตีน/สกู๊ปด้านล่าง 1 ครั้ง ระบบจะจำไว้ให้เลือกใช้ตลอดครับ`;
+        statusEl.innerHTML = `⚠️ ไม่พบข้อมูลอัตโนมัติ (หรือยังไม่ได้ใส่ Gemini API Key) กรุณากรอกค่าโปรตีน/สกู๊ปด้านล่าง 1 ครั้ง ระบบจะจำไว้ให้ตลอดครับ`;
     }
 }
 
