@@ -1,10 +1,9 @@
 // ==========================================================================
 // summary.js — โมดูลสรุปผล, กราฟ 7 วัน, ปฏิทินรายเดือน, รายงานสุขภาพ & Watch Trend
 // ==========================================================================
-
 let calendarViewYear = new Date().getFullYear();
 let calendarViewMonth = new Date().getMonth();
-// let calendarSelectedKey = currentDateKey;
+let calendarSelectedKey = currentDateKey;
 let currentReportDays = 7;
 let v59TrendMode = 'cal'; // 'cal' | 'sleep'
 
@@ -15,11 +14,10 @@ function renderSummaryPage() {
     const parts = currentDateKey.split('-');
     calendarViewYear = parseInt(parts[0], 10);
     calendarViewMonth = parseInt(parts[1], 10) - 1;
-    // calendarSelectedKey = currentDateKey;
-
+    calendarSelectedKey = currentDateKey;
     renderWeeklyChart();
     renderCalendarMonth();
-    // renderCalendarDayDetail(calendarSelectedKey);
+    renderCalendarDayDetail(calendarSelectedKey);
     renderSleepRhrCard();
     renderWeeklyTrendDualCard();
     renderHealthReport(currentReportDays);
@@ -192,7 +190,7 @@ function renderCalendarMonth() {
         const key = `${calendarViewYear}-${String(calendarViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const stats = getDayStatsForCalendar(key);
         const targetCal = getDayCalorieGoals(key).max;
-        // const isSelected = key === calendarSelectedKey;
+        const isSelected = key === calendarSelectedKey;
         const isToday = key === todayKey;
 
         let dotsHtml = `<div class="h-2 flex items-center justify-center gap-1 mt-0.5"></div>`;
@@ -212,7 +210,7 @@ function renderCalendarMonth() {
         btn.className = `h-11 rounded-xl flex flex-col items-center justify-center transition ${btnClass}`;
         btn.innerHTML = `<span class="text-xs leading-none">${day}</span>${dotsHtml}`;
         btn.onclick = () => {
-            // calendarSelectedKey = key;
+            calendarSelectedKey = key;
             renderCalendarMonth();
             renderCalendarDayDetail(key);
         };
