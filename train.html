@@ -1,5 +1,5 @@
 <!-- ==========================================================================
-     train.html — โมดูลออกกำลังกาย, คอร์สเวท, Custom Builder & Smart Scale
+     train.html — โมดูลออกกำลังกาย, คอร์สเวท/คาร์ดิโอ, Custom Builder & Smart Scale
      ========================================================================== -->
 <div class="space-y-3">
 
@@ -53,9 +53,9 @@
     <div class="flex items-center justify-between">
       <div>
         <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
-          <i class="fa-solid fa-fire text-amber-400"></i> คอร์สเวท & จัดตารางฝึก
+          <i class="fa-solid fa-fire text-amber-400"></i> คอร์สเวท คาร์ดิโอ & จัดตารางฝึก
         </h3>
-        <span class="text-[10px] text-slate-400">ไม่ต้องใช้เครื่องฟิตเนส • จัดคิวสลับกล้ามเนื้ออัตโนมัติ</span>
+        <span class="text-[10px] text-slate-400">รองรับเวทเทรนนิ่ง คาร์ดิโอ ชกลม & จับเวลารอบอัตโนมัติ</span>
       </div>
     </div>
 
@@ -67,6 +67,7 @@
           <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-chair" onchange="saveCourseConfig()" class="accent-indigo-500"> เก้าอี้/โต๊ะ</label>
           <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-band" onchange="saveCourseConfig()" class="accent-indigo-500"> ยางยืด</label>
           <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-dumbbell" onchange="saveCourseConfig()" class="accent-indigo-500"> ดัมเบล</label>
+          <label class="flex items-center gap-1 text-slate-300 cursor-pointer"><input type="checkbox" id="eq-gym" onchange="saveCourseConfig()" class="accent-indigo-500"> เครื่องฟิตเนส</label>
         </div>
       </div>
       <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
@@ -75,6 +76,7 @@
           <option value="3days">3 วัน/สัปดาห์ (Full Body)</option>
           <option value="4days">4 วัน/สัปดาห์ (Upper / Lower)</option>
           <option value="5days">5 วัน/สัปดาห์ (แยกส่วนเข้มข้น)</option>
+          <option value="6days">6 วัน/สัปดาห์ (Push / Pull / Legs)</option>
         </select>
       </div>
     </div>
@@ -176,12 +178,29 @@
       <div>
         <label class="text-[10px] text-slate-400">ประเภทกิจกรรม</label>
         <select id="workout-type" onchange="autoCalcWorkoutCal()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-0.5">
-          <option value="เดินเร็ว / เดินชัน" data-rate="5.5">🚶 เดินเร็ว / เดินชัน</option>
-          <option value="วิ่งจ๊อกกิ้ง" data-rate="9.0">🏃 วิ่งจ๊อกกิ้ง</option>
-          <option value="ปั่นจักรยาน" data-rate="7.0">🚴 ปั่นจักรยาน</option>
-          <option value="ว่ายน้ำ / ดำน้ำ" data-rate="8.5">🏊 ว่ายน้ำ / ดำน้ำ</option>
-          <option value="เดินป่า / ปีนเขา" data-rate="8.0">🏔️ เดินป่า / ปีนเขา</option>
-          <option value="เวทเทรนนิ่งทั่วไป" data-rate="6.0">🏋️ เวทเทรนนิ่งทั่วไป</option>
+          <optgroup label="🥊 ศิลปะการต่อสู้ & คาร์ดิโอที่บ้าน">
+            <option value="Shadow Boxing (ชกลม)" data-rate="9.5">🥊 Shadow Boxing (ชกลม)</option>
+            <option value="ต่อยมวยกระสอบทราย / เป้าล่อ" data-rate="10.5">🔥 ต่อยมวยกระสอบทราย / เป้าล่อ</option>
+            <option value="กระโดดเชือก (Jump Rope)" data-rate="11.5">🪢 กระโดดเชือก (Jump Rope)</option>
+            <option value="HIIT / Tabata คาร์ดิโอเข้มข้น" data-rate="10.0">⚡ HIIT / Tabata คาร์ดิโอเข้มข้น</option>
+            <option value="Low-Impact Cardio (ไม่กระแทกเข่า)" data-rate="5.5">👟 Low-Impact Cardio (ไม่กระแทกเข่า)</option>
+            <option value="เต้นแอโรบิก / Zumba" data-rate="6.5">💃 เต้นแอโรบิก / Zumba</option>
+          </optgroup>
+          <optgroup label="🚴 เดิน / วิ่ง / เครื่องฟิตเนส">
+            <option value="เดินเร็ว / เดินชันลู่วิ่ง" data-rate="6.0">🚶 เดินเร็ว / เดินชันลู่วิ่ง</option>
+            <option value="วิ่งจ๊อกกิ้ง" data-rate="9.0">🏃 วิ่งจ๊อกกิ้ง</option>
+            <option value="เครื่องเดินวงรี (Elliptical)" data-rate="7.5">🛸 เครื่องเดินวงรี (Elliptical)</option>
+            <option value="ปั่นจักรยาน (ความหนืดปานกลาง)" data-rate="7.0">🚴 ปั่นจักรยาน (ความหนืดปานกลาง)</option>
+            <option value="Spin Bike (ปั่นหนักสลับเร็ว)" data-rate="9.5">🚴‍♂️ Spin Bike (ปั่นหนักสลับเร็ว)</option>
+            <option value="เครื่องกรรเชียงบก (Rowing)" data-rate="8.5">🚣 เครื่องกรรเชียงบก (Rowing)</option>
+            <option value="เครื่องปีนบันได (StairMaster)" data-rate="9.5">🪜 เครื่องปีนบันได (StairMaster)</option>
+          </optgroup>
+          <optgroup label="🏅 กีฬา & เวทเทรนนิ่ง">
+            <option value="ว่ายน้ำ" data-rate="8.5">🏊 ว่ายน้ำ</option>
+            <option value="ตีแบดมินตัน / บาสเกตบอล" data-rate="7.5">🏸 ตีแบดมินตัน / บาสเกตบอล</option>
+            <option value="เดินป่า / ปีนเขา" data-rate="8.0">🏔️ เดินป่า / ปีนเขา</option>
+            <option value="เวทเทรนนิ่งทั่วไป" data-rate="6.0">🏋️ เวทเทรนนิ่งทั่วไป</option>
+          </optgroup>
         </select>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -191,7 +210,7 @@
         </div>
         <div>
           <label class="text-[10px] text-orange-400">เผาผลาญ (kcal)</label>
-          <input type="number" id="workout-calories" value="165" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-300 font-bold mt-0.5" />
+          <input type="number" id="workout-calories" value="285" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-300 font-bold mt-0.5" />
         </div>
       </div>
       <div class="flex justify-end gap-2 pt-2">
