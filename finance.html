@@ -46,17 +46,25 @@
     </div>
   </section>
 
-  <!-- 2. ฟอร์มบันทึกรายการด่วน + ปุ่มลัด 1 คลิกที่ตั้งค่าเองได้ -->
+  <!-- 2. ฟอร์มบันทึกรายรับ / รายจ่ายวันนี้ -->
   <section class="bg-slate-900 rounded-3xl p-4 border border-slate-800 shadow-lg space-y-3">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-2">
       <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <i class="fa-solid fa-plus-circle text-emerald-400"></i> บันทึกรายรับ / รายจ่ายวันนี้
+        <i class="fa-solid fa-plus-circle text-emerald-400"></i> บันทึกบัญชีวันนี้
       </h3>
-      <div class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[11px]">
-        <button type="button" id="fin-type-expense" onclick="setFinanceEntryType('expense')" class="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold">รายจ่าย (-)</button>
-        <button type="button" id="fin-type-income" onclick="setFinanceEntryType('income')" class="px-2.5 py-1 rounded-lg text-slate-400">รายรับ (+)</button>
+      <div class="flex items-center gap-1.5">
+        <label class="cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1">
+          <i class="fa-solid fa-receipt"></i> สแกนสลิป
+          <input type="file" accept="image/*" capture="environment" onchange="scanReceiptWithAI(this)" class="hidden" />
+        </label>
+        <div class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[11px]">
+          <button type="button" id="fin-type-expense" onclick="setFinanceEntryType('expense')" class="px-2 py-1 rounded-lg bg-rose-600 text-white font-bold">จ่าย</button>
+          <button type="button" id="fin-type-income" onclick="setFinanceEntryType('income')" class="px-2 py-1 rounded-lg text-slate-400">รับ</button>
+        </div>
       </div>
     </div>
+
+    <div id="fin-receipt-status" class="hidden text-[11px] bg-slate-950 border border-amber-500/40 text-amber-300 px-3 py-2 rounded-xl"></div>
 
     <!-- แถบปุ่มบันทึกไว 1 คลิก (ดึงจากรายการประจำ + เพิ่ม/ลบปุ่มลัดได้) -->
     <div class="space-y-1.5">
