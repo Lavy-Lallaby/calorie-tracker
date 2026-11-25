@@ -326,12 +326,9 @@ function confirmSendWheyToNutrition() {
 
     alert(`บันทึก "${brand.name}" (${scoops} สกู๊ป / โปรตีน +${fmtPrecise(targetProt, 1)}g) เข้า "${mealName}" เรียบร้อย!`);
 
-    // สลับไปหน้าสารอาหารอัตโนมัติ (รองรับทั้งฟังก์ชัน switchTab หรือคลิกปุ่มแท็บ)
-    if (typeof switchTab === 'function') {
-        switchTab('nutrition');
-    } else {
-        const navBtn = document.querySelector('[data-tab="nutrition"], [onclick*="nutrition"]');
-        if (navBtn) navBtn.click();
+   // สลับกลับไปหน้าอาหาร (FoodTrack) อัตโนมัติ
+    if (typeof loadPageModule === 'function') {
+        loadPageModule('foodtrack');
     }
 }
 
