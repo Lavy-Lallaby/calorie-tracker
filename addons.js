@@ -172,7 +172,8 @@ async function handleWheyScanFile(inputEl) {
 
     // 2. Fallback: ใช้ Gemini Vision API ของระบบอ่านฉลากโภชนาการจากรูปภาพ (ถ้ามี apiKey ตั้งค่าไว้)
     try {
-        const apiKey = localStorage.getItem('gemini_api_key') || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '');
+        // แก้จาก localStorage.getItem('gemini_api_key') เป็น:
+        const apiKey = localStorage.getItem('fitTracker_gemini_key') || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '');
         if (apiKey) {
             const base64 = await new Promise((resolve) => {
                 const reader = new FileReader();
