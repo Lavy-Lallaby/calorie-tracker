@@ -1393,3 +1393,69 @@ function addWater(amount) {
         pushToGitHub(false);
     }
 }
+
+// ------------------------------------------
+// 9. แถบงบค่าอาหารรายวัน (เชื่อมข้อมูลกับหน้า Finance)
+// ------------------------------------------
+function renderFoodBudgetMiniBar() {
+    const box = document.getElementById('food-budget-mini-bar');
+    if (!box) return;
+
+    const dayData = getDayData(currentDateKey);
+    const finances = Array.isArray(dayData.finances) ? dayData.finances : [];
+    const foodSpent = finances
+        .filter(f => f.type === 'expense' && (f.category === 'food' || !f.category))
+        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+
+    const foodBudget = Number(userGoals.foodDailyBudget) || 200;
+    const rem = fmtPrecise(foodBudget - foodSpent, 0);
+    const pct = Math.min(100, Math.round((foodSpent / Math.max(1, foodBudget)) * 100));
+    const isOver = rem < 0;
+
+    const barColor = isOver ? 'bg-rose-500' : (pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400');
+    const textClass = isOver ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold';
+
+    box.innerHTML = `
+        <div class="flex items-center justify-between gap-2 text-[11px]">
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-slate-300 font-semibold">🍱 งบค่าอาหาร:</span>
+                <button type="button" onclick="editFoodDailyBudget()" class="text-amber-300 hover:underline font-bold">
+                    ${fmtPrecise(foodSpent, 0).toLocaleString()} / ${foodBudget.toLocaleString()} บ. <i class="fa-solid fa-pen text-[9px]"></i>
+                </button>
+                <span class="${textClass}">(${isOver ? `เกิน ${Math.abs(rem)} บ.` : `เหลือ ${rem} บ.`})</span>
+            </div>
+            <button type="button" onclick="quickLogFoodExpenseFromFoodTrack()"
+                class="bg-emerald-600/25 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold px-2.5 py-1 rounded-lg shrink-0">
+                + ค่าข้าว
+            </button>
+        </div>
+        <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+            <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+        </div>
+    `;
+}
+
+function editFoodDailyBudget() {
+    const cur = Number(userGoals.foodDailyBudget) || 200;
+    const val = prompt('กำหนดงบค่าอาหารต่อวัน (บาท):', cur);
+    if (val === null) return;
+    userGoals.foodDailyBudget = Math.max(20, Number(val) || cur);
+    saveDataAndSync();
+}
+
+function quickLogFoodExpenseFromFoodTrack() {
+    const title = prompt('ชื่อค่าอาหาร / เครื่องดื่ม:', 'ค่าอาหาร');
+    if (!title || !title.trim()) return;
+    const amt = parseFloat(prompt(`จำนวนเงินสำหรับ "${title.trim()}" (บาท):`, '60'));
+    if (isNaN(amt) || amt <= 0) return;
+
+    const dayData = getDayData(currentDateKey);
+    if (!Array.isArray(dayData.finances)) dayData.finances = [];
+    dayData.finances.unshift({
+        type: 'expense',
+        category: 'food',
+        title: title.trim(),
+        amount: fmtPrecise(amt, 2)
+    });
+    saveDataAndSync();
+}
