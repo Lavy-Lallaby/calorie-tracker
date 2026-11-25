@@ -227,19 +227,67 @@
         </div>
       </div>
 
-      <!-- ช่องกรอกสารอาหารละเอียดทศนิยม 2 ตำแหน่ง -->
-      <div class="grid grid-cols-2 gap-2">
-        <div><label class="text-[10px] text-slate-400">พลังงาน (kcal)</label><input type="number" step="any" id="food-calories" oninput="updateBaseNutritionFromInputs()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-emerald-400">โปรตีน (g)</label><input type="number" step="any" id="food-protein" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-slate-400">คาร์โบไฮเดรต (g)</label><input type="number" step="any" id="food-carbs" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-pink-400">น้ำตาล (g)</label><input type="number" step="any" id="food-sugar" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-teal-400">ไฟเบอร์ (g)</label><input type="number" step="any" id="food-fiber" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-amber-300">ไขมันรวม (g)</label><input type="number" step="any" id="food-fat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-orange-400">ไขมันอิ่มตัว (g)</label><input type="number" step="any" id="food-satfat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-rose-400">ไขมันทรานส์ (g)</label><input type="number" step="any" id="food-transfat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-amber-400">โซเดียม (mg)</label><input type="number" step="any" id="food-sodium" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div><label class="text-[10px] text-lime-400">โพแทสเซียม (mg)</label><input type="number" step="any" id="food-potassium" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
-        <div class="col-span-2"><label class="text-[10px] text-purple-300">คอเลสเตอรอล (mg)</label><input type="number" step="any" id="food-cholesterol" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" /></div>
+      <!-- ช่องกรอกสารอาหารจัดกลุ่มตามฉลาก (4 แถว) -->
+      <div class="space-y-2">
+        <!-- แถว 1: พลังงาน | โปรตีน -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400">พลังงาน (kcal)</label>
+            <input type="number" step="any" id="food-calories" oninput="updateBaseNutritionFromInputs()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-emerald-400">โปรตีน (g)</label>
+            <input type="number" step="any" id="food-protein" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white mt-0.5" />
+          </div>
+        </div>
+
+        <!-- แถว 2: คาร์บ | น้ำตาล | ไฟเบอร์ -->
+        <div class="grid grid-cols-3 gap-1.5">
+          <div>
+            <label class="text-[10px] text-slate-400">คาร์บ (g)</label>
+            <input type="number" step="any" id="food-carbs" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-pink-400">น้ำตาล (g)</label>
+            <input type="number" step="any" id="food-sugar" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-teal-400">ไฟเบอร์ (g)</label>
+            <input type="number" step="any" id="food-fiber" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+        </div>
+
+        <!-- แถว 3: ไขมันรวม | อิ่มตัว | ทรานส์ -->
+        <div class="grid grid-cols-3 gap-1.5">
+          <div>
+            <label class="text-[10px] text-amber-300">ไขมันรวม (g)</label>
+            <input type="number" step="any" id="food-fat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-orange-400">อิ่มตัว (g)</label>
+            <input type="number" step="any" id="food-satfat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-rose-400">ทรานส์ (g)</label>
+            <input type="number" step="any" id="food-transfat" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+        </div>
+
+        <!-- แถว 4: โซเดียม | โพแทสเซียม | คอเลสเตอรอล -->
+        <div class="grid grid-cols-3 gap-1.5">
+          <div>
+            <label class="text-[10px] text-amber-400">โซเดียม (mg)</label>
+            <input type="number" step="any" id="food-sodium" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-lime-400">โพส (mg)</label>
+            <input type="number" step="any" id="food-potassium" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+          <div>
+            <label class="text-[10px] text-purple-300">คอเลส (mg)</label>
+            <input type="number" step="any" id="food-cholesterol" oninput="updateBaseNutritionFromInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white mt-0.5" />
+          </div>
+        </div>
       </div>
 
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
