@@ -1,8 +1,9 @@
 // ==========================================================================
-// finance.js — โมดูลบันทึกรายรับ-รายจ่าย, งบประมาณ & สรุปรายเดือน
+// finance.js — โมดูลบันทึกรายรับ-รายจ่าย, ปุ่มลัดซื้อประจำ & Autocomplete
 // ==========================================================================
 
 let currentFinEntryType = 'expense';
+let isFinPresetEditMode = false;
 
 const FIN_CAT_META = {
     food:      { icon: '🍱', label: 'อาหาร & เครื่องดื่ม', color: 'bg-emerald-400', text: 'text-emerald-300' },
@@ -14,16 +15,61 @@ const FIN_CAT_META = {
     other:     { icon: '📦', label: 'อื่นๆ', color: 'bg-amber-400', text: 'text-amber-300' }
 };
 
+const DEFAULT_FIN_PRESETS = [
+    { title: 'อกไก่ 7-11', amount: 40, category: 'food' },
+    { title: 'โทฟุซังโปรตีนสูง', amount: 45, category: 'food' },
+    { title: 'ไข่ต้ม 2 ฟอง', amount: 20, category: 'food' },
+    { title: 'กาแฟดำ', amount: 55, category: 'food' },
+    { title: 'เติมน้ำมันรถ', amount: 500, category: 'transport' }
+];
+
+function getFinancePresets() {
+    if (!Array.isArray(userGoals.financePresets) || userGoals.financePresets.length === 0) {
+        userGoals.financePresets = JSON.parse(JSON.stringify(DEFAULT_FIN_PRESETS));
+    }
+    return userGoals.financePresets;
+}
+
+// ดึงประวัติรายการทั้งหมดที่เคยบันทึก (เรียงตามความถี่ที่ใช้บ่อยสุด)
+function getFrequentFinanceHistory() {
+    const map = {};
+    const sortedDates = Object.keys(allMealsHistory).sort(); // เรียงเก่าไปใหม่ เพื่อให้ได้ราคาล่าสุด
+
+    sortedDates.forEach(dateKey => {
+        const list = allMealsHistory[dateKey]?.finances || [];
+        list.forEach(item => {
+            const cleanTitle = (item.title || '').trim();
+            if (!cleanTitle) return;
+            const key = `${item.type || 'expense'}::${cleanTitle.toLowerCase()}`;
+            if (!map[key]) {
+                map[key] = {
+                    title: cleanTitle,
+                    amount: Number(item.amount || 0),
+                    category: item.category || 'food',
+                    type: item.type || 'expense',
+                    count: 0
+                };
+            }
+            map[key].amount = Number(item.amount || 0); // อัปเดตเป็นราคาล่าสุดเสมอ
+            map[key].category = item.category || map[key].category;
+            map[key].count++;
+        });
+    });
+
+    return Object.values(map).sort((a, b) => b.count - a.count);
+}
+
 function renderFinancePage() {
     const dayData = getDayData(currentDateKey);
     if (!Array.isArray(dayData.finances)) dayData.finances = [];
+
+    renderFinancePresetsBar();
 
     const dailyBudget = Number(userGoals.dailyBudget) || 500;
     const budgetLabel = document.getElementById('fin-daily-budget-label');
     if (budgetLabel) budgetLabel.innerText = dailyBudget.toLocaleString();
 
-    // คำนวณยอดวันนี้ & ยอดทั้งเดือน
-    const monthPrefix = currentDateKey.slice(0, 7); // YYYY-MM
+    const monthPrefix = currentDateKey.slice(0, 7);
     let todayExp = 0, monthExp = 0, monthInc = 0;
     const catTotals = {};
 
@@ -56,7 +102,6 @@ function renderFinancePage() {
     document.getElementById('fin-month-expense').innerText = `${fmtPrecise(monthExp, 0).toLocaleString()} บ.`;
     document.getElementById('fin-month-income').innerText = `${fmtPrecise(monthInc, 0).toLocaleString()} บ.`;
 
-    // หลอดงบประมาณรายวัน
     const pct = Math.round((todayExp / Math.max(1, dailyBudget)) * 100);
     const rem = fmtPrecise(dailyBudget - todayExp, 0);
     document.getElementById('fin-daily-pct').innerText = `${pct}%`;
@@ -74,7 +119,7 @@ function renderFinancePage() {
     }
     progBar.style.width = `${Math.min(100, pct)}%`;
 
-    // รายการวันนี้
+    // รายการวันนี้ (พร้อมปุ่มกดซื้อซ้ำ +1)
     const listEl = document.getElementById('fin-today-list');
     document.getElementById('fin-today-count').innerText = `${dayData.finances.length} รายการ`;
 
@@ -84,6 +129,7 @@ function renderFinancePage() {
         listEl.innerHTML = dayData.finances.map((item, idx) => {
             const meta = FIN_CAT_META[item.category] || FIN_CAT_META.other;
             const isInc = item.type === 'income';
+            const safeTitle = (item.title || '').replace(/'/g, "\\'");
             return `
                 <div class="flex items-center justify-between gap-2 bg-slate-950/90 px-3 py-2.5 rounded-2xl border border-slate-800 text-xs">
                     <div class="flex items-center gap-2.5 min-w-0">
@@ -93,8 +139,11 @@ function renderFinancePage() {
                             <div class="text-[10px] ${meta.text}">${meta.label}</div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2.5 shrink-0">
+                    <div class="flex items-center gap-2 shrink-0">
                         <b class="${isInc ? 'text-emerald-400' : 'text-rose-400'}">${isInc ? '+' : '-'}${fmtPrecise(item.amount, 2).toLocaleString()} บ.</b>
+                        <button type="button" onclick="repeatFinanceItem('${safeTitle}', ${Number(item.amount)}, '${item.category}', '${item.type}')" title="บันทึกซ้ำอีกครั้ง" class="text-[10px] bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white px-2 py-1 rounded-lg transition">
+                            +ซ้ำ
+                        </button>
                         <button type="button" onclick="deleteFinanceItem(${idx})" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
                     </div>
                 </div>
@@ -126,6 +175,152 @@ function renderFinancePage() {
     }
 }
 
+// ------------------------------------------
+// แถบปุ่มเมนูลัดซื้อประจำ (เพิ่ม / ลบ / กดใช้งานได้)
+// ------------------------------------------
+function renderFinancePresetsBar() {
+    const bar = document.getElementById('fin-quick-presets-bar');
+    if (!bar) return;
+
+    const presets = getFinancePresets();
+    const editBtn = document.getElementById('fin-preset-edit-btn');
+    if (editBtn) {
+        editBtn.innerHTML = isFinPresetEditMode
+            ? '<i class="fa-solid fa-check mr-0.5"></i> เสร็จสิ้น'
+            : '<i class="fa-solid fa-sliders mr-0.5"></i> จัดการปุ่ม';
+    }
+
+    let html = presets.map((p, idx) => {
+        const meta = FIN_CAT_META[p.category] || FIN_CAT_META.food;
+        const safeTitle = (p.title || '').replace(/'/g, "\\'");
+        if (isFinPresetEditMode) {
+            return `
+                <div class="shrink-0 flex items-center gap-1 bg-rose-950/60 border border-rose-500/40 rounded-xl px-2.5 py-1.5 text-[11px] text-rose-200">
+                    <span>${meta.icon} ${p.title} (${p.amount} บ.)</span>
+                    <button type="button" onclick="deleteFinancePreset(${idx})" class="ml-1 text-rose-400 hover:text-white font-bold px-1">×</button>
+                </div>
+            `;
+        }
+        return `
+            <button type="button" onclick="quickAddFinance('${safeTitle}', ${Number(p.amount)}, '${p.category}')"
+                class="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200 transition">
+                + ${meta.icon} ${p.title} <span class="text-amber-300 font-semibold">${p.amount} บ.</span>
+            </button>
+        `;
+    }).join('');
+
+    html += `
+        <button type="button" onclick="promptAddFinancePreset()"
+            class="shrink-0 bg-indigo-600/20 hover:bg-indigo-600/35 border border-indigo-500/40 rounded-xl px-2.5 py-1.5 text-[11px] text-indigo-300 font-semibold transition">
+            <i class="fa-solid fa-plus mr-0.5"></i> เพิ่มเมนูลัด
+        </button>
+    `;
+
+    bar.innerHTML = html;
+}
+
+function toggleFinPresetEditMode() {
+    isFinPresetEditMode = !isFinPresetEditMode;
+    renderFinancePresetsBar();
+}
+
+function promptAddFinancePreset() {
+    const title = prompt('ชื่อรายการที่ซื้อประจำ (เช่น อกไก่ 7-11):');
+    if (!title || !title.trim()) return;
+    const amount = parseFloat(prompt(`ราคาของ "${title.trim()}" (บาท):`, '40'));
+    if (isNaN(amount) || amount <= 0) return;
+
+    const category = document.getElementById('fin-category')?.value || 'food';
+    const presets = getFinancePresets();
+    presets.push({ title: title.trim(), amount: fmtPrecise(amount, 2), category });
+    saveDataAndSync();
+}
+
+function saveCurrentFormAsPreset() {
+    const title = (document.getElementById('fin-title').value || '').trim();
+    const amount = parseFloat(document.getElementById('fin-amount').value);
+    const category = document.getElementById('fin-category').value || 'food';
+
+    if (!title || isNaN(amount) || amount <= 0) {
+        return promptAddFinancePreset();
+    }
+
+    const presets = getFinancePresets();
+    const exists = presets.some(p => p.title.toLowerCase() === title.toLowerCase() && Number(p.amount) === amount);
+    if (!exists) {
+        presets.push({ title, amount: fmtPrecise(amount, 2), category });
+        saveDataAndSync();
+        alert(`เพิ่ม "${title} (${amount} บ.)" เป็นปุ่มเมนูลัดเรียบร้อยครับ`);
+    } else {
+        alert('มีเมนูนี้อยู่ในปุ่มลัดแล้วครับ');
+    }
+}
+
+function deleteFinancePreset(idx) {
+    const presets = getFinancePresets();
+    presets.splice(idx, 1);
+    saveDataAndSync();
+}
+
+// ------------------------------------------
+// ระบบค้นหาและดึงราคาอัตโนมัติจากประวัติ (Autocomplete)
+// ------------------------------------------
+function onFinanceTitleInput(keyword) {
+    const box = document.getElementById('fin-autocomplete-list');
+    if (!box) return;
+
+    const q = (keyword || '').trim().toLowerCase();
+    const historyItems = getFrequentFinanceHistory();
+    const filtered = q
+        ? historyItems.filter(item => item.title.toLowerCase().includes(q)).slice(0, 6)
+        : historyItems.slice(0, 5);
+
+    if (filtered.length === 0) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    box.innerHTML = filtered.map(item => {
+        const meta = FIN_CAT_META[item.category] || FIN_CAT_META.other;
+        const safeTitle = item.title.replace(/'/g, "\\'");
+        return `
+            <button type="button" onclick="selectFinanceAutocomplete('${safeTitle}', ${item.amount}, '${item.category}', '${item.type}')"
+                class="w-full px-3 py-2 text-left hover:bg-slate-800 flex items-center justify-between gap-2 text-xs transition">
+                <div class="truncate">
+                    <span class="mr-1">${meta.icon}</span>
+                    <span class="text-white font-medium">${item.title}</span>
+                    <span class="text-[10px] text-slate-500 ml-1">(${item.count} ครั้ง)</span>
+                </div>
+                <span class="font-bold ${item.type === 'income' ? 'text-emerald-400' : 'text-amber-300'} shrink-0">${item.amount} บ.</span>
+            </button>
+        `;
+    }).join('');
+    box.classList.remove('hidden');
+}
+
+function selectFinanceAutocomplete(title, amount, category, type) {
+    setFinanceEntryType(type || 'expense');
+    document.getElementById('fin-title').value = title;
+    document.getElementById('fin-amount').value = amount;
+    const catSel = document.getElementById('fin-category');
+    if (catSel && FIN_CAT_META[category]) catSel.value = category;
+
+    const box = document.getElementById('fin-autocomplete-list');
+    if (box) box.classList.add('hidden');
+}
+
+// ปิดกล่องแนะนำเมื่อคลิกพื้นที่อื่น
+document.addEventListener('click', (e) => {
+    const box = document.getElementById('fin-autocomplete-list');
+    const input = document.getElementById('fin-title');
+    if (box && input && !box.contains(e.target) && e.target !== input) {
+        box.classList.add('hidden');
+    }
+});
+
+// ------------------------------------------
+// ฟังก์ชันจัดการรายการบัญชี
+// ------------------------------------------
 function setFinanceEntryType(type) {
     currentFinEntryType = type;
     const expBtn = document.getElementById('fin-type-expense');
@@ -158,6 +353,18 @@ function quickAddFinance(title, amount, category) {
     saveDataAndSync();
 }
 
+function repeatFinanceItem(title, amount, category, type) {
+    const dayData = getDayData(currentDateKey);
+    if (!Array.isArray(dayData.finances)) dayData.finances = [];
+    dayData.finances.unshift({
+        type: type || 'expense',
+        category: category || 'food',
+        title,
+        amount: fmtPrecise(amount, 2)
+    });
+    saveDataAndSync();
+}
+
 function handleFinanceSubmit(e) {
     e.preventDefault();
     const title = (document.getElementById('fin-title').value || '').trim();
@@ -176,6 +383,8 @@ function handleFinanceSubmit(e) {
 
     document.getElementById('fin-title').value = '';
     document.getElementById('fin-amount').value = '';
+    const box = document.getElementById('fin-autocomplete-list');
+    if (box) box.classList.add('hidden');
     saveDataAndSync();
 }
 
