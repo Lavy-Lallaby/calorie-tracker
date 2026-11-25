@@ -1211,37 +1211,84 @@ async function scanLabelOfflineOCR(file) {
     }
 }
 
+async function resolveWorkingGeminiModel(apiKey) {
+    // 1. ลองดึงรายชื่อโมเดลทั้งหมดที่ API Key นี้มีสิทธิ์ใช้งานจริง
+    try {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (listRes.ok) {
+            const listData = await listRes.json();
+            const models = (listData.models || [])
+                .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+                .map(m => m.name.replace('models/', ''));
+
+            // เลือกโมเดลตระกูล Flash ล่าสุดก่อน (เร็วและรองรับรูปภาพดีที่สุด)
+            const preferred = [
+                'gemini-3-flash-preview',
+                'gemini-2.5-flash',
+                'gemini-2.5-flash-lite',
+                'gemini-2.0-flash',
+                'gemini-1.5-flash'
+            ];
+            for (const p of preferred) {
+                if (models.includes(p)) return p;
+            }
+            const anyFlash = models.find(m => m.includes('flash') && !m.includes('audio') && !m.includes('tts'));
+            if (anyFlash) return anyFlash;
+            if (models.length > 0) return models[0];
+        }
+    } catch (e) {
+        console.warn('Model list lookup failed, using fallback:', e);
+    }
+    return 'gemini-2.5-flash';
+}
+
 async function scanFoodWithGemini(file) {
     const loader = document.getElementById('ai-loading-indicator');
     loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังวิเคราะห์อาหาร...';
     loader.classList.remove('hidden');
-    try {
-        const base64Data = await resizeImageToBase64(file, 800);
-        const apiKey = localStorage.getItem('fitTracker_gemini_key');
-        if (!apiKey) throw new Error("ไม่พบ Gemini API Key กรุณาตั้งค่าใหม่");
 
-        const url = `[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$){apiKey}`;
-        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น:
-           {"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
+    try {
+        const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
+        if (!apiKey) throw new Error("ไม่พบ Gemini API Key กรุณากดปุ่มตั้งค่า (⚙️) เพื่อใส่คีย์ก่อนครับ");
+
+        const base64Data = await resizeImageToBase64(file, 800);
+        const modelName = await resolveWorkingGeminiModel(apiKey);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
+{"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
 
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: promptText }, { inline_data: { mime_type: "image/jpeg", data: base64Data } }] }],
+                contents: [{
+                    parts: [
+                        { text: promptText },
+                        { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                    ]
+                }],
                 generationConfig: { response_mime_type: "application/json" }
             })
         });
 
-        const data = await res.json();
+        // อ่านเป็น Text ก่อนเสมอ กันพังเวลา Server ส่ง HTML กลับมา
+        const rawResponseText = await res.text();
+        let data = null;
+        try {
+            data = JSON.parse(rawResponseText);
+        } catch (parseErr) {
+            throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status}) — กรุณาตรวจสอบ API Key หรืออินเทอร์เน็ต`);
+        }
+
         if (!res.ok) {
             const errMsg = data?.error?.message || `HTTP ${res.status}`;
             throw new Error(errMsg);
         }
 
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("AI ไม่ได้ส่งข้อมูลสารอาหารกลับมาในรูปแบบที่ถูกต้อง");
+        const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("AI ไม่ได้ส่งข้อมูลสารอาหารกลับมา กรุณาลองถ่ายใหม่อีกครั้ง");
 
         fillFormWithNutritionData(JSON.parse(jsonMatch[0]));
     } catch (error) {
