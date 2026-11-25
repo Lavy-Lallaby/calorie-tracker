@@ -344,11 +344,16 @@ async function computeRouteAndRenderMap(stops, startTime) {
                                 </div>
                             </div>
                             ${s.note ? `<div class="text-[11px] text-slate-300 bg-slate-900/80 px-2.5 py-1.5 rounded-xl border border-slate-800/80">${s.note}</div>` : ''}
-                            <div class="flex justify-between items-center pt-1">
+                            <div class="flex justify-between items-center pt-1 gap-2">
                                 <span class="text-[10px] text-slate-500">พิกัด: ${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</span>
-                                <a href="${singleNavUrl}" target="_blank" rel="noopener" class="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1">
-                                    <i class="fa-solid fa-location-arrow"></i> นำทางจุดนี้
-                                </a>
+                                <div class="flex items-center gap-2.5">
+                                    <button type="button" onclick="quickLogTripStopExpense(${idx})" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+                                        <i class="fa-solid fa-wallet"></i> + ลงบัญชี
+                                    </button>
+                                    <a href="${singleNavUrl}" target="_blank" rel="noopener" class="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1">
+                                        <i class="fa-solid fa-location-arrow"></i> นำทางจุดนี้
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
