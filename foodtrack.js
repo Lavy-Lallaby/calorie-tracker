@@ -30,6 +30,7 @@ function renderFoodTrackPage() {
     renderDailyMacroChart();
     renderNutritionCoach();
     updateCatalogDatalist();
+    renderFoodBudgetMiniBar();
 }
 
 // ------------------------------------------
