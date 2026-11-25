@@ -393,3 +393,68 @@ function deleteFinanceItem(idx) {
     getDayData(currentDateKey).finances.splice(idx, 1);
     saveDataAndSync();
 }
+
+// ------------------------------------------
+// สแกนสลิปโอนเงิน / ใบเสร็จด้วย AI (Gemini Vision)
+// ------------------------------------------
+async function scanReceiptWithAI(inputEl) {
+    const file = inputEl?.files?.[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('fin-receipt-status');
+    const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
+    if (!apiKey) {
+        alert('กรุณาใส่ Gemini API Key ในปุ่มตั้งค่า (⚙️) ก่อนใช้งานสแกนสลิปครับ');
+        return;
+    }
+
+    if (statusEl) {
+        statusEl.classList.remove('hidden');
+        statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังอ่านยอดเงินและชื่อร้านจากสลิป...`;
+    }
+
+    try {
+        const base64 = await resizeImageToBase64(file, 800);
+        const modelName = (typeof resolveWorkingGeminiModel === 'function')
+            ? await resolveWorkingGeminiModel(apiKey)
+            : 'gemini-2.5-flash';
+
+        const prompt = `อ่านสลิปโอนเงินหรือใบเสร็จในรูปนี้ แล้วตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
+{"title":"ชื่อร้านค้าหรือรายการสั้นๆ","amount":ตัวเลขยอดเงินสุทธิ,"category":"เลือก 1 ค่าจาก food, transport, skincare, fitness, trip, income, other","type":"expense หรือ income"}`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: base64 } }] }],
+                generationConfig: { response_mime_type: 'application/json' }
+            })
+        });
+
+        const rawText = await res.text();
+        const data = JSON.parse(rawText);
+        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+        const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const match = aiText.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('ไม่สามารถอ่านข้อมูลจากสลิปได้');
+
+        const parsed = JSON.parse(match[0]);
+        setFinanceEntryType(parsed.type === 'income' ? 'income' : 'expense');
+        if (parsed.title) document.getElementById('fin-title').value = parsed.title;
+        if (parsed.amount) document.getElementById('fin-amount').value = parsed.amount;
+        if (parsed.category && FIN_CAT_META[parsed.category]) {
+            document.getElementById('fin-category').value = parsed.category;
+        }
+
+        if (statusEl) {
+            statusEl.innerHTML = `✅ อ่านสลิปสำเร็จ! ตรวจสอบความถูกต้องแล้วกดปุ่ม <b>"บันทึก"</b> ได้เลยครับ`;
+        }
+    } catch (err) {
+        if (statusEl) {
+            statusEl.innerHTML = `<span class="text-rose-400">⚠️ สแกนไม่สำเร็จ: ${err.message}</span>`;
+        }
+    } finally {
+        inputEl.value = '';
+    }
+}
