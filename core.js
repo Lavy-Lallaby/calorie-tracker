@@ -300,13 +300,6 @@ function applyGoalChangeFromDate(effectiveDateKey, newMin, newMax) {
 
 function getDayCalorieGoals(dateKey) {
     const dayObj = allMealsHistory[dateKey];
-    // ใน getNutrientAdjustments(dateKey):
-    const dayOverride = getDayNutritionOverride(dateKey);
-    const baseTargetCal = Number(userGoals.calories) || 1500;
-    const targetCarbs = Number(dayOverride?.carbsMax ?? userGoals.carbsMax) || Math.round((baseTargetCal * 0.50) / 4);
-    const targetFat = Number(dayOverride?.fatMax ?? userGoals.fatMax) || Math.round((baseTargetCal * 0.30) / 9);
-    const targetSugar = Number(dayOverride?.sugarMax ?? userGoals.sugarMax) || 24;
-    const targetSodium = Number(dayOverride?.sodiumMax ?? userGoals.sodiumMax) || 2000;
     if (dayObj && dayObj.targetMax !== undefined && dayObj.targetMax !== null) {
         return { min: Number(dayObj.targetMin ?? 1200), max: Number(dayObj.targetMax) };
     }
