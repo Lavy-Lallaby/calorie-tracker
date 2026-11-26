@@ -69,6 +69,13 @@ function cloneCurrentDayToTomorrow() {
     saveDataAndSync();
 }
 
+function getActiveProteinRange(dateKey = currentDateKey) {
+    const ov = getDayNutritionOverride(dateKey);
+    const protMin = Number(ov?.proteinMin ?? userGoals.proteinMin) || 96;
+    const protMax = Number(ov?.proteinMax ?? userGoals.proteinMax) || Math.max(protMin, 128);
+    return { protMin, protMax, isOverridden: Boolean(ov?.proteinMin) };
+}
+
 function copyDailySummaryText() {
     const dayData = getDayData(currentDateKey);
     let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSugar = 0, totalSodium = 0;
@@ -687,6 +694,8 @@ function renderBurnModeCard() {
     const card = document.getElementById('burn-mode-card');
     if (!card) return;
     const isBurnMode = userGoals.preset === 'fat_sugar_burn';
+    const dayOverride = getDayNutritionOverride(currentDateKey);
+    const activePlanCode = `D${mealPlanDayIndex + 1}`;
 
     const sevenDayPlans = [
         { day: "วันที่ 1", theme: "เริ่มรีดน้ำตาล & ล้างโซเดียม", meals: [
