@@ -1403,8 +1403,8 @@ function quickLogFoodExpenseFromFoodTrack() {
 }
 
 const GEMINI_MODEL_PRIORITY = [
-    'gemini-3.8-flash',
     'gemini-3.8-flash-lite',
+    'gemini-3.8-flash',
     'gemini-2.5-flash-lite',
     'gemini-2.0-flash',
     'gemini-3-flash'
@@ -1445,35 +1445,51 @@ async function callGeminiWithModelFallback(apiKey, requestBody) {
 
     for (const modelName of models) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
 
-        const rawResponseText = await res.text();
-        let data = null;
-        try {
-            data = JSON.parse(rawResponseText);
-        } catch (_) {
-            lastError = new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status})`);
-            continue;
-        }
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
 
-        if (res.ok) {
-            return { data, modelName };
-        }
+            const rawResponseText = await res.text();
+            let data = null;
+            try {
+                data = JSON.parse(rawResponseText);
+            } catch (_) {
+                lastError = new Error(`[${modelName}] เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status})`);
+                break;
+            }
 
-        const errMsg = data?.error?.message || `HTTP ${res.status}`;
-        lastError = new Error(`[${modelName}] ${errMsg}`);
+            if (res.ok) {
+                return { data, modelName };
+            }
 
-        // ถ้าโควตาเต็ม (429) หรือโมเดลนี้ไม่รองรับ/ปิดใช้งาน ให้ลองโมเดลถัดไปทันที
-        const isQuotaOrUnavailable =
-            res.status === 429 ||
-            res.status === 404 ||
-            /quota|rate.?limit|no longer available|not found|not supported/i.test(errMsg);
+            const errMsg = data?.error?.message || `HTTP ${res.status}`;
+            lastError = new Error(`[${modelName}] ${errMsg}`);
 
-        if (!isQuotaOrUnavailable) {
+            const isTransientOverload =
+                res.status === 503 ||
+                res.status === 500 ||
+                res.status === 502 ||
+                res.status === 504 ||
+                /high demand|overloaded|unavailable|try again later/i.test(errMsg);
+
+            const isQuotaOrMissing =
+                res.status === 429 ||
+                res.status === 404 ||
+                /quota|rate.?limit|no longer available|not found|not supported/i.test(errMsg);
+
+            if (isTransientOverload && attempt === 0) {
+                await new Promise(r => setTimeout(r, 700));
+                continue;
+            }
+
+            if (isTransientOverload || isQuotaOrMissing) {
+                break;
+            }
+
             throw lastError;
         }
     }
