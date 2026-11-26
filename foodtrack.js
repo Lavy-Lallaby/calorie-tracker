@@ -1224,10 +1224,10 @@ async function resolveWorkingGeminiModel(apiKey) {
 
             // เลือกโมเดลตระกูล Flash ล่าสุดก่อน (เร็วและรองรับรูปภาพดีที่สุด)
             const preferred = [
-                'gemini-3-flash-preview',
                 'gemini-2.5-flash',
                 'gemini-2.5-flash-lite',
                 'gemini-2.0-flash',
+                'gemini-3-flash-preview',
                 'gemini-1.5-flash'
             ];
             for (const p of preferred) {
