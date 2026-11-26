@@ -1149,21 +1149,27 @@ async function sendGeminiChatMessage(e) {
     renderPrivateGeminiChat();
 
     try {
-        const modelName = (typeof resolveWorkingGeminiModel === 'function')
-            ? await resolveWorkingGeminiModel(apiKey)
-            : 'gemini-2.5-flash';
-
-        const prompt = `คุณเป็นผู้ช่วยโภชนาการไทย ตอบกระชับ ชัดเจน และหากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
-พลังงาน: ... kcal
-โปรตีน: ... g
-ไขมันรวม: ... g
-คาร์บ: ... g
-น้ำตาล: ... g
-ไฟเบอร์: ... g
-คอเลสเตอรอล: ... mg
-โซเดียม: ... mg
-
-ข้อความผู้ใช้: ${messageLabel}`;
+        const activeDateKey = (typeof currentDateKey === 'string' && currentDateKey)
+            ? currentDateKey
+            : getCurrentChatDateKey();
+        const activeDateText = (typeof formatDisplayDate === 'function')
+            ? formatDisplayDate(activeDateKey)
+            : activeDateKey;
+        
+        const prompt = `คุณเป็นผู้ช่วยโภชนาการไทย ตอบกระชับ ชัดเจน
+        วันที่ในระบบปัจจุบันคือ: ${activeDateText} (${activeDateKey})
+        
+        หากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
+        พลังงาน: ... kcal
+        โปรตีน: ... g
+        ไขมันรวม: ... g
+        คาร์บ: ... g
+        น้ำตาล: ... g
+        ไฟเบอร์: ... g
+        คอเลสเตอรอล: ... mg
+        โซเดียม: ... mg
+        
+        ข้อความผู้ใช้: ${messageLabel}`;
 
         const parts = [{ text: prompt }];
         if (imageToSend) {
@@ -1213,6 +1219,38 @@ async function sendGeminiChatMessage(e) {
         renderPrivateGeminiChat();
     }
 }
+
+function attachGeminiChatPasteImageSupport() {
+    const drawer = document.getElementById('gemini-chat-drawer');
+    if (!drawer || drawer.dataset.pasteBound === 'true') return;
+
+    drawer.addEventListener('paste', async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items || !items.length) return;
+
+        for (const item of items) {
+            if (item.type && item.type.startsWith('image/')) {
+                const blob = item.getAsFile();
+                if (!blob) continue;
+
+                e.preventDefault();
+                const ext = (item.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '');
+                const pastedFile = new File([blob], `pasted_${Date.now()}.${ext}`, { type: item.type });
+
+                if (typeof handleGeminiChatImageSelected === 'function') {
+                    await handleGeminiChatImageSelected({
+                        target: { files: [pastedFile], value: '' }
+                    });
+                }
+                break;
+            }
+        }
+    });
+
+    drawer.dataset.pasteBound = 'true';
+}
+
+document.addEventListener('DOMContentLoaded', attachGeminiChatPasteImageSupport);
 
 async function hydrateGeminiChatImage(msgIndex, imgPath) {
     if (!imgPath) return;
