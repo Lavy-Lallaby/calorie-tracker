@@ -1129,26 +1129,32 @@ async function sendGeminiChatMessage(e) {
     e.preventDefault();
     const input = document.getElementById('gemini-chat-input');
     if (!input) return;
+
     const text = input.value.trim();
-    if (!text) return;
+    const hasPendingImage = Boolean(typeof pendingGeminiChatImageBase64 !== 'undefined' && pendingGeminiChatImageBase64);
+    if (!text && !hasPendingImage) return;
 
     const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
     if (!apiKey) {
         alert("ไม่พบ Gemini API Key ส่วนตัว กรุณาตั้งค่าที่ปุ่ม ⚙️ ก่อนครับ");
-        openSettingsModal();
+        if (typeof openSettingsModal === 'function') openSettingsModal();
         return;
     }
 
+    const imageToSend = hasPendingImage ? pendingGeminiChatImageBase64 : null;
+    const messageLabel = text || "วิเคราะห์รูปที่แนบนี้";
+
     loadPrivateChatMessages();
-    const userParsed = parseNutritionFromText(text, text.slice(0, 32));
+    const userParsed = parseNutritionFromText(text, text ? text.slice(0, 32) : "รายการจากรูปในแชท");
     privateChatMessages.push({
         role: 'user',
-        text,
+        text: imageToSend ? `${messageLabel}\n[แนบรูปภาพ 1 รูป]` : messageLabel,
         nutrition: userParsed,
         at: new Date().toISOString()
     });
     savePrivateChatMessages();
     input.value = '';
+    if (typeof clearGeminiChatPendingImage === 'function') clearGeminiChatPendingImage();
     renderPrivateGeminiChat();
 
     try {
@@ -1166,25 +1172,41 @@ async function sendGeminiChatMessage(e) {
 คอเลสเตอรอล: ... mg
 โซเดียม: ... mg
 
-ข้อความผู้ใช้: ${text}`;
+ข้อความผู้ใช้: ${messageLabel}`;
+
+        const parts = [{ text: prompt }];
+        if (imageToSend) {
+            parts.push({
+                inline_data: {
+                    mime_type: "image/jpeg",
+                    data: imageToSend
+                }
+            });
+        }
 
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
+                contents: [{ parts }]
             })
         });
 
         const rawText = await res.text();
-        const data = JSON.parse(rawText);
+        let data = null;
+        try {
+            data = JSON.parse(rawText);
+        } catch (_) {
+            throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status})`);
+        }
         if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
 
         const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'ไม่ได้รับคำตอบจาก Gemini';
+        const fallbackTitle = text ? text.slice(0, 32) : "รายการจากรูปในแชท";
         privateChatMessages.push({
             role: 'assistant',
             text: replyText,
-            nutrition: parseNutritionFromText(replyText, text.slice(0, 32)),
+            nutrition: parseNutritionFromText(replyText, fallbackTitle),
             at: new Date().toISOString()
         });
         savePrivateChatMessages();
