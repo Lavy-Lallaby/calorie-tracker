@@ -1220,19 +1220,19 @@ async function sendGeminiChatMessage(e) {
             : activeDateKey;
 
         const prompt = `คุณเป็นผู้ช่วยโภชนาการไทย ตอบกระชับ ชัดเจน
-วันที่ในระบบปัจจุบันคือ: ${activeDateText} (${activeDateKey})
-
-หากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
-พลังงาน: ... kcal
-โปรตีน: ... g
-ไขมันรวม: ... g
-คาร์บ: ... g
-น้ำตาล: ... g
-ไฟเบอร์: ... g
-คอเลสเตอรอล: ... mg
-โซเดียม: ... mg
-
-ข้อความผู้ใช้: ${messageLabel}`;
+                        วันที่ในระบบปัจจุบันคือ: ${activeDateText} (${activeDateKey})
+                        
+                        หากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
+                        พลังงาน: ... kcal
+                        โปรตีน: ... g
+                        ไขมันรวม: ... g
+                        คาร์บ: ... g
+                        น้ำตาล: ... g
+                        ไฟเบอร์: ... g
+                        คอเลสเตอรอล: ... mg
+                        โซเดียม: ... mg
+                        
+                        ข้อความผู้ใช้: ${messageLabel}`;
 
         const parts = [{ text: prompt }];
         if (imageToSend) {
@@ -1244,23 +1244,13 @@ async function sendGeminiChatMessage(e) {
             });
         }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts }]
-            })
-        });
-
-        const rawText = await res.text();
-        let data = null;
-        try {
-            data = JSON.parse(rawText);
-        } catch (_) {
-            throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status})`);
+        if (typeof callGeminiWithModelFallback !== 'function') {
+            throw new Error("ไม่พบฟังก์ชัน callGeminiWithModelFallback ใน foodtrack.js");
         }
-        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+        const { data } = await callGeminiWithModelFallback(apiKey, {
+            contents: [{ parts }]
+        });
 
         const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'ไม่ได้รับคำตอบจาก Gemini';
         const fallbackTitle = text ? text.slice(0, 32) : "รายการจากรูปในแชท";
