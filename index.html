@@ -372,9 +372,25 @@
       <!-- รายการข้อความแชทส่วนตัว -->
       <div id="gemini-chat-messages" class="p-3 space-y-2.5 overflow-y-auto v59-dark-scroll flex-1 text-xs"></div>
   
-      <!-- ช่องพิมพ์ข้อความหรือวางข้อความสรุปสารอาหาร -->
-      <form onsubmit="sendGeminiChatMessage(event)" class="p-2.5 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
-        <input type="text" id="gemini-chat-input" placeholder="ถามเมนู หรือวางตัวเลขสารอาหารเพื่อแปลงเป็นปุ่มดึงเข้ามื้อ..."
+      <!-- พรีวิวรูปที่เลือกก่อนส่งในแชท -->
+      <div id="gemini-chat-img-preview-wrap" class="hidden px-3 py-1.5 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+        <div class="flex items-center gap-2 min-w-0">
+          <img id="gemini-chat-img-preview" src="" alt="รูปแนบ" class="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0" />
+          <span class="text-slate-300 truncate">แนบรูปพร้อมส่งให้ Gemini แล้ว</span>
+        </div>
+        <button type="button" onclick="clearGeminiChatPendingImage()" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      
+      <!-- ช่องแนบรูป/ถ่ายรูป + พิมพ์ข้อความ -->
+      <form onsubmit="sendGeminiChatMessage(event)" class="p-2.5 bg-slate-950 border-t border-slate-800 flex items-center gap-1.5">
+        <input type="file" id="gemini-chat-image-input" accept="image/*" capture="environment" class="hidden" onchange="handleGeminiChatImageSelected(event)" />
+        <button type="button" onclick="document.getElementById('gemini-chat-image-input').click()" title="ถ่ายรูป หรือ แนบรูปสารอาหาร/อาหาร"
+          class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 flex items-center justify-center shrink-0 transition">
+          <i class="fa-solid fa-camera text-xs"></i>
+        </button>
+        <input type="text" id="gemini-chat-input" placeholder="พิมพ์ถาม หรือแนบรูปอาหาร/แคปสารอาหาร..."
           class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400" />
         <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-xl shrink-0">
           <i class="fa-solid fa-paper-plane"></i>
