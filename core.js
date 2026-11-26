@@ -1055,48 +1055,6 @@ function importNutritionToMeal(msgIndex) {
     alert(`ดึง "${msg.nutrition.name}" เข้า "${targetMeal}" เรียบร้อยแล้วครับ`);
 }
 
-function renderPrivateGeminiChat() {
-    const box = document.getElementById('gemini-chat-messages');
-    const ownerLabel = document.getElementById('gemini-chat-owner-label');
-    if (!box) return;
-
-    if (ownerLabel) {
-        ownerLabel.textContent = `ห้องส่วนตัว (${getPrivateUserScopeId()}) • แยกสิทธิ์เฉพาะผู้ใช้`;
-    }
-
-    loadPrivateChatMessages();
-    if (privateChatMessages.length === 0) {
-        box.innerHTML = `<div class="text-center text-slate-400 py-6 text-[11px]">พิมพ์ถามเมนู หรือวางข้อความสรุปสารอาหารจากแชทที่นี่ แล้วกดปุ่มดึงเข้ามื้ออาหารได้เลยครับ</div>`;
-        return;
-    }
-
-    box.innerHTML = privateChatMessages.map((m, idx) => {
-        const isUser = m.role === 'user';
-        const nutriCard = m.nutrition ? `
-            <div class="mt-2 bg-slate-950/90 border border-emerald-500/40 rounded-xl p-2 space-y-1.5">
-                <div class="font-bold text-emerald-300 text-[11px]">${m.nutrition.name}</div>
-                <div class="text-[10px] text-slate-300">
-                    ${m.nutrition.calories} kcal • P ${m.nutrition.protein}g • C ${m.nutrition.carbs}g • F ${m.nutrition.fat}g • Na ${m.nutrition.sodium}mg • Chol ${m.nutrition.cholesterol}mg
-                </div>
-                <button type="button" onclick="importNutritionToMeal(${idx})"
-                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 rounded-lg">
-                    <i class="fa-solid fa-file-import mr-1"></i> ดึงสารอาหารเข้ามื้อที่เลือก
-                </button>
-            </div>
-        ` : '';
-
-        return `
-            <div class="flex ${isUser ? 'justify-end' : 'justify-start'}">
-                <div class="max-w-[88%] rounded-2xl px-3 py-2 ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-100 border border-slate-700'}">
-                    <div class="whitespace-pre-line leading-relaxed">${m.text}</div>
-                    ${nutriCard}
-                </div>
-            </div>
-        `;
-    }).join('');
-    box.scrollTop = box.scrollHeight;
-}
-
 function toggleGeminiChatDrawer() {
     const drawer = document.getElementById('gemini-chat-drawer');
     if (!drawer) return;
@@ -1130,9 +1088,17 @@ async function sendGeminiChatMessage(e) {
     const input = document.getElementById('gemini-chat-input');
     if (!input) return;
 
+    if (typeof isPreparingGeminiChatImage !== 'undefined' && isPreparingGeminiChatImage) {
+        alert("กำลังเตรียมรูป รอสักครู่แล้วค่อยกดส่งครับ");
+        return;
+    }
+
     const text = input.value.trim();
-    const hasPendingImage = Boolean(typeof pendingGeminiChatImageBase64 !== 'undefined' && pendingGeminiChatImageBase64);
-    if (!text && !hasPendingImage) return;
+    const imageToSend = (typeof pendingGeminiChatImageBase64 !== 'undefined' && pendingGeminiChatImageBase64)
+        ? pendingGeminiChatImageBase64
+        : null;
+
+    if (!text && !imageToSend) return;
 
     const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
     if (!apiKey) {
@@ -1141,18 +1107,26 @@ async function sendGeminiChatMessage(e) {
         return;
     }
 
-    const imageToSend = hasPendingImage ? pendingGeminiChatImageBase64 : null;
     const messageLabel = text || "วิเคราะห์รูปที่แนบนี้";
 
     loadPrivateChatMessages();
+
+    let uploadedChatImagePath = null;
+    if (imageToSend && typeof uploadImageToGitHubFolder === 'function') {
+        uploadedChatImagePath = await uploadImageToGitHubFolder('images/ai-chat', 'chat', imageToSend);
+    }
+
     const userParsed = parseNutritionFromText(text, text ? text.slice(0, 32) : "รายการจากรูปในแชท");
     privateChatMessages.push({
         role: 'user',
-        text: imageToSend ? `${messageLabel}\n[แนบรูปภาพ 1 รูป]` : messageLabel,
+        text: messageLabel,
+        imageBase64: imageToSend,
+        imagePath: uploadedChatImagePath,
         nutrition: userParsed,
         at: new Date().toISOString()
     });
     savePrivateChatMessages();
+
     input.value = '';
     if (typeof clearGeminiChatPendingImage === 'function') clearGeminiChatPendingImage();
     renderPrivateGeminiChat();
@@ -1221,6 +1195,91 @@ async function sendGeminiChatMessage(e) {
         savePrivateChatMessages();
         renderPrivateGeminiChat();
     }
+}
+
+async function hydrateGeminiChatImage(msgIndex, imgPath) {
+    if (!imgPath) return;
+    if (typeof photoBlobCache !== 'undefined' && photoBlobCache[imgPath]) {
+        const el = document.getElementById(`chat-img-${msgIndex}`);
+        if (el) el.src = photoBlobCache[imgPath];
+        return;
+    }
+
+    const token = (localStorage.getItem('fitTracker_github_token') || '').trim();
+    if (!token || typeof GITHUB_OWNER === 'undefined' || typeof GITHUB_REPO === 'undefined') return;
+
+    try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${imgPath}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json'
+            }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const dataUrl = `data:image/jpeg;base64,${String(data.content || '').replace(/\s+/g, '')}`;
+        if (typeof photoBlobCache !== 'undefined') photoBlobCache[imgPath] = dataUrl;
+        const el = document.getElementById(`chat-img-${msgIndex}`);
+        if (el) el.src = dataUrl;
+    } catch (_) {}
+}
+
+function renderPrivateGeminiChat() {
+    const box = document.getElementById('gemini-chat-messages');
+    const ownerLabel = document.getElementById('gemini-chat-owner-label');
+    if (!box) return;
+
+    if (ownerLabel) {
+        ownerLabel.textContent = `ห้องส่วนตัว (${getPrivateUserScopeId()}) • แยกสิทธิ์เฉพาะผู้ใช้`;
+    }
+
+    loadPrivateChatMessages();
+    if (privateChatMessages.length === 0) {
+        box.innerHTML = `<div class="text-center text-slate-400 py-6 text-[11px]">พิมพ์ถามเมนู หรือวางข้อความสรุปสารอาหารจากแชทที่นี่ แล้วกดปุ่มดึงเข้ามื้ออาหารได้เลยครับ</div>`;
+        return;
+    }
+
+    box.innerHTML = privateChatMessages.map((m, idx) => {
+        const isUser = m.role === 'user';
+        const imgSrc = m.imageBase64
+            ? `data:image/jpeg;base64,${m.imageBase64}`
+            : (m.imagePath && typeof photoBlobCache !== 'undefined' && photoBlobCache[m.imagePath] ? photoBlobCache[m.imagePath] : '');
+
+        const attachedImgHtml = (m.imageBase64 || m.imagePath)
+            ? `<img id="chat-img-${idx}" src="${imgSrc}" alt="รูปแชท" class="mt-1.5 max-h-44 rounded-xl object-contain border border-white/20" />`
+            : '';
+
+        const nutriCard = m.nutrition ? `
+            <div class="mt-2 bg-slate-950/90 border border-emerald-500/40 rounded-xl p-2 space-y-1.5">
+                <div class="font-bold text-emerald-300 text-[11px]">${m.nutrition.name}</div>
+                <div class="text-[10px] text-slate-300">
+                    ${m.nutrition.calories} kcal • P ${m.nutrition.protein}g • C ${m.nutrition.carbs}g • F ${m.nutrition.fat}g • Na ${m.nutrition.sodium}mg • Chol ${m.nutrition.cholesterol}mg
+                </div>
+                <button type="button" onclick="importNutritionToMeal(${idx})"
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 rounded-lg">
+                    <i class="fa-solid fa-file-import mr-1"></i> ดึงสารอาหารเข้ามื้อที่เลือก
+                </button>
+            </div>
+        ` : '';
+
+        return `
+            <div class="flex ${isUser ? 'justify-end' : 'justify-start'}">
+                <div class="max-w-[88%] rounded-2xl px-3 py-2 ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-100 border border-slate-700'}">
+                    <div class="whitespace-pre-line leading-relaxed">${m.text}</div>
+                    ${attachedImgHtml}
+                    ${nutriCard}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    privateChatMessages.forEach((m, idx) => {
+        if (!m.imageBase64 && m.imagePath) {
+            hydrateGeminiChatImage(idx, m.imagePath);
+        }
+    });
+
+    box.scrollTop = box.scrollHeight;
 }
 
 applyAppTheme(localStorage.getItem('fitTracker_theme') || 'dark');
