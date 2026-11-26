@@ -1148,28 +1148,37 @@ async function sendGeminiChatMessage(e) {
     if (typeof clearGeminiChatPendingImage === 'function') clearGeminiChatPendingImage();
     renderPrivateGeminiChat();
 
+    let modelName = 'gemini-2.5-flash';
+
     try {
+        if (typeof resolveWorkingGeminiModel === 'function') {
+            const resolved = await resolveWorkingGeminiModel(apiKey);
+            if (resolved && typeof resolved === 'string') {
+                modelName = resolved.trim();
+            }
+        }
+
         const activeDateKey = (typeof currentDateKey === 'string' && currentDateKey)
             ? currentDateKey
             : getCurrentChatDateKey();
         const activeDateText = (typeof formatDisplayDate === 'function')
             ? formatDisplayDate(activeDateKey)
             : activeDateKey;
-        
+
         const prompt = `คุณเป็นผู้ช่วยโภชนาการไทย ตอบกระชับ ชัดเจน
-        วันที่ในระบบปัจจุบันคือ: ${activeDateText} (${activeDateKey})
-        
-        หากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
-        พลังงาน: ... kcal
-        โปรตีน: ... g
-        ไขมันรวม: ... g
-        คาร์บ: ... g
-        น้ำตาล: ... g
-        ไฟเบอร์: ... g
-        คอเลสเตอรอล: ... mg
-        โซเดียม: ... mg
-        
-        ข้อความผู้ใช้: ${messageLabel}`;
+วันที่ในระบบปัจจุบันคือ: ${activeDateText} (${activeDateKey})
+
+หากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
+พลังงาน: ... kcal
+โปรตีน: ... g
+ไขมันรวม: ... g
+คาร์บ: ... g
+น้ำตาล: ... g
+ไฟเบอร์: ... g
+คอเลสเตอรอล: ... mg
+โซเดียม: ... mg
+
+ข้อความผู้ใช้: ${messageLabel}`;
 
         const parts = [{ text: prompt }];
         if (imageToSend) {
@@ -1181,7 +1190,8 @@ async function sendGeminiChatMessage(e) {
             });
         }
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
