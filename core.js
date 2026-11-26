@@ -971,30 +971,47 @@ function getPrivateUserScopeId() {
     return `private_u_${Math.abs(hash)}`;
 }
 
-function getPrivateChatStorageKey() {
-    return `fitTracker_private_chat_${getPrivateUserScopeId()}`;
+function getCurrentChatDateKey() {
+    if (typeof currentDateKey === 'string' && currentDateKey) return currentDateKey;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
-let privateChatMessages = [];
+function getPrivateChatStorageKey(dateKey = getCurrentChatDateKey()) {
+    return `fitTracker_private_chat_${getPrivateUserScopeId()}_${dateKey}`;
+}
 
 function loadPrivateChatMessages() {
     const scopeId = getPrivateUserScopeId();
-    const raw = JSON.parse(localStorage.getItem(getPrivateChatStorageKey()) || '[]');
+    const dateKey = getCurrentChatDateKey();
+    const raw = JSON.parse(localStorage.getItem(getPrivateChatStorageKey(dateKey)) || '[]');
+
     privateChatMessages = Array.isArray(raw)
-        ? raw.filter(m => !m.ownerId || m.ownerId === scopeId)
+        ? raw.filter((m) => (!m.ownerId || m.ownerId === scopeId) && (!m.dateKey || m.dateKey === dateKey))
         : [];
     return privateChatMessages;
 }
 
 function savePrivateChatMessages() {
     const scopeId = getPrivateUserScopeId();
-    const scoped = (privateChatMessages || []).map(m => ({ ...m, ownerId: scopeId }));
-    localStorage.setItem(getPrivateChatStorageKey(), JSON.stringify(scoped));
+    const dateKey = getCurrentChatDateKey();
+    const scoped = (privateChatMessages || [])
+        .slice(-30)
+        .map((m) => ({
+            ...m,
+            ownerId: scopeId,
+            dateKey
+        }));
 
-    if (typeof allMealsHistory === 'object' && allMealsHistory !== null && typeof currentDateKey === 'string') {
-        const dayObj = getDayData(currentDateKey);
+    localStorage.setItem(getPrivateChatStorageKey(dateKey), JSON.stringify(scoped));
+
+    if (typeof allMealsHistory === 'object' && allMealsHistory !== null) {
+        const dayObj = getDayData(dateKey);
         if (!dayObj.privateChatByScope) dayObj.privateChatByScope = {};
-        dayObj.privateChatByScope[scopeId] = scoped.slice(-40);
+        dayObj.privateChatByScope[scopeId] = scoped;
         localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
     }
 }
@@ -1280,6 +1297,31 @@ function renderPrivateGeminiChat() {
     });
 
     box.scrollTop = box.scrollHeight;
+}
+
+function openDateCalendarPicker() {
+    const picker = document.getElementById('header-date-picker');
+    if (!picker) return;
+    if (typeof currentDateKey === 'string' && currentDateKey) {
+        picker.value = currentDateKey;
+    }
+    try {
+        if (typeof picker.showPicker === 'function') {
+            picker.showPicker();
+        } else {
+            picker.click();
+        }
+    } catch (_) {
+        picker.click();
+    }
+}
+
+function onCalendarDatePicked(pickedDateKey) {
+    if (!pickedDateKey || typeof pickedDateKey !== 'string') return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(pickedDateKey)) return;
+    currentDateKey = pickedDateKey;
+    if (typeof hideMacroTip === 'function') hideMacroTip();
+    renderActivePageUI();
 }
 
 applyAppTheme(localStorage.getItem('fitTracker_theme') || 'dark');
