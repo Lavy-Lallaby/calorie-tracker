@@ -93,6 +93,58 @@ const defaultGoals = {
     autoWeightGoal: 'cut'
 };
 
+// ตารางเป้า 7 วันของโหมดรีดไขมัน (อ้างอิงตามหน้าตาราง 7 วันใน foodtrack.js)
+const FAT_LOSS_DAY_TARGETS = {
+    0: { code: 'D1', kcal: 890,  protein: 98, carb: 100, sugar: 20 },
+    1: { code: 'D2', kcal: 880,  protein: 97, carb: 100, sugar: 20 },
+    2: { code: 'D3', kcal: 815,  protein: 96, carb: 100, sugar: 20 },
+    3: { code: 'D4', kcal: 865,  protein: 89, carb: 100, sugar: 20 },
+    4: { code: 'D5', kcal: 810,  protein: 91, carb: 100, sugar: 20 },
+    5: { code: 'D6', kcal: 765,  protein: 92, carb: 100, sugar: 20 },
+    6: { code: 'D7', kcal: 920,  protein: 103, carb: 100, sugar: 20 }
+};
+
+function getDayNutritionOverride(dateKey) {
+    const dayObj = allMealsHistory[dateKey];
+    return (dayObj && dayObj.nutritionOverride && typeof dayObj.nutritionOverride === 'object')
+        ? dayObj.nutritionOverride
+        : null;
+}
+
+function applyFatLossDayTargetToDate(dayIndex, dateKey = currentDateKey, { minCal = null } = {}) {
+    const plan = FAT_LOSS_DAY_TARGETS[Number(dayIndex)];
+    if (!plan) return;
+
+    const dayObj = getDayData(dateKey);
+    const effectiveMin = (minCal !== null && !isNaN(Number(minCal)))
+        ? Math.max(500, Number(minCal))
+        : Math.min(Number(dayObj.targetMin ?? userGoals.minCalories ?? 1200), plan.kcal);
+
+    dayObj.targetMin = effectiveMin;
+    dayObj.targetMax = plan.kcal;
+    dayObj.nutritionOverride = {
+        source: `fat_loss_${plan.code}`,
+        proteinMin: plan.protein,
+        proteinMax: Math.max(plan.protein + 15, plan.protein),
+        carbsMax: plan.carb,
+        sugarMax: plan.sugar
+    };
+
+    userGoals.preset = 'fat_sugar_burn';
+    userGoals.carbsMax = plan.carb;
+    userGoals.sugarMax = plan.sugar;
+
+    saveDataAndSync();
+}
+
+function clearDayNutritionOverride(dateKey = currentDateKey) {
+    const dayObj = getDayData(dateKey);
+    delete dayObj.nutritionOverride;
+    delete dayObj.targetMin;
+    delete dayObj.targetMax;
+    saveDataAndSync();
+}
+
 let userGoals = Object.assign({}, defaultGoals, JSON.parse(localStorage.getItem('fitTracker_goals') || '{}'));
 let allMealsHistory = JSON.parse(localStorage.getItem('fitTracker_history') || '{}');
 let foodCatalog = JSON.parse(localStorage.getItem('fitTracker_catalog') || 'null') || [
@@ -248,6 +300,13 @@ function applyGoalChangeFromDate(effectiveDateKey, newMin, newMax) {
 
 function getDayCalorieGoals(dateKey) {
     const dayObj = allMealsHistory[dateKey];
+    // ใน getNutrientAdjustments(dateKey):
+    const dayOverride = getDayNutritionOverride(dateKey);
+    const baseTargetCal = Number(userGoals.calories) || 1500;
+    const targetCarbs = Number(dayOverride?.carbsMax ?? userGoals.carbsMax) || Math.round((baseTargetCal * 0.50) / 4);
+    const targetFat = Number(dayOverride?.fatMax ?? userGoals.fatMax) || Math.round((baseTargetCal * 0.30) / 9);
+    const targetSugar = Number(dayOverride?.sugarMax ?? userGoals.sugarMax) || 24;
+    const targetSodium = Number(dayOverride?.sodiumMax ?? userGoals.sodiumMax) || 2000;
     if (dayObj && dayObj.targetMax !== undefined && dayObj.targetMax !== null) {
         return { min: Number(dayObj.targetMin ?? 1200), max: Number(dayObj.targetMax) };
     }
@@ -307,11 +366,13 @@ function getCalorieAdjustment(dateKey) {
 }
 
 function getNutrientAdjustments(dateKey) {
+    // ใน getNutrientAdjustments(dateKey):
+    const dayOverride = getDayNutritionOverride(dateKey);
     const baseTargetCal = Number(userGoals.calories) || 1500;
-    const targetCarbs = Number(userGoals.carbsMax) || Math.round((baseTargetCal * 0.50) / 4);
-    const targetFat = Number(userGoals.fatMax) || Math.round((baseTargetCal * 0.30) / 9);
-    const targetSugar = Number(userGoals.sugarMax) || 24;
-    const targetSodium = Number(userGoals.sodiumMax) || 2000;
+    const targetCarbs = Number(dayOverride?.carbsMax ?? userGoals.carbsMax) || Math.round((baseTargetCal * 0.50) / 4);
+    const targetFat = Number(dayOverride?.fatMax ?? userGoals.fatMax) || Math.round((baseTargetCal * 0.30) / 9);
+    const targetSugar = Number(dayOverride?.sugarMax ?? userGoals.sugarMax) || 24;
+    const targetSodium = Number(dayOverride?.sodiumMax ?? userGoals.sodiumMax) || 2000;
 
     const baseLimits = {
         carbs: { label: "คาร์บ", max: targetCarbs, floor: Math.min(25, Math.round(targetCarbs * 0.6)), unit: "g", dec: 2 },
