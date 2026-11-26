@@ -761,9 +761,24 @@ function renderBurnModeCard() {
                 <div class="grid grid-cols-7 gap-1">
                     ${sevenDayPlans.map((_, idx) => `<button type="button" onclick="selectMealPlanDay(${idx})" class="py-1 rounded-lg text-[10px] font-bold border ${mealPlanDayIndex === idx ? 'bg-amber-500 text-slate-950 border-amber-300' : 'bg-slate-900 text-slate-400 border-slate-800'}">D${idx + 1}</button>`).join('')}
                 </div>
-                <div class="flex justify-between items-center text-[11px] px-1">
-                    <span class="font-bold text-white">${curPlan.day}: <span class="text-sky-300">${curPlan.theme}</span></span>
-                    <span class="text-emerald-400 font-semibold">${planTotalCal} kcal • P ${planTotalP}g</span>
+                <div class="flex items-center justify-between gap-2 bg-slate-900/80 px-2.5 py-2 rounded-xl border border-slate-800/90">
+                    <div class="text-[10px] text-slate-300">
+                        ปรับเป้าวันนี้ตาม <b class="text-amber-300">${activePlanCode}</b>:
+                        <b class="text-white">${planTotalCal} kcal</b> • <b class="text-emerald-400">P ${planTotalP}g</b>
+                        ${dayOverride ? `<span class="text-amber-400 ml-1">(ใช้อยู่)</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="applyFatLossDayTargetToDate(${mealPlanDayIndex}, currentDateKey)"
+                            class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-lg transition">
+                            ใช้เป็นเป้าวันนี้
+                        </button>
+                        ${dayOverride ? `
+                            <button type="button" onclick="clearDayNutritionOverride(currentDateKey)"
+                                class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold px-2 py-1 rounded-lg border border-slate-700">
+                                คืนค่า
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
                 <div class="space-y-1.5">
                     ${curPlan.meals.map(m => {
