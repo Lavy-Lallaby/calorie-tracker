@@ -955,6 +955,252 @@ function toggleAppTheme() {
     applyAppTheme(next);
 }
 
+// ==========================================================================
+// gemini_chat.js — Private Chat Storage + Nutrition Parser + Meal Importer
+// ==========================================================================
+
+function getPrivateUserScopeId() {
+    const ghToken = (localStorage.getItem('fitTracker_github_token') || '').trim();
+    const gemKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
+    const seed = `${GITHUB_OWNER}:${GITHUB_REPO}:${ghToken.slice(-8)}:${gemKey.slice(-8)}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash |= 0;
+    }
+    return `private_u_${Math.abs(hash)}`;
+}
+
+function getPrivateChatStorageKey() {
+    return `fitTracker_private_chat_${getPrivateUserScopeId()}`;
+}
+
+let privateChatMessages = [];
+
+function loadPrivateChatMessages() {
+    const scopeId = getPrivateUserScopeId();
+    const raw = JSON.parse(localStorage.getItem(getPrivateChatStorageKey()) || '[]');
+    privateChatMessages = Array.isArray(raw)
+        ? raw.filter(m => !m.ownerId || m.ownerId === scopeId)
+        : [];
+    return privateChatMessages;
+}
+
+function savePrivateChatMessages() {
+    const scopeId = getPrivateUserScopeId();
+    const scoped = (privateChatMessages || []).map(m => ({ ...m, ownerId: scopeId }));
+    localStorage.setItem(getPrivateChatStorageKey(), JSON.stringify(scoped));
+
+    if (typeof allMealsHistory === 'object' && allMealsHistory !== null && typeof currentDateKey === 'string') {
+        const dayObj = getDayData(currentDateKey);
+        if (!dayObj.privateChatByScope) dayObj.privateChatByScope = {};
+        dayObj.privateChatByScope[scopeId] = scoped.slice(-40);
+        localStorage.setItem('fitTracker_history', JSON.stringify(allMealsHistory));
+    }
+}
+
+function parseNutritionFromText(rawText, fallbackName = "รายการจากแชท Gemini") {
+    const text = String(rawText || '');
+    const pick = (patterns) => {
+        for (const re of patterns) {
+            const m = text.match(re);
+            if (m && m[1] !== undefined) return parseFloat(m[1]);
+        }
+        return null;
+    };
+
+    const calories = pick([/พลังงาน\s*[:：]?\s*(\d+(?:\.\d+)?)\s*kcal/i, /calories?\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const protein = pick([/โปรตีน\s*[:：]?\s*(\d+(?:\.\d+)?)\s*g/i, /protein\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const fat = pick([/ไขมันรวม\s*[:：]?\s*(\d+(?:\.\d+)?)\s*g/i, /ไขมัน\s*[:：]?\s*(\d+(?:\.\d+)?)\s*g/i, /fat\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const carbs = pick([/คาร์บ(?:คาร์โบไฮเดรต)?\s*[:：]?\s*(\d+(?:\.\d+)?)\s*g/i, /carbs?\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const sugar = pick([/น้ำตาล\s*[:：]?\s*(\d+(?:\.\d+)?)\s*g/i, /sugar\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const fiber = pick([/ไฟเบอร์|ใยอาหาร\s*[:：]?\s*(\d+(?:\.\d+)?)\s*g/i, /fiber\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const cholesterol = pick([/คอเลสเตอรอล\s*[:：]?\s*(\d+(?:\.\d+)?)\s*mg/i, /cholesterol\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const sodium = pick([/โซเดียม\s*[:：]?\s*(\d+(?:\.\d+)?)\s*mg/i, /sodium\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+    const potassium = pick([/โพแทสเซียม\s*[:：]?\s*(\d+(?:\.\d+)?)\s*mg/i, /potassium\s*[:：]?\s*(\d+(?:\.\d+)?)/i]);
+
+    const hasAny = [calories, protein, fat, carbs, sugar, fiber, cholesterol, sodium, potassium].some(v => v !== null && !isNaN(v));
+    if (!hasAny) return null;
+
+    const firstLine = text.split('\n').map(s => s.trim()).find(s => s && !s.includes(':') && s.length < 60);
+    return {
+        name: firstLine || fallbackName,
+        qty: 1,
+        calories: fmtPrecise(calories || 0, 1),
+        protein: fmtPrecise(protein || 0, 2),
+        carbs: fmtPrecise(carbs || 0, 2),
+        sugar: fmtPrecise(sugar || 0, 2),
+        fiber: fmtPrecise(fiber || 0, 2),
+        fat: fmtPrecise(fat || 0, 2),
+        satFat: 0,
+        transFat: 0,
+        sodium: fmtPrecise(sodium || 0, 1),
+        potassium: fmtPrecise(potassium || 0, 1),
+        cholesterol: fmtPrecise(cholesterol || 0, 1)
+    };
+}
+
+function importNutritionToMeal(msgIndex) {
+    const msg = privateChatMessages[msgIndex];
+    if (!msg || !msg.nutrition) return;
+
+    const selectEl = document.getElementById('gemini-target-meal');
+    const targetMeal = (selectEl && mealTypes.includes(selectEl.value))
+        ? selectEl.value
+        : ((typeof activeMealTab === 'string' && mealTypes.includes(activeMealTab)) ? activeMealTab : "มื้อเที่ยง");
+
+    const dayData = getDayData(currentDateKey);
+    dayData.meals[targetMeal].push({ ...msg.nutrition });
+    saveDataAndSync();
+    alert(`ดึง "${msg.nutrition.name}" เข้า "${targetMeal}" เรียบร้อยแล้วครับ`);
+}
+
+function renderPrivateGeminiChat() {
+    const box = document.getElementById('gemini-chat-messages');
+    const ownerLabel = document.getElementById('gemini-chat-owner-label');
+    if (!box) return;
+
+    if (ownerLabel) {
+        ownerLabel.textContent = `ห้องส่วนตัว (${getPrivateUserScopeId()}) • แยกสิทธิ์เฉพาะผู้ใช้`;
+    }
+
+    loadPrivateChatMessages();
+    if (privateChatMessages.length === 0) {
+        box.innerHTML = `<div class="text-center text-slate-400 py-6 text-[11px]">พิมพ์ถามเมนู หรือวางข้อความสรุปสารอาหารจากแชทที่นี่ แล้วกดปุ่มดึงเข้ามื้ออาหารได้เลยครับ</div>`;
+        return;
+    }
+
+    box.innerHTML = privateChatMessages.map((m, idx) => {
+        const isUser = m.role === 'user';
+        const nutriCard = m.nutrition ? `
+            <div class="mt-2 bg-slate-950/90 border border-emerald-500/40 rounded-xl p-2 space-y-1.5">
+                <div class="font-bold text-emerald-300 text-[11px]">${m.nutrition.name}</div>
+                <div class="text-[10px] text-slate-300">
+                    ${m.nutrition.calories} kcal • P ${m.nutrition.protein}g • C ${m.nutrition.carbs}g • F ${m.nutrition.fat}g • Na ${m.nutrition.sodium}mg • Chol ${m.nutrition.cholesterol}mg
+                </div>
+                <button type="button" onclick="importNutritionToMeal(${idx})"
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 rounded-lg">
+                    <i class="fa-solid fa-file-import mr-1"></i> ดึงสารอาหารเข้ามื้อที่เลือก
+                </button>
+            </div>
+        ` : '';
+
+        return `
+            <div class="flex ${isUser ? 'justify-end' : 'justify-start'}">
+                <div class="max-w-[88%] rounded-2xl px-3 py-2 ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-100 border border-slate-700'}">
+                    <div class="whitespace-pre-line leading-relaxed">${m.text}</div>
+                    ${nutriCard}
+                </div>
+            </div>
+        `;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+}
+
+function toggleGeminiChatDrawer() {
+    const drawer = document.getElementById('gemini-chat-drawer');
+    if (!drawer) return;
+
+    const willOpen = drawer.classList.contains('hidden');
+    if (willOpen) {
+        const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
+        if (!apiKey) {
+            alert("กรุณาใส่ Gemini API Key ส่วนตัวในหน้าตั้งค่า (⚙️) ก่อนใช้งานแชทครับ");
+            openSettingsModal();
+            return;
+        }
+        const mealSel = document.getElementById('gemini-target-meal');
+        if (mealSel && typeof activeMealTab === 'string' && mealTypes.includes(activeMealTab)) {
+            mealSel.value = activeMealTab;
+        }
+        renderPrivateGeminiChat();
+    }
+    drawer.classList.toggle('hidden');
+}
+
+function clearPrivateGeminiChat() {
+    if (!confirm("ต้องการลบประวัติแชทส่วนตัวในเครื่องนี้ใช่ไหม?")) return;
+    privateChatMessages = [];
+    localStorage.removeItem(getPrivateChatStorageKey());
+    renderPrivateGeminiChat();
+}
+
+async function sendGeminiChatMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('gemini-chat-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
+    if (!apiKey) {
+        alert("ไม่พบ Gemini API Key ส่วนตัว กรุณาตั้งค่าที่ปุ่ม ⚙️ ก่อนครับ");
+        openSettingsModal();
+        return;
+    }
+
+    loadPrivateChatMessages();
+    const userParsed = parseNutritionFromText(text, text.slice(0, 32));
+    privateChatMessages.push({
+        role: 'user',
+        text,
+        nutrition: userParsed,
+        at: new Date().toISOString()
+    });
+    savePrivateChatMessages();
+    input.value = '';
+    renderPrivateGeminiChat();
+
+    try {
+        const modelName = (typeof resolveWorkingGeminiModel === 'function')
+            ? await resolveWorkingGeminiModel(apiKey)
+            : 'gemini-2.5-flash';
+
+        const prompt = `คุณเป็นผู้ช่วยโภชนาการไทย ตอบกระชับ ชัดเจน และหากมีการประเมินสารอาหารของเมนู ให้ระบุบรรทัดตัวเลขชัดเจนด้วยรูปแบบ:
+พลังงาน: ... kcal
+โปรตีน: ... g
+ไขมันรวม: ... g
+คาร์บ: ... g
+น้ำตาล: ... g
+ไฟเบอร์: ... g
+คอเลสเตอรอล: ... mg
+โซเดียม: ... mg
+
+ข้อความผู้ใช้: ${text}`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+
+        const rawText = await res.text();
+        const data = JSON.parse(rawText);
+        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+        const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'ไม่ได้รับคำตอบจาก Gemini';
+        privateChatMessages.push({
+            role: 'assistant',
+            text: replyText,
+            nutrition: parseNutritionFromText(replyText, text.slice(0, 32)),
+            at: new Date().toISOString()
+        });
+        savePrivateChatMessages();
+        renderPrivateGeminiChat();
+    } catch (err) {
+        privateChatMessages.push({
+            role: 'assistant',
+            text: `ส่งข้อความไม่สำเร็จ: ${err.message}`,
+            nutrition: null,
+            at: new Date().toISOString()
+        });
+        savePrivateChatMessages();
+        renderPrivateGeminiChat();
+    }
+}
+
 applyAppTheme(localStorage.getItem('fitTracker_theme') || 'dark');
 
 // ------------------------------------------
