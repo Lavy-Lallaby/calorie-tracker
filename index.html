@@ -327,17 +327,73 @@
     </div>
   </div>
 
+  <!-- ปุ่มลอย Gemini (หลบแถบเมนูด้านล่างและปุ่มสรุปผลขวาสุด) -->
+  <button type="button" onclick="toggleGeminiChatDrawer()" title="แชท & นำเข้าสารอาหาร Gemini"
+    class="fixed bottom-24 right-3 z-40 w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 via-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-950/70 border border-white/20 flex items-center justify-center active:scale-95 transition">
+    <i class="fa-solid fa-sparkles text-lg"></i>
+  </button>
+  
+  <!-- หน้าต่างแชท & ดึงสารอาหารเข้า FitTracker -->
+  <div id="gemini-chat-drawer" class="hidden fixed inset-x-0 bottom-20 z-50 px-3">
+    <div class="max-w-lg mx-auto bg-slate-900 border border-indigo-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[72vh]">
+      <div class="flex items-center justify-between px-3.5 py-2.5 bg-slate-950 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-gradient-to-br from-sky-400 to-purple-500 flex items-center justify-center text-white text-xs">
+            <i class="fa-solid fa-sparkles"></i>
+          </span>
+          <div>
+            <div class="text-xs font-bold text-white">Gemini Nutrition Chat</div>
+            <div id="gemini-chat-owner-label" class="text-[10px] text-slate-400">พื้นที่ส่วนตัว (Private)</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="clearPrivateGeminiChat()" title="ล้างประวัติแชทส่วนตัว"
+            class="text-[10px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700">
+            ล้างแชท
+          </button>
+          <button type="button" onclick="toggleGeminiChatDrawer()"
+            class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+      </div>
+  
+      <!-- เลือกมื้อปลายทางที่จะดึงสารอาหารลงไป -->
+      <div class="px-3 py-2 bg-slate-950/70 border-b border-slate-800/80 flex items-center justify-between gap-2 text-[11px]">
+        <span class="text-slate-300 font-semibold">ดึงเข้ามื้อ:</span>
+        <select id="gemini-target-meal" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-[11px]">
+          <option value="มื้อเช้า">☀️ มื้อเช้า</option>
+          <option value="มื้อเที่ยง" selected>🌤️ มื้อเที่ยง</option>
+          <option value="มื้อเย็น">🌙 มื้อเย็น</option>
+          <option value="มื้อว่าง/อื่นๆ">🍎 มื้อว่าง/อื่นๆ</option>
+        </select>
+      </div>
+  
+      <!-- รายการข้อความแชทส่วนตัว -->
+      <div id="gemini-chat-messages" class="p-3 space-y-2.5 overflow-y-auto v59-dark-scroll flex-1 text-xs"></div>
+  
+      <!-- ช่องพิมพ์ข้อความหรือวางข้อความสรุปสารอาหาร -->
+      <form onsubmit="sendGeminiChatMessage(event)" class="p-2.5 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
+        <input type="text" id="gemini-chat-input" placeholder="ถามเมนู หรือวางตัวเลขสารอาหารเพื่อแปลงเป็นปุ่มดึงเข้ามื้อ..."
+          class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400" />
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-xl shrink-0">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- ================= LOAD CORE & MODULE SCRIPTS ================= -->
-  <script src="core.js?v=4"></script>
-  <script src="foodtrack.js?v=4"></script>
-  <script src="train.js?v=4"></script>
-  <script src="skincare.js?v=4"></script>
-  <script src="summary.js?v=4"></script>
-  <script src="trip.js?v=4"></script>
-  <script src="addons.js?v=4"></script>
-  <script src="finance.js?v=4"></script>
-  <script src="gear.js?v=4"></script>
-  <script src="focus.js?v=4"></script>
-  <script src="car.js?v=4"></script>
+  <script src="core.js?v=5"></script>
+  <script src="foodtrack.js?v=5"></script>
+  <script src="train.js?v=5"></script>
+  <script src="skincare.js?v=5"></script>
+  <script src="summary.js?v=5"></script>
+  <script src="trip.js?v=5"></script>
+  <script src="addons.js?v=5"></script>
+  <script src="finance.js?v=5"></script>
+  <script src="gear.js?v=5"></script>
+  <script src="focus.js?v=5"></script>
+  <script src="car.js?v=5"></script>
 </body>
 </html>
