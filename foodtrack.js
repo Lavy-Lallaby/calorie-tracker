@@ -1240,93 +1240,6 @@ async function scanLabelOfflineOCR(file) {
     }
 }
 
-async function resolveWorkingGeminiModel(apiKey) {
-    // 1. ลองดึงรายชื่อโมเดลทั้งหมดที่ API Key นี้มีสิทธิ์ใช้งานจริง
-    try {
-        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        if (listRes.ok) {
-            const listData = await listRes.json();
-            const models = (listData.models || [])
-                .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
-                .map(m => m.name.replace('models/', ''));
-
-            // เลือกโมเดลตระกูล Flash ล่าสุดก่อน (เร็วและรองรับรูปภาพดีที่สุด)
-            const preferred = [
-                'gemini-2.5-flash',
-                'gemini-2.5-flash-lite',
-                'gemini-2.0-flash',
-                'gemini-3-flash-preview',
-                'gemini-1.5-flash'
-            ];
-            for (const p of preferred) {
-                if (models.includes(p)) return p;
-            }
-            const anyFlash = models.find(m => m.includes('flash') && !m.includes('audio') && !m.includes('tts'));
-            if (anyFlash) return anyFlash;
-            if (models.length > 0) return models[0];
-        }
-    } catch (e) {
-        console.warn('Model list lookup failed, using fallback:', e);
-    }
-    return 'gemini-2.5-flash';
-}
-
-async function scanFoodWithGemini(file) {
-    const loader = document.getElementById('ai-loading-indicator');
-    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังวิเคราะห์อาหาร...';
-    loader.classList.remove('hidden');
-
-    try {
-        const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
-        if (!apiKey) throw new Error("ไม่พบ Gemini API Key กรุณากดปุ่มตั้งค่า (⚙️) เพื่อใส่คีย์ก่อนครับ");
-
-        const base64Data = await resizeImageToBase64(file, 800);
-        const modelName = await resolveWorkingGeminiModel(apiKey);
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
-        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
-{"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
-
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: promptText },
-                        { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-                    ]
-                }],
-                generationConfig: { response_mime_type: "application/json" }
-            })
-        });
-
-        // อ่านเป็น Text ก่อนเสมอ กันพังเวลา Server ส่ง HTML กลับมา
-        const rawResponseText = await res.text();
-        let data = null;
-        try {
-            data = JSON.parse(rawResponseText);
-        } catch (parseErr) {
-            throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status}) — กรุณาตรวจสอบ API Key หรืออินเทอร์เน็ต`);
-        }
-
-        if (!res.ok) {
-            const errMsg = data?.error?.message || `HTTP ${res.status}`;
-            throw new Error(errMsg);
-        }
-
-        const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("AI ไม่ได้ส่งข้อมูลสารอาหารกลับมา กรุณาลองถ่ายใหม่อีกครั้ง");
-
-        fillFormWithNutritionData(JSON.parse(jsonMatch[0]));
-    } catch (error) {
-        alert("AI วิเคราะห์ไม่สำเร็จ: " + error.message);
-    } finally {
-        loader.classList.add('hidden');
-    }
-}
-
 function openBarcodeScanner() {
     document.getElementById('barcode-modal').classList.remove('hidden');
     html5QrCode = new Html5Qrcode("barcode-reader");
@@ -1487,4 +1400,118 @@ function quickLogFoodExpenseFromFoodTrack() {
         amount: fmtPrecise(amt, 2)
     });
     saveDataAndSync();
+}
+
+const GEMINI_MODEL_PRIORITY = [
+    'gemini-3.8-flash',
+    'gemini-3.8-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-3-flash'
+];
+
+async function getAvailableGeminiModels(apiKey) {
+    let available = [...GEMINI_MODEL_PRIORITY];
+    try {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (listRes.ok) {
+            const listData = await listRes.json();
+            const fetched = (listData.models || [])
+                .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+                .map(m => m.name.replace('models/', ''));
+
+            if (fetched.length > 0) {
+                const ordered = GEMINI_MODEL_PRIORITY.filter(m => fetched.includes(m));
+                const extraFlash = fetched.filter(
+                    m => !ordered.includes(m) && m.includes('flash') && !m.includes('audio') && !m.includes('tts') && !m.includes('2.5-flash')
+                );
+                available = [...ordered, ...extraFlash];
+            }
+        }
+    } catch (e) {
+        console.warn('Model list lookup failed, using priority fallback:', e);
+    }
+    return available.length > 0 ? available : ['gemini-3.8-flash'];
+}
+
+async function resolveWorkingGeminiModel(apiKey) {
+    const models = await getAvailableGeminiModels(apiKey);
+    return models[0] || 'gemini-3.8-flash';
+}
+
+async function callGeminiWithModelFallback(apiKey, requestBody) {
+    const models = await getAvailableGeminiModels(apiKey);
+    let lastError = null;
+
+    for (const modelName of models) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        const rawResponseText = await res.text();
+        let data = null;
+        try {
+            data = JSON.parse(rawResponseText);
+        } catch (_) {
+            lastError = new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${res.status})`);
+            continue;
+        }
+
+        if (res.ok) {
+            return { data, modelName };
+        }
+
+        const errMsg = data?.error?.message || `HTTP ${res.status}`;
+        lastError = new Error(`[${modelName}] ${errMsg}`);
+
+        // ถ้าโควตาเต็ม (429) หรือโมเดลนี้ไม่รองรับ/ปิดใช้งาน ให้ลองโมเดลถัดไปทันที
+        const isQuotaOrUnavailable =
+            res.status === 429 ||
+            res.status === 404 ||
+            /quota|rate.?limit|no longer available|not found|not supported/i.test(errMsg);
+
+        if (!isQuotaOrUnavailable) {
+            throw lastError;
+        }
+    }
+
+    throw lastError || new Error("ไม่สามารถเชื่อมต่อโมเดล Gemini ได้ในขณะนี้");
+}
+
+async function scanFoodWithGemini(file) {
+    const loader = document.getElementById('ai-loading-indicator');
+    loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> AI กำลังวิเคราะห์อาหาร...';
+    loader.classList.remove('hidden');
+
+    try {
+        const apiKey = (localStorage.getItem('fitTracker_gemini_key') || '').trim();
+        if (!apiKey) throw new Error("ไม่พบ Gemini API Key กรุณากดปุ่มตั้งค่า (⚙️) เพื่อใส่คีย์ก่อนครับ");
+
+        const base64Data = await resizeImageToBase64(file, 800);
+        const promptText = `วิเคราะห์ภาพอาหารจานนี้ ประเมินชื่อเมนูภาษาไทย (ระบุปริมาณต่อ 1 หน่วยไว้ในวงเล็บ) และสารอาหาร ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
+{"name": "ชื่อเมนูภาษาไทย (1 จาน)", "calories": ตัวเลข, "protein": ตัวเลข, "carbs": ตัวเลข, "sugar": ตัวเลข, "fiber": ตัวเลข, "fat": ตัวเลข, "satFat": ตัวเลข, "transFat": ตัวเลข, "sodium": ตัวเลข, "potassium": ตัวเลข, "cholesterol": ตัวเลข}`;
+
+        const { data } = await callGeminiWithModelFallback(apiKey, {
+            contents: [{
+                parts: [
+                    { text: promptText },
+                    { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                ]
+            }],
+            generationConfig: { response_mime_type: "application/json" }
+        });
+
+        const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("AI ไม่ได้ส่งข้อมูลสารอาหารกลับมา กรุณาลองถ่ายใหม่อีกครั้ง");
+
+        fillFormWithNutritionData(JSON.parse(jsonMatch[0]));
+    } catch (error) {
+        alert("AI วิเคราะห์ไม่สำเร็จ: " + error.message);
+    } finally {
+        loader.classList.add('hidden');
+    }
 }
