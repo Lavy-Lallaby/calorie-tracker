@@ -76,40 +76,6 @@ function getActiveProteinRange(dateKey = currentDateKey) {
     return { protMin, protMax, isOverridden: Boolean(ov?.proteinMin) };
 }
 
-function copyDailySummaryText() {
-    const dayData = getDayData(currentDateKey);
-    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSugar = 0, totalSodium = 0;
-
-    Object.values(dayData.meals).forEach(mealList => {
-        mealList.forEach(item => {
-            totalCal += Number(item.calories || 0);
-            totalProt += Number(item.protein || 0);
-            totalCarbs += Number(item.carbs || 0);
-            totalFat += Number(item.fat || 0);
-            totalSugar += Number(item.sugar || 0);
-            totalSodium += Number(item.sodium || 0);
-        });
-    });
-
-    const { totalBurn } = getTotalBurned(dayData);
-    const adj = getCalorieAdjustment(currentDateKey);
-    const protMin = Number(userGoals.proteinMin) || 96;
-
-    const text = [
-        `📊 สรุป FitTracker (${formatDisplayDate(currentDateKey)})`,
-        `🔥 พลังงาน: ${fmtPrecise(totalCal, 1)} / ${adj.safeTarget} kcal (เผาผลาญ ${totalBurn} kcal)`,
-        `🥩 โปรตีน: ${fmtPrecise(totalProt, 2)} / ${protMin}g | คาร์บ: ${fmtPrecise(totalCarbs, 2)}g | ไขมัน: ${fmtPrecise(totalFat, 2)}g`,
-        `🍬 น้ำตาล: ${fmtPrecise(totalSugar, 2)}g | 🧂 โซเดียม: ${fmtPrecise(totalSodium, 1)}mg`,
-        `💧 น้ำดื่ม: ${dayData.water || 0} ml | 👟 ก้าวเดิน: ${(dayData.steps || 0).toLocaleString()} ก้าว` + (dayData.weight ? ` | ⚖️ นน.: ${dayData.weight} kg` : '')
-    ].join('\n');
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => alert("คัดลอกข้อความสรุปประจำวันเรียบร้อยแล้ว!"));
-    } else {
-        prompt("คัดลอกข้อความด้านล่างนี้:", text);
-    }
-}
-
 function renderSummary() {
     if (!document.getElementById('calories-remaining')) return;
 
@@ -137,8 +103,7 @@ function renderSummary() {
     const { totalBurn } = getTotalBurned(dayData);
     const adj = getCalorieAdjustment(currentDateKey);
     const macroAdj = getNutrientAdjustments(currentDateKey);
-    const protMin = Number(userGoals.proteinMin) || 96;
-    const protMax = Number(userGoals.proteinMax) || 128;
+    const { protMin, protMax } = getActiveProteinRange(currentDateKey);
 
     const effectiveBudget = adj.safeTarget + totalBurn;
     const remaining = fmtPrecise(effectiveBudget - totalCal, 1);
@@ -227,6 +192,42 @@ function renderSummary() {
         rolloverBox.classList.add('hidden');
     }
 }
+
+function copyDailySummaryText() {
+    const dayData = getDayData(currentDateKey);
+    let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0, totalSugar = 0, totalSodium = 0;
+
+    Object.values(dayData.meals).forEach(mealList => {
+        mealList.forEach(item => {
+            totalCal += Number(item.calories || 0);
+            totalProt += Number(item.protein || 0);
+            totalCarbs += Number(item.carbs || 0);
+            totalFat += Number(item.fat || 0);
+            totalSugar += Number(item.sugar || 0);
+            totalSodium += Number(item.sodium || 0);
+        });
+    });
+
+    const { totalBurn } = getTotalBurned(dayData);
+    const adj = getCalorieAdjustment(currentDateKey);
+    const protMin = Number(userGoals.proteinMin) || 96;
+
+    const text = [
+        `📊 สรุป FitTracker (${formatDisplayDate(currentDateKey)})`,
+        `🔥 พลังงาน: ${fmtPrecise(totalCal, 1)} / ${adj.safeTarget} kcal (เผาผลาญ ${totalBurn} kcal)`,
+        `🥩 โปรตีน: ${fmtPrecise(totalProt, 2)} / ${protMin}g | คาร์บ: ${fmtPrecise(totalCarbs, 2)}g | ไขมัน: ${fmtPrecise(totalFat, 2)}g`,
+        `🍬 น้ำตาล: ${fmtPrecise(totalSugar, 2)}g | 🧂 โซเดียม: ${fmtPrecise(totalSodium, 1)}mg`,
+        `💧 น้ำดื่ม: ${dayData.water || 0} ml | 👟 ก้าวเดิน: ${(dayData.steps || 0).toLocaleString()} ก้าว` + (dayData.weight ? ` | ⚖️ นน.: ${dayData.weight} kg` : '')
+    ].join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => alert("คัดลอกข้อความสรุปประจำวันเรียบร้อยแล้ว!"));
+    } else {
+        prompt("คัดลอกข้อความด้านล่างนี้:", text);
+    }
+}
+
+
 
 function showMacroTip(type) {
     const box = document.getElementById('macro-tip-box');
@@ -902,11 +903,14 @@ function renderNutritionCoach() {
 
     const dayData = getDayData(currentDateKey);
     let totalCal = 0, totalProt = 0;
-    Object.values(dayData.meals).forEach(list => list.forEach(i => { totalCal += Number(i.calories || 0); totalProt += Number(i.protein || 0); }));
+    Object.values(dayData.meals).forEach(list => list.forEach(i => {
+        totalCal += Number(i.calories || 0);
+        totalProt += Number(i.protein || 0);
+    }));
 
     const { totalBurn } = getTotalBurned(dayData);
     const adj = getCalorieAdjustment(currentDateKey);
-    const minProt = Number(userGoals.proteinMin) || 96;
+    const { protMin: minProt } = getActiveProteinRange(currentDateKey);
     const remCal = Math.max(0, Math.round((adj.safeTarget + totalBurn) - totalCal));
     const remProt = fmtPrecise(Math.max(0, minProt - totalProt), 2);
 
