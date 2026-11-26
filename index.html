@@ -150,15 +150,24 @@
         </div>
       </div>
 
-      <!-- แถบเลื่อนเปลี่ยนวัน -->
-      <div class="flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl px-2 py-1.5">
+      <!-- แถบเลื่อนเปลี่ยนวัน + กดตรงกลางเพื่อเปิดปฏิทิน -->
+      <div class="relative flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl px-2 py-1.5">
         <button type="button" onclick="changeDay(-1)" class="w-8 h-7 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-center transition">
           <i class="fa-solid fa-chevron-left text-xs"></i>
         </button>
-        <div class="text-center">
+      
+        <button type="button" onclick="openDateCalendarPicker()" title="กดเพื่อเลือกวันที่จากปฏิทิน"
+          class="flex-1 text-center py-0.5 rounded-xl hover:bg-slate-800/70 transition cursor-pointer">
           <div id="display-date" class="text-xs font-bold text-white">กำลังโหลดวันที่...</div>
-          <span id="current-date-badge" class="text-[10px] text-indigo-400 font-semibold">วันนี้</span>
-        </div>
+          <div class="inline-flex items-center gap-1 text-[10px] text-indigo-400 font-semibold">
+            <span id="current-date-badge">วันนี้</span>
+            <i class="fa-regular fa-calendar-days text-[10px]"></i>
+          </div>
+        </button>
+      
+        <input type="date" id="header-date-picker" onchange="onCalendarDatePicked(this.value)"
+          class="sr-only" aria-label="เลือกวันที่จากปฏิทิน" />
+      
         <button type="button" onclick="changeDay(1)" class="w-8 h-7 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-center transition">
           <i class="fa-solid fa-chevron-right text-xs"></i>
         </button>
@@ -400,17 +409,17 @@
   </div>
 
   <!-- ================= LOAD CORE & MODULE SCRIPTS ================= -->
-  <script src="core.js?v=6"></script>
-  <script src="foodtrack.js?v=6"></script>
-  <script src="train.js?v=6"></script>
-  <script src="skincare.js?v=6"></script>
-  <script src="summary.js?v=6"></script>
-  <script src="trip.js?v=6"></script>
-  <script src="addons.js?v=6"></script>
-  <script src="finance.js?v=6"></script>
-  <script src="gear.js?v=6"></script>
-  <script src="focus.js?v=6"></script>
-  <script src="car.js?v=6"></script>
-  <script src="gemini_chat.js?v=6"></script>
+  <script src="core.js?v=7"></script>
+  <script src="foodtrack.js?v=7"></script>
+  <script src="train.js?v=7"></script>
+  <script src="skincare.js?v=7"></script>
+  <script src="summary.js?v=7"></script>
+  <script src="trip.js?v=7"></script>
+  <script src="addons.js?v=7"></script>
+  <script src="finance.js?v=7"></script>
+  <script src="gear.js?v=7"></script>
+  <script src="focus.js?v=7"></script>
+  <script src="car.js?v=7"></script>
+  <script src="gemini_chat.js?v=7"></script>
 </body>
 </html>
