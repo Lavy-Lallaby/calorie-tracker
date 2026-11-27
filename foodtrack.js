@@ -755,6 +755,13 @@ function addPlannedMealToToday(mealType, name, calories, protein, carbs, fat, su
     saveDataAndSync();
 }
 
+let mealSourceMode = mealSourceMode || 'home'; // 'home' | 'seven'
+
+function toggleMealSourceMode(mode) {
+    mealSourceMode = mode === 'seven' ? 'seven' : 'home';
+    renderBurnModeCard();
+}
+
 function renderBurnModeCard() {
     const card = document.getElementById('burn-mode-card');
     if (!card) return;
@@ -763,46 +770,110 @@ function renderBurnModeCard() {
     const activePlanCode = `D${mealPlanDayIndex + 1}`;
 
     const sevenDayPlans = [
-        { day: "วันที่ 1", theme: "เริ่มรีดน้ำตาล & ล้างโซเดียม", meals: [
-            { type: "มื้อเที่ยง", name: "อกไก่นึ่ง/ย่าง + ข้าวกล้อง 1 ทัพพี + ผักลวก", cal: 390, p: 36, c: 28, f: 11, s: 2, na: 320 },
-            { type: "มื้อว่าง/อื่นๆ", name: "ไข่ต้ม 2 ฟอง + กรีกโยเกิร์ต 0%", cal: 240, p: 27, c: 7, f: 10, s: 5, na: 195 },
-            { type: "มื้อเย็น", name: "ปลานิลนึ่งสมุนไพร + ผักต้ม (งดข้าว)", cal: 260, p: 35, c: 6, f: 9, s: 2, na: 240 }
-        ]},
-        { day: "วันที่ 2", theme: "เน้นโปรตีนสูง ลดแป้งขัดสี", meals: [
-            { type: "มื้อเที่ยง", name: "กะเพราอกไก่ไม่ใส่น้ำมัน + ไข่ดาวน้ำ + ข้าว 1 ทัพพี", cal: 410, p: 39, c: 26, f: 13, s: 2, na: 420 },
-            { type: "มื้อว่าง/อื่นๆ", name: "นมถั่วเหลืองโปรตีนสูง 1 ขวด + อัลมอนด์ 10 เม็ด", cal: 250, p: 30, c: 8, f: 11, s: 2, na: 155 },
-            { type: "มื้อเย็น", name: "ยำทูน่าน้ำแร่ + แตงกวา/ผักสด (งดข้าว)", cal: 220, p: 28, c: 7, f: 7, s: 2, na: 380 }
-        ]},
-        { day: "วันที่ 3", theme: "ตัดคาร์บมื้อเย็น กระตุ้นดึงไขมัน", meals: [
-            { type: "มื้อเที่ยง", name: "เกาเหลาหมูสับไม่ใส่กระเทียมเจียว + ข้าว 1 ทัพพี", cal: 420, p: 34, c: 30, f: 15, s: 3, na: 520 },
-            { type: "มื้อว่าง/อื่นๆ", name: "เวย์โปรตีน 1 สกู๊ป + ไข่ขาวต้ม 2 ฟอง", cal: 155, p: 32, c: 3, f: 1, s: 1, na: 190 },
-            { type: "มื้อเย็น", name: "เต้าหู้อ่อนนึ่งซีอิ๊ว + กุ้งลวก + ผักกาดขาว", cal: 240, p: 30, c: 7, f: 9, s: 2, na: 350 }
-        ]},
-        { day: "วันที่ 4", theme: "โฟกัสไขมันดี & ไฟเบอร์สูง", meals: [
-            { type: "มื้อเที่ยง", name: "ข้าวหน้าสันในไก่ย่าง + ผักสลัดน้ำใส", cal: 400, p: 36, c: 32, f: 12, s: 2, na: 340 },
-            { type: "มื้อว่าง/อื่นๆ", name: "ถั่วแระญี่ปุ่นต้ม 1 ถ้วย + ไข่ต้ม 1 ฟอง", cal: 195, p: 17, c: 10, f: 10, s: 2, na: 160 },
-            { type: "มื้อเย็น", name: "ปลาทับทิมนึ่งมะนาว + บรอกโคลีลวก", cal: 270, p: 36, c: 8, f: 9, s: 2, na: 290 }
-        ]},
-        { day: "วันที่ 5", theme: "คุมน้ำตาลต่ำพิเศษ ลดบวมน้ำ", meals: [
-            { type: "มื้อเที่ยง", name: "สุกี้น้ำอกไก่ + วุ้นเส้นครึ่งทัพพี", cal: 370, p: 35, c: 28, f: 11, s: 3, na: 460 },
-            { type: "มื้อว่าง/อื่นๆ", name: "นมโปรตีนสูงรสจืด 1 ขวด", cal: 190, p: 27, c: 10, f: 4.5, s: 8, na: 170 },
-            { type: "มื้อเย็น", name: "ไข่ตุ๋นหมูสับไม่ติดมัน + ผักโขมลวก", cal: 250, p: 29, c: 6, f: 11, s: 1, na: 330 }
-        ]},
-        { day: "วันที่ 6", theme: "รักษาสมดุลพลังงาน & โปรตีนถึงเป้า", meals: [
-            { type: "มื้อเที่ยง", name: "สเต๊กอกไก่พริกไทยดำ + ข้าวกล้อง 1 ทัพพี", cal: 410, p: 38, c: 29, f: 13, s: 2, na: 310 },
-            { type: "มื้อว่าง/อื่นๆ", name: "กรีกโยเกิร์ต 0% + ไข่ขาวต้ม 2 ฟอง", cal: 125, p: 22, c: 7, f: 0, s: 5, na: 165 },
-            { type: "มื้อเย็น", name: "ต้มยำน้ำใสอกไก่/เห็ดรวม", cal: 230, p: 32, c: 8, f: 7, s: 2, na: 410 }
-        ]},
-        { day: "วันที่ 7", theme: "รีเซ็ตระบบพร้อมรับสัปดาห์ใหม่", meals: [
-            { type: "มื้อเที่ยง", name: "ข้าวคลุกกะปิอกไก่ลีน + ผักครบ", cal: 420, p: 35, c: 32, f: 14, s: 4, na: 450 },
-            { type: "มื้อว่าง/อื่นๆ", name: "นมถั่วเหลืองโปรตีนสูง 1 ขวด + ไข่ต้ม 1 ฟอง", cal: 255, p: 34, c: 7, f: 9.5, s: 2, na: 220 },
-            { type: "มื้อเย็น", name: "ปลากะพงนึ่งขิง + ผักลวก (งดแป้ง)", cal: 245, p: 34, c: 5, f: 9, s: 1, na: 270 }
-        ]}
+        {
+            day: "วันที่ 1",
+            theme: "เริ่มรีดน้ำตาล & ล้างโซเดียม",
+            meals: [
+                { type: "มื้อเที่ยง", name: "อกไก่นึ่ง/ย่าง + ข้าวกล้อง 1 ทัพพี + ผักลวก", cal: 390, p: 36, c: 28, f: 11, s: 2, na: 320 },
+                { type: "มื้อว่าง/อื่นๆ", name: "ไข่ต้ม 2 ฟอง + กรีกโยเกิร์ต 0%", cal: 240, p: 27, c: 7, f: 10, s: 5, na: 195 },
+                { type: "มื้อเย็น", name: "ปลานิลนึ่งสมุนไพร + ผักต้ม (งดข้าว)", cal: 260, p: 35, c: 6, f: 9, s: 2, na: 240 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] อกไก่นึ่ง/อบ + ข้าวกล้องครึ่งถ้วย + สลัดผักน้ำใส", cal: 380, p: 35, c: 30, f: 9, s: 3, na: 430 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] ไข่ต้ม 2 ฟอง + นมถั่วเหลืองโปรตีนสูง 1 กล่อง", cal: 250, p: 25, c: 12, f: 10, s: 4, na: 220 },
+                { type: "มื้อเย็น", name: "[7-11] ไข่ตุ๋นคัพ + ถั่วแระญี่ปุ่น/ผักสด (งดข้าว)", cal: 235, p: 21, c: 13, f: 10, s: 2, na: 360 }
+            ]
+        },
+        {
+            day: "วันที่ 2",
+            theme: "เน้นโปรตีนสูง ลดแป้งขัดสี",
+            meals: [
+                { type: "มื้อเที่ยง", name: "กะเพราอกไก่ไม่ใส่น้ำมัน + ไข่ดาวน้ำ + ข้าว 1 ทัพพี", cal: 410, p: 39, c: 26, f: 13, s: 2, na: 420 },
+                { type: "มื้อว่าง/อื่นๆ", name: "นมถั่วเหลืองโปรตีนสูง 1 ขวด + อัลมอนด์ 10 เม็ด", cal: 250, p: 30, c: 8, f: 11, s: 2, na: 155 },
+                { type: "มื้อเย็น", name: "ยำทูน่าน้ำแร่ + แตงกวา/ผักสด (งดข้าว)", cal: 220, p: 28, c: 7, f: 7, s: 2, na: 380 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] เมนูไก่ลีน/อกไก่ + ข้าว 1 ถ้วยเล็ก + ผักเพิ่ม", cal: 405, p: 36, c: 31, f: 11, s: 3, na: 490 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] นมโปรตีนสูง 1 ขวด + ไข่ต้ม 1 ฟอง", cal: 245, p: 31, c: 9, f: 8, s: 4, na: 210 },
+                { type: "มื้อเย็น", name: "[7-11] ทูน่า/สลัดโปรตีนเบาๆ + แตงกวา/ผักสด", cal: 215, p: 24, c: 8, f: 8, s: 2, na: 350 }
+            ]
+        },
+        {
+            day: "วันที่ 3",
+            theme: "ตัดคาร์บมื้อเย็น กระตุ้นดึงไขมัน",
+            meals: [
+                { type: "มื้อเที่ยง", name: "เกาเหลาหมูสับไม่ใส่กระเทียมเจียว + ข้าว 1 ทัพพี", cal: 420, p: 34, c: 30, f: 15, s: 3, na: 520 },
+                { type: "มื้อว่าง/อื่นๆ", name: "เวย์โปรตีน 1 สกู๊ป + ไข่ขาวต้ม 2 ฟอง", cal: 155, p: 32, c: 3, f: 1, s: 1, na: 190 },
+                { type: "มื้อเย็น", name: "เต้าหู้อ่อนนึ่งซีอิ๊ว + กุ้งลวก + ผักกาดขาว", cal: 240, p: 30, c: 7, f: 9, s: 2, na: 350 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] เกาเหลา/ซุปเนื้อสัตว์ไม่ติดมัน + ข้าวกล้องครึ่งถ้วย", cal: 395, p: 31, c: 29, f: 13, s: 3, na: 640 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] นมถั่วเหลืองโปรตีนสูง + ไข่ขาวพร้อมทาน", cal: 190, p: 25, c: 8, f: 5, s: 2, na: 260 },
+                { type: "มื้อเย็น", name: "[7-11] ไข่ตุ๋น/เต้าหู้ + ผักลวก/ถั่วแระ", cal: 230, p: 22, c: 10, f: 10, s: 2, na: 340 }
+            ]
+        },
+        {
+            day: "วันที่ 4",
+            theme: "โฟกัสไขมันดี & ไฟเบอร์สูง",
+            meals: [
+                { type: "มื้อเที่ยง", name: "ข้าวหน้าสันในไก่ย่าง + ผักสลัดน้ำใส", cal: 400, p: 36, c: 32, f: 12, s: 2, na: 340 },
+                { type: "มื้อว่าง/อื่นๆ", name: "ถั่วแระญี่ปุ่นต้ม 1 ถ้วย + ไข่ต้ม 1 ฟอง", cal: 195, p: 17, c: 10, f: 10, s: 2, na: 160 },
+                { type: "มื้อเย็น", name: "ปลาทับทิมนึ่งมะนาว + บรอกโคลีลวก", cal: 270, p: 36, c: 8, f: 9, s: 2, na: 290 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] ข้าวหน้าไก่ย่าง/อกไก่ + สลัดผักน้ำใส", cal: 395, p: 34, c: 33, f: 11, s: 3, na: 450 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] ถั่วแระญี่ปุ่น + ไข่ต้ม 1 ฟอง", cal: 195, p: 17, c: 10, f: 10, s: 2, na: 165 },
+                { type: "มื้อเย็น", name: "[7-11] อกไก่นึ่ง/ปลาเบาๆ + ผักสด/สลัด", cal: 245, p: 30, c: 9, f: 8, s: 2, na: 330 }
+            ]
+        },
+        {
+            day: "วันที่ 5",
+            theme: "คุมน้ำตาลต่ำพิเศษ ลดบวมน้ำ",
+            meals: [
+                { type: "มื้อเที่ยง", name: "สุกี้น้ำอกไก่ + วุ้นเส้นครึ่งทัพพี", cal: 370, p: 35, c: 28, f: 11, s: 3, na: 460 },
+                { type: "มื้อว่าง/อื่นๆ", name: "นมโปรตีนสูงรสจืด 1 ขวด", cal: 190, p: 27, c: 10, f: 4.5, s: 8, na: 170 },
+                { type: "มื้อเย็น", name: "ไข่ตุ๋นหมูสับไม่ติดมัน + ผักโขมลวก", cal: 250, p: 29, c: 6, f: 11, s: 1, na: 330 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] สุกี้น้ำ/เมนูซุปใสอกไก่ + แป้งน้อย", cal: 365, p: 33, c: 27, f: 10, s: 3, na: 510 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] นมโปรตีนสูงรสจืด 1 กล่อง/ขวด", cal: 185, p: 25, c: 9, f: 5, s: 4, na: 180 },
+                { type: "มื้อเย็น", name: "[7-11] ไข่ตุ๋นคัพ + ผักลวก/สลัดน้ำน้อย", cal: 225, p: 21, c: 8, f: 10, s: 2, na: 350 }
+            ]
+        },
+        {
+            day: "วันที่ 6",
+            theme: "รักษาสมดุลพลังงาน & โปรตีนถึงเป้า",
+            meals: [
+                { type: "มื้อเที่ยง", name: "สเต๊กอกไก่พริกไทยดำ + ข้าวกล้อง 1 ทัพพี", cal: 410, p: 38, c: 29, f: 13, s: 2, na: 310 },
+                { type: "มื้อว่าง/อื่นๆ", name: "กรีกโยเกิร์ต 0% + ไข่ขาวต้ม 2 ฟอง", cal: 125, p: 22, c: 7, f: 0, s: 5, na: 165 },
+                { type: "มื้อเย็น", name: "ต้มยำน้ำใสอกไก่/เห็ดรวม", cal: 230, p: 32, c: 8, f: 7, s: 2, na: 410 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] อกไก่นึ่ง/สเต๊กไก่ลีน + ข้าวกล้องครึ่งถ้วย", cal: 390, p: 36, c: 29, f: 11, s: 2, na: 420 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] โยเกิร์ตน้ำตาลน้อย + ไข่ต้ม 1 ฟอง", cal: 180, p: 16, c: 12, f: 6, s: 5, na: 150 },
+                { type: "มื้อเย็น", name: "[7-11] เมนูซุปใส/ไข่ขาว + ผักสด", cal: 220, p: 25, c: 8, f: 7, s: 2, na: 390 }
+            ]
+        },
+        {
+            day: "วันที่ 7",
+            theme: "รีเซ็ตระบบพร้อมรับสัปดาห์ใหม่",
+            meals: [
+                { type: "มื้อเที่ยง", name: "ข้าวคลุกกะปิอกไก่ลีน + ผักครบ", cal: 420, p: 35, c: 32, f: 14, s: 4, na: 450 },
+                { type: "มื้อว่าง/อื่นๆ", name: "นมถั่วเหลืองโปรตีนสูง 1 ขวด + ไข่ต้ม 1 ฟอง", cal: 255, p: 34, c: 7, f: 9.5, s: 2, na: 220 },
+                { type: "มื้อเย็น", name: "ปลากะพงนึ่งขิง + ผักลวก (งดแป้ง)", cal: 245, p: 34, c: 5, f: 9, s: 1, na: 270 }
+            ],
+            sevenMeals: [
+                { type: "มื้อเที่ยง", name: "[7-11] ข้าวกล่องไก่ลีน + ผักเพิ่ม", cal: 405, p: 34, c: 32, f: 12, s: 3, na: 480 },
+                { type: "มื้อว่าง/อื่นๆ", name: "[7-11] นมโปรตีนสูง 1 กล่อง + ไข่ต้ม 1 ฟอง", cal: 235, p: 24, c: 10, f: 9, s: 3, na: 210 },
+                { type: "มื้อเย็น", name: "[7-11] อกไก่นึ่ง/ไข่ตุ๋น + ผักสด", cal: 230, p: 27, c: 8, f: 8, s: 2, na: 320 }
+            ]
+        }
     ];
 
     const curPlan = sevenDayPlans[mealPlanDayIndex] || sevenDayPlans[0];
-    const planTotalCal = curPlan.meals.reduce((s, m) => s + m.cal, 0);
-    const planTotalP = curPlan.meals.reduce((s, m) => s + m.p, 0);
+    const activeMeals = (mealSourceMode === 'seven' && curPlan.sevenMeals) ? curPlan.sevenMeals : curPlan.meals;
+    const planTotalCal = activeMeals.reduce((s, m) => s + m.cal, 0);
+    const planTotalP = activeMeals.reduce((s, m) => s + m.p, 0);
 
     card.innerHTML = `
         <div class="flex items-center justify-between gap-2">
@@ -817,51 +888,63 @@ function renderBurnModeCard() {
                 <button type="button" onclick="setBurnMode('burn')" class="px-2.5 py-1 rounded-lg font-semibold transition ${isBurnMode ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400'}">⚡ รีดไขมัน</button>
             </div>
         </div>
-        <details class="bg-slate-950/70 rounded-2xl border border-slate-800/90 p-2.5">
-            <summary class="text-xs font-bold text-amber-300 cursor-pointer select-none flex items-center justify-between">
-                <span><i class="fa-solid fa-calendar-week mr-1.5"></i> ตารางอาหาร 7 วัน (เน้นรีดไขมัน & ลดน้ำตาล)</span>
-                <span class="text-[10px] text-slate-400">พับ/กาง ▾</span>
-            </summary>
-            <div class="pt-2.5 space-y-2">
-                <div class="grid grid-cols-7 gap-1">
-                    ${sevenDayPlans.map((_, idx) => `<button type="button" onclick="selectMealPlanDay(${idx})" class="py-1 rounded-lg text-[10px] font-bold border ${mealPlanDayIndex === idx ? 'bg-amber-500 text-slate-950 border-amber-300' : 'bg-slate-900 text-slate-400 border-slate-800'}">D${idx + 1}</button>`).join('')}
-                </div>
-                <div class="flex items-center justify-between gap-2 bg-slate-900/80 px-2.5 py-2 rounded-xl border border-slate-800/90">
-                    <div class="text-[10px] text-slate-300">
-                        ปรับเป้าวันนี้ตาม <b class="text-amber-300">${activePlanCode}</b>:
-                        <b class="text-white">${planTotalCal} kcal</b> • <b class="text-emerald-400">P ${planTotalP}g</b>
-                        ${dayOverride ? `<span class="text-amber-400 ml-1">(ใช้อยู่)</span>` : ''}
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                        <button type="button" onclick="applyFatLossDayTargetToDate(${mealPlanDayIndex}, currentDateKey)"
-                            class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-lg transition">
-                            ใช้เป็นเป้าวันนี้
-                        </button>
-                        ${dayOverride ? `
-                            <button type="button" onclick="clearDayNutritionOverride(currentDateKey)"
-                                class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold px-2 py-1 rounded-lg border border-slate-700">
-                                คืนค่า
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-                <div class="space-y-1.5">
-                    ${curPlan.meals.map(m => {
-                        const safeName = m.name.replace(/'/g, "\\'");
-                        return `
-                            <div class="flex items-center justify-between gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800/80 text-xs">
-                                <div class="min-w-0">
-                                    <div class="text-[10px] text-indigo-400 font-semibold">${m.type}</div>
-                                    <div class="text-slate-100 font-medium leading-snug">${m.name}</div>
-                                    <div class="text-[10px] text-slate-400">${m.cal} kcal • P ${m.p}g • C ${m.c}g • F ${m.f}g</div>
-                                </div>
-                                <button type="button" onclick="addPlannedMealToToday('${m.type}', '${safeName}', ${m.cal}, ${m.p}, ${m.c}, ${m.f}, ${m.s}, ${m.na})" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg">+ ใส่</button>
-                            </div>
-                        `;
-                    }).join('')}
+
+        <div class="bg-slate-950/70 rounded-2xl border border-slate-800/90 p-2.5 space-y-2">
+            <div class="grid grid-cols-7 gap-1">
+                ${sevenDayPlans.map((_, idx) => `<button type="button" onclick="selectMealPlanDay(${idx})" class="py-1 rounded-lg text-[10px] font-bold border ${mealPlanDayIndex === idx ? 'bg-amber-500 text-slate-950 border-amber-300' : 'bg-slate-900 text-slate-400 border-slate-800'}">D${idx + 1}</button>`).join('')}
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-0.5">
+                <span class="text-[10px] text-slate-400">แหล่งเมนูของวัน (${activePlanCode}):</span>
+                <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px]">
+                    <button type="button" onclick="toggleMealSourceMode('home')" class="px-2 py-0.5 rounded-md font-semibold transition ${mealSourceMode === 'home' ? 'bg-indigo-600 text-white' : 'text-slate-400'}">ทำเอง/ร้าน</button>
+                    <button type="button" onclick="toggleMealSourceMode('seven')" class="px-2 py-0.5 rounded-md font-semibold transition ${mealSourceMode === 'seven' ? 'bg-emerald-600 text-white' : 'text-slate-400'}">7-11</button>
                 </div>
             </div>
-        </details>
+
+            <details class="pt-0.5">
+                <summary class="text-xs font-bold text-amber-300 cursor-pointer select-none flex items-center justify-between py-0.5">
+                    <span><i class="fa-solid fa-calendar-week mr-1.5"></i> ตารางอาหาร 7 วัน (${activePlanCode} • ${mealSourceMode === 'seven' ? '7-11' : 'ทำเอง/ร้าน'}: ${planTotalCal} kcal • P ${planTotalP}g)</span>
+                    <span class="text-[10px] text-slate-400">พับ/กาง ▾</span>
+                </summary>
+                <div class="pt-2 space-y-2">
+                    <div class="flex items-center justify-between gap-2 bg-slate-900/80 px-2.5 py-2 rounded-xl border border-slate-800/90">
+                        <div class="text-[10px] text-slate-300">
+                            ปรับเป้าวันนี้ตาม <b class="text-amber-300">${activePlanCode}</b>:
+                            <b class="text-white">${planTotalCal} kcal</b> • <b class="text-emerald-400">P ${planTotalP}g</b>
+                            ${dayOverride ? `<span class="text-amber-400 ml-1">(ใช้อยู่)</span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onclick="applyFatLossDayTargetToDate(${mealPlanDayIndex}, currentDateKey)"
+                                class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold px-2.5 py-1 rounded-lg transition">
+                                ใช้เป็นเป้าวันนี้
+                            </button>
+                            ${dayOverride ? `
+                                <button type="button" onclick="clearDayNutritionOverride(currentDateKey)"
+                                    class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold px-2 py-1 rounded-lg border border-slate-700">
+                                    คืนค่า
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${activeMeals.map(m => {
+                            const safeName = m.name.replace(/'/g, "\\'");
+                            return `
+                                <div class="flex items-center justify-between gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800/80 text-xs">
+                                    <div class="min-w-0">
+                                        <div class="text-[10px] text-indigo-400 font-semibold">${m.type}</div>
+                                        <div class="text-slate-100 font-medium leading-snug">${m.name}</div>
+                                        <div class="text-[10px] text-slate-400">${m.cal} kcal • P ${m.p}g • C ${m.c}g • F ${m.f}g</div>
+                                    </div>
+                                    <button type="button" onclick="addPlannedMealToToday('${m.type}', '${safeName}', ${m.cal}, ${m.p}, ${m.c}, ${m.f}, ${m.s}, ${m.na})" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg">+ ใส่</button>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </details>
+        </div>
     `;
 }
 
