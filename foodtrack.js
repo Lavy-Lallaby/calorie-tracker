@@ -950,7 +950,6 @@ function renderBurnModeCard() {
         ? `เคยกิน (${activeMeals.length} รายการ)`
         : (mealSourceMode === 'seven' ? '7-11' : 'ทำเอง/ร้าน');
 
-    ${isSevenDayPlanOpen ? 'open' : ''}
     card.innerHTML = `
         <div class="flex items-center justify-between gap-2">
             <div>
