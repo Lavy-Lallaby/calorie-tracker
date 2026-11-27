@@ -271,7 +271,7 @@ function deleteSkincareItem(itemId) {
 }
 
 function resetDefaultSkincare() {
-    if (!confirm('โหลดรายการสกินแคร์เริ่มต้นทั้ง 14 ขั้นตอนกลับมาใช่ไหม?')) return;
+    if (!confirm(`โหลดรายการสกินแคร์เริ่มต้นทั้ง ${defaultSkincareItems.length} ขั้นตอนกลับมาใช่ไหม?`)) return;
     window.skincareItems = [...defaultSkincareItems];
     localStorage.setItem('fitTracker_skincare_items', JSON.stringify(window.skincareItems));
     renderSkincareContent();
@@ -308,7 +308,9 @@ function renderSkincareContent() {
             const dKey = getFormattedDateKey(d);
             const isSelected = (dKey === currentDateKey);
             const isToday = (dKey === todayKey);
-            const hasSpecial = (i === 3 || i === 6 || i === 4 || i === 0);
+            const hasSpecial = window.skincareItems.some(
+                item => Array.isArray(item.days) && item.days.length > 0 && item.days.length < 7 && item.days.includes(i)
+            );
 
             stripHtml += `
                 <button type="button" onclick="selectSkincareWeekDay('${dKey}')"
