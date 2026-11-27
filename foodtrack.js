@@ -755,7 +755,18 @@ function addPlannedMealToToday(mealType, name, calories, protein, carbs, fat, su
     saveDataAndSync();
 }
 
-let mealSourceMode = mealSourceMode || 'home'; // 'home' | 'seven' | 'history'
+var mealSourceMode = (typeof mealSourceMode !== 'undefined') ? mealSourceMode : 'home'; // 'home' | 'seven' | 'history'
+
+function toggleMealSourceMode(mode) {
+    if (mode === 'seven' || mode === 'history' || mode === 'home') {
+        mealSourceMode = mode;
+    } else {
+        mealSourceMode = 'home';
+    }
+    if (typeof renderBurnModeCard === 'function') {
+        renderBurnModeCard();
+    }
+}
 
 function toggleMealSourceMode(mode) {
     if (mode === 'seven' || mode === 'history' || mode === 'home') {
