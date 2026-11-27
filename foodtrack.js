@@ -755,11 +755,59 @@ function addPlannedMealToToday(mealType, name, calories, protein, carbs, fat, su
     saveDataAndSync();
 }
 
-let mealSourceMode = mealSourceMode || 'home'; // 'home' | 'seven'
+let mealSourceMode = mealSourceMode || 'home'; // 'home' | 'seven' | 'history'
 
 function toggleMealSourceMode(mode) {
-    mealSourceMode = mode === 'seven' ? 'seven' : 'home';
+    if (mode === 'seven' || mode === 'history' || mode === 'home') {
+        mealSourceMode = mode;
+    } else {
+        mealSourceMode = 'home';
+    }
     renderBurnModeCard();
+}
+
+function getPastMealsPool() {
+    const map = new Map();
+    const allDates = Object.keys(meals || {}).sort().reverse();
+
+    for (const dateKey of allDates) {
+        const dayMeals = meals[dateKey] || {};
+        for (const mealType of Object.keys(dayMeals)) {
+            const list = Array.isArray(dayMeals[mealType]) ? dayMeals[mealType] : [];
+            for (const item of list) {
+                if (!item || !item.name) continue;
+                const cleanName = String(item.name).trim();
+                const key = cleanName.toLowerCase();
+                if (!map.has(key)) {
+                    const qty = parseFloat(item.qty) || 1;
+                    const cal = parseFloat(item.cal) || 0;
+                    const p = parseFloat(item.p ?? item.protein) || 0;
+                    const c = parseFloat(item.c ?? item.carbs) || 0;
+                    const f = parseFloat(item.f ?? item.fat) || 0;
+                    const s = parseFloat(item.s ?? item.sugar) || 0;
+                    const na = parseFloat(item.na ?? item.sodium) || 0;
+
+                    map.set(key, {
+                        type: mealType,
+                        name: cleanName,
+                        lastDate: dateKey,
+                        count: 1,
+                        cal: Math.round(cal * 10) / 10,
+                        p: Math.round(p * 10) / 10,
+                        c: Math.round(c * 10) / 10,
+                        f: Math.round(f * 10) / 10,
+                        s: Math.round(s * 10) / 10,
+                        na: Math.round(na * 10) / 10,
+                        qty
+                    });
+                } else {
+                    map.get(key).count += 1;
+                }
+            }
+        }
+    }
+
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
 }
 
 function renderBurnModeCard() {
@@ -871,9 +919,17 @@ function renderBurnModeCard() {
     ];
 
     const curPlan = sevenDayPlans[mealPlanDayIndex] || sevenDayPlans[0];
-    const activeMeals = (mealSourceMode === 'seven' && curPlan.sevenMeals) ? curPlan.sevenMeals : curPlan.meals;
-    const planTotalCal = activeMeals.reduce((s, m) => s + m.cal, 0);
-    const planTotalP = activeMeals.reduce((s, m) => s + m.p, 0);
+    const pastMeals = mealSourceMode === 'history' ? getPastMealsPool() : [];
+    const activeMeals = mealSourceMode === 'history'
+        ? pastMeals
+        : (mealSourceMode === 'seven' && curPlan.sevenMeals ? curPlan.sevenMeals : curPlan.meals);
+
+    const planTotalCal = Math.round(activeMeals.reduce((s, m) => s + (parseFloat(m.cal) || 0), 0));
+    const planTotalP = Math.round(activeMeals.reduce((s, m) => s + (parseFloat(m.p) || 0), 0));
+
+    const modeLabel = mealSourceMode === 'history'
+        ? `เคยกิน (${activeMeals.length} รายการ)`
+        : (mealSourceMode === 'seven' ? '7-11' : 'ทำเอง/ร้าน');
 
     card.innerHTML = `
         <div class="flex items-center justify-between gap-2">
@@ -895,16 +951,17 @@ function renderBurnModeCard() {
             </div>
 
             <div class="flex items-center justify-between gap-2 pt-0.5">
-                <span class="text-[10px] text-slate-400">แหล่งเมนูของวัน (${activePlanCode}):</span>
+                <span class="text-[10px] text-slate-400">แหล่งเมนู (${mealSourceMode === 'history' ? 'ประวัติที่เคยกิน' : activePlanCode}):</span>
                 <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px]">
                     <button type="button" onclick="toggleMealSourceMode('home')" class="px-2 py-0.5 rounded-md font-semibold transition ${mealSourceMode === 'home' ? 'bg-indigo-600 text-white' : 'text-slate-400'}">ทำเอง/ร้าน</button>
                     <button type="button" onclick="toggleMealSourceMode('seven')" class="px-2 py-0.5 rounded-md font-semibold transition ${mealSourceMode === 'seven' ? 'bg-emerald-600 text-white' : 'text-slate-400'}">7-11</button>
+                    <button type="button" onclick="toggleMealSourceMode('history')" class="px-2 py-0.5 rounded-md font-semibold transition ${mealSourceMode === 'history' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400'}">เคยกิน</button>
                 </div>
             </div>
 
             <details class="pt-0.5">
                 <summary class="text-xs font-bold text-amber-300 cursor-pointer select-none flex items-center justify-between py-0.5">
-                    <span><i class="fa-solid fa-calendar-week mr-1.5"></i> ตารางอาหาร 7 วัน (${activePlanCode} • ${mealSourceMode === 'seven' ? '7-11' : 'ทำเอง/ร้าน'}: ${planTotalCal} kcal • P ${planTotalP}g)</span>
+                    <span><i class="fa-solid fa-calendar-week mr-1.5"></i> ตารางอาหาร 7 วัน (${modeLabel}: ${planTotalCal} kcal • P ${planTotalP}g)</span>
                     <span class="text-[10px] text-slate-400">พับ/กาง ▾</span>
                 </summary>
                 <div class="pt-2 space-y-2">
@@ -927,21 +984,31 @@ function renderBurnModeCard() {
                             ` : ''}
                         </div>
                     </div>
-                    <div class="space-y-1.5">
-                        ${activeMeals.map(m => {
-                            const safeName = m.name.replace(/'/g, "\\'");
-                            return `
-                                <div class="flex items-center justify-between gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800/80 text-xs">
-                                    <div class="min-w-0">
-                                        <div class="text-[10px] text-indigo-400 font-semibold">${m.type}</div>
-                                        <div class="text-slate-100 font-medium leading-snug">${m.name}</div>
-                                        <div class="text-[10px] text-slate-400">${m.cal} kcal • P ${m.p}g • C ${m.c}g • F ${m.f}g</div>
+
+                    ${activeMeals.length === 0 ? `
+                        <div class="text-[11px] text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800/80 text-center">
+                            ยังไม่มีรายการอาหารในประวัติที่เคยบันทึกไว้ ลองบันทึกมื้ออาหารในวันนี้หรือวันก่อนหน้า แล้วกลับมาดูที่นี่ได้เลยครับ
+                        </div>
+                    ` : `
+                        <div class="space-y-1.5">
+                            ${activeMeals.map(m => {
+                                const safeName = String(m.name).replace(/'/g, "\\'");
+                                const metaExtra = mealSourceMode === 'history' && m.lastDate
+                                    ? ` • เคยกิน ${m.count} ครั้ง (ล่าสุด ${m.lastDate})`
+                                    : '';
+                                return `
+                                    <div class="flex items-center justify-between gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800/80 text-xs">
+                                        <div class="min-w-0">
+                                            <div class="text-[10px] text-indigo-400 font-semibold">${m.type || 'มื้อเที่ยง'}${metaExtra}</div>
+                                            <div class="text-slate-100 font-medium leading-snug">${m.name}</div>
+                                            <div class="text-[10px] text-slate-400">${m.cal} kcal • P ${m.p}g • C ${m.c}g • F ${m.f}g</div>
+                                        </div>
+                                        <button type="button" onclick="addPlannedMealToToday('${m.type || 'มื้อเที่ยง'}', '${safeName}', ${m.cal}, ${m.p}, ${m.c}, ${m.f}, ${m.s || 0}, ${m.na || 0})" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg">+ ใส่</button>
                                     </div>
-                                    <button type="button" onclick="addPlannedMealToToday('${m.type}', '${safeName}', ${m.cal}, ${m.p}, ${m.c}, ${m.f}, ${m.s}, ${m.na})" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg">+ ใส่</button>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `}
                 </div>
             </details>
         </div>
