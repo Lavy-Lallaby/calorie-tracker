@@ -3,23 +3,37 @@
 // ==========================================================================
 
 const defaultSkincareItems = [
-    { id: 'sk_m1', period: 'morning', name: '[หน้า] 1. ล้างหน้าด้วย Senka Perfect Whip Collagen In', days: [] },
-    { id: 'sk_m2', period: 'morning', name: '[หน้า] 2. เช็ดผิวทั่วหน้าและลำคอด้วย Elite Care Serum Pad (1 แผ่น)', days: [] },
-    { id: 'sk_m3', period: 'morning', name: '[หน้า] 3. ทา MizuMi Cica Soothing Gel 2 ข้อนิ้ว บริเวณใบหน้าและลำคอ', days: [] },
-    { id: 'sk_m4', period: 'morning', name: '[หน้า] 4. ทากันแดด MizuMi UV Water Serum 2 ข้อนิ้ว ทั่วหน้าและลำคอ', days: [] },
-    { id: 'sk_m5', period: 'morning', name: '[ตัว] 5. อาบน้ำ WATERCOME + ทาเซรั่ม & โลชั่น WATERCOME', days: [] },
-    { id: 'sk_m6', period: 'morning', name: '[ตัว] 6. ทากันแดด MizuMi UV Cooling Body Serum ทั่วผิวกาย', days: [] },
+    { id: 'sk_m1', period: 'morning', name: '[หน้า] ล้างหน้าด้วย Senka Perfect Whip Collagen In', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m2', period: 'morning', name: '[ตัว] อาบน้ำด้วย WATERCOME White Tea Shower Gel', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m3', period: 'morning', name: '[หน้า] เช็ดหน้าและลำคอด้วย Elite Care Lumiclear Brink Serum Pad (1 แผ่น)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m4', period: 'morning', name: '[หน้า] ทา MizuMi Cica Soothing Moisture Gel (2 ข้อนิ้ว)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m5', period: 'morning', name: '[หน้า] ทากันแดดหน้า MizuMi UV Water Serum SPF50+ PA++++ (2 ข้อนิ้ว)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m6', period: 'morning', name: '[ตัว] ผสมเซรั่ม WATERCOME White Tea Serum (3-4 ปั๊ม) + The Elf Nano White Dose (3-5 หยด)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m7', period: 'morning', name: '[ตัว] ทาโลชั่นตัว WATERCOME White Tea Lotion (3-4 ปั๊ม)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_m8', period: 'morning', name: '[ตัว] ทากันแดดตัว MizuMi UV Cooling Body Serum SPF50+ PA++++', days: [0, 1, 2, 3, 4, 5, 6] },
 
-    { id: 'sk_n1', period: 'night',   name: '[หน้า] 1. ล้างหน้าด้วย Senka Perfect Whip Collagen In', days: [] },
-    { id: 'sk_n2', period: 'night',   name: '[หน้า] 2. แปะ Elite Care Serum Pad ทิ้งไว้ 3-5 นาที แล้วเช็ดเบาๆ', days: [] },
-    { id: 'sk_n3', period: 'night',   name: '[หน้า] 3. แปะ Luna Jelly Eye Mask ใต้ตา 10-15 นาที แล้วลอกออก', days: [] },
-    { id: 'sk_n4', period: 'night',   name: '[หน้า] 4. ทา MizuMi Cica Soothing Gel 2 ข้อนิ้ว บริเวณใบหน้าและลำคอ', days: [] },
-    { id: 'sk_n5', period: 'night',   name: '[ตัว] 5. อาบน้ำ WATERCOME + ทา MizuMi B3 AHA (งดคืนที่สครับผิว)', days: [] },
-    { id: 'sk_n6', period: 'night',   name: '[ตัว] 6. ทาโลชั่น WATERCOME ทับทั่วผิวกายเพื่อล็อกความชุ่มชื้น', days: [] },
-
-    { id: 'sk_w1', period: 'weekly',  name: '[ตัว] สครับขัดผิว WATERCOME (งดทา MizuMi B3 AHA คืนนี้)', days: [3, 6] },
-    { id: 'sk_w2', period: 'weekly',  name: '[หน้า] แปะแผ่นมาส์ก Myu-Nique 15-20 นาที ก่อนลง Cica Gel', days: [4, 0] }
+    { id: 'sk_n1', period: 'night', name: '[หน้า] ล้างหน้าด้วย Senka Perfect Whip Collagen In', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_n2_shower_normal', period: 'night', name: '[ตัว] อาบน้ำด้วย WATERCOME White Tea Shower Gel', days: [0, 1, 2, 4, 5] },
+    { id: 'sk_n2_shower_before_scrub', period: 'night', name: '[ตัว] อาบน้ำด้วย WATERCOME Shower Gel (2-3 ปั๊ม)', days: [3, 6] },
+    { id: 'sk_n2_scrub_after_shower', period: 'night', name: '[ตัว] สครับขัดผิวด้วย WATERCOME Niacinamide Scrub Cream (1-2 ช้อนโต๊ะ)', days: [3, 6] },
+    { id: 'sk_n3', period: 'night', name: '[หน้า] แปะ Elite Care Lumiclear Brink Serum Pad (3-5 นาที แล้วเช็ดเบาๆ)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_n4_mask', period: 'night', name: '[หน้า] แปะแผ่นมาส์กหน้า Myu-Nique Sheet Mask (15-20 นาที แล้วลอกออก)', days: [0, 4] },
+    { id: 'sk_n5', period: 'night', name: '[หน้า] แปะ Luna Under Eye Repair Mask ใต้ตา (10-15 นาที แล้วลอกออก)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_n6', period: 'night', name: '[หน้า] ทา MizuMi Cica Soothing Moisture Gel (2 ข้อนิ้ว)', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_n7_aha', period: 'night', name: '[ตัว] ผสม MizuMi B3 AHA (1 ฝ่ามือ) + The Elf Nano White Dose (3-5 หยด)', days: [0, 1, 2, 4, 5] },
+    { id: 'sk_n7_tea', period: 'night', name: '[ตัว] ทาเซรั่มตัว WATERCOME White Tea Serum (3-4 ปั๊ม)', days: [3, 6] },
+    { id: 'sk_n8', period: 'night', name: '[ตัว] ทา Creamy Gluta Body Booster', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'sk_n9', period: 'night', name: '[ตัว] ทาโลชั่นตัว WATERCOME White Tea Lotion ปิดท้ายผิวกาย', days: [0, 1, 2, 3, 4, 5, 6] }
 ];
+
+function getSkincareItemsForDay(period, dayOfWeek) {
+    return (window.skincareItems || []).filter(item => {
+        if (item.period !== period) return false;
+        if (!Array.isArray(item.days)) return true;
+        if (item.days.length === 0) return true;
+        return item.days.includes(dayOfWeek);
+    });
+}
 
 const savedSkincare = JSON.parse(localStorage.getItem('fitTracker_skincare_items') || 'null');
 window.skincareItems = (savedSkincare && savedSkincare.length > 0) ? savedSkincare : [...defaultSkincareItems];
@@ -279,7 +293,7 @@ function renderSkincareContent() {
     const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayOfWeek = selectedDate.getDay();
     const dayNamesShort = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-    const dayNamesFull = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
+    const dayNamesFull = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
     const checkedIds = window.skincareLogs[currentDateKey] || [];
 
     const sundayOfWeek = new Date(selectedDate);
@@ -294,7 +308,7 @@ function renderSkincareContent() {
             const dKey = getFormattedDateKey(d);
             const isSelected = (dKey === currentDateKey);
             const isToday = (dKey === todayKey);
-            const hasSpecial = window.skincareItems.some(item => item.period === 'weekly' && item.days.includes(i));
+            const hasSpecial = (i === 3 || i === 6 || i === 4 || i === 0);
 
             stripHtml += `
                 <button type="button" onclick="selectSkincareWeekDay('${dKey}')"
@@ -311,34 +325,38 @@ function renderSkincareContent() {
         weekStrip.innerHTML = stripHtml;
     }
 
-    const todayWeeklySpecials = window.skincareItems.filter(item => item.period === 'weekly' && item.days.includes(dayOfWeek));
+    const morningItems = getSkincareItemsForDay('morning', dayOfWeek);
+    const nightItems   = getSkincareItemsForDay('night', dayOfWeek);
+    const dayTotalCount = morningItems.length + nightItems.length;
+    const dayCheckedCount = [...morningItems, ...nightItems].filter(item => checkedIds.includes(item.id)).length;
+
+    const specialNotes = [];
+    if (dayOfWeek === 3 || dayOfWeek === 6) specialNotes.push('สครับผิว WATERCOME');
+    if (dayOfWeek === 4 || dayOfWeek === 0) specialNotes.push('แปะมาส์กหน้า Myu-Nique');
+
     if (alertBox) {
-        if (todayWeeklySpecials.length > 0) {
-            alertBox.innerHTML = `
+        alertBox.innerHTML = specialNotes.length > 0
+            ? `
                 <div class="bg-gradient-to-r from-pink-950/90 to-purple-950/80 border border-pink-500/40 rounded-2xl p-3 space-y-1">
-                    <div class="text-xs font-bold text-pink-300 flex items-center gap-1.5">
-                        <i class="fa-solid fa-bell text-amber-300"></i> เตือนพิเศษประจำ${dayNamesFull[dayOfWeek]} (${currentDateKey})!
+                    <div class="text-xs font-bold text-pink-300 flex items-center justify-between">
+                        <span><i class="fa-solid fa-sparkles text-amber-300 mr-1"></i> วัน${dayNamesFull[dayOfWeek]} (${currentDateKey})</span>
+                        <span>${dayCheckedCount}/${dayTotalCount} ขั้นตอน</span>
                     </div>
-                    <div class="text-[11px] text-slate-200">วันนี้มีคิว: <b>${todayWeeklySpecials.map(s => s.name).join(' , ')}</b></div>
+                    <div class="text-[11px] text-slate-200">คิววันนี้: <b>${specialNotes.join(' • ')}</b></div>
                 </div>
-            `;
-        } else {
-            alertBox.innerHTML = `
+            `
+            : `
                 <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl px-3 py-2 text-[11px] text-slate-400 flex items-center justify-between">
-                    <span>${dayNamesFull[dayOfWeek]} (${currentDateKey}) • บำรุงผิวสูตรปกติ</span>
-                    <span class="text-pink-400 font-medium">${checkedIds.length}/${window.skincareItems.length} ขั้นตอน</span>
+                    <span>วัน${dayNamesFull[dayOfWeek]} (${currentDateKey})</span>
+                    <span class="text-pink-400 font-semibold">${dayCheckedCount}/${dayTotalCount} ขั้นตอน</span>
                 </div>
             `;
-        }
     }
 
     const renderGroup = (itemsArr) => {
-        if (itemsArr.length === 0) return `<div class="text-[11px] text-slate-500 py-1">ยังไม่มีรายการในหมวดนี้</div>`;
+        if (itemsArr.length === 0) return `<div class="text-[11px] text-slate-500 py-1">ไม่มีรายการในหมวดนี้</div>`;
         return itemsArr.map(item => {
             const isChecked = checkedIds.includes(item.id);
-            const daysText = (item.days && item.days.length > 0)
-                ? `<span class="text-[10px] text-pink-400 font-medium ml-1.5">(${item.days.map(d => dayNamesShort[d]).join(', ')})</span>`
-                : '';
             const safeName = item.name.replace(/'/g, "\\'");
             const hasPhoto = !!window.skincarePhotosMap[item.id];
 
@@ -346,7 +364,7 @@ function renderSkincareContent() {
                 <div class="flex items-center justify-between gap-2 bg-slate-900/90 px-3 py-2 rounded-xl border ${isChecked ? 'border-emerald-700/40 opacity-75' : 'border-slate-800'}">
                     <label class="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
                         <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSkincareCheck('${item.id}')" class="w-4 h-4 accent-pink-500 rounded cursor-pointer shrink-0">
-                        <span class="text-xs leading-snug ${isChecked ? 'line-through text-slate-400' : 'text-slate-100 font-medium'}">${item.name}${daysText}</span>
+                        <span class="text-xs leading-snug ${isChecked ? 'line-through text-slate-400' : 'text-slate-100 font-medium'}">${item.name}</span>
                     </label>
                     <div class="flex items-center gap-1 shrink-0">
                         <button type="button" onclick="openSkincarePhotoModal('${item.id}', '${safeName}')" title="ดู/เพิ่มรูปผลิตภัณฑ์" class="${hasPhoto ? 'text-pink-400 bg-pink-950/60 border-pink-700/50' : 'text-slate-400 bg-slate-800/80 border-slate-700'} hover:text-pink-300 border w-7 h-7 rounded-lg flex items-center justify-center">
@@ -361,22 +379,18 @@ function renderSkincareContent() {
         }).join('');
     };
 
-    const morningList = window.skincareItems.filter(i => i.period === 'morning');
-    const nightList   = window.skincareItems.filter(i => i.period === 'night');
-    const weeklyList  = window.skincareItems.filter(i => i.period === 'weekly');
-
     listBox.innerHTML = `
         <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
-            <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5"><i class="fa-solid fa-sun"></i> ตอนเช้า (Morning)</div>
-            <div class="space-y-1.5">${renderGroup(morningList)}</div>
+            <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-sun"></i> วัน${dayNamesFull[dayOfWeek]} — เช้า
+            </div>
+            <div class="space-y-1.5">${renderGroup(morningItems)}</div>
         </div>
         <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
-            <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-moon"></i> ก่อนนอน (Night)</div>
-            <div class="space-y-1.5">${renderGroup(nightList)}</div>
-        </div>
-        <div class="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
-            <div class="text-xs font-bold text-pink-400 flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles"></i> เตือนรายสัปดาห์ (สครับผิว / มาส์กหน้า)</div>
-            <div class="space-y-1.5">${renderGroup(weeklyList)}</div>
+            <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-moon"></i> วัน${dayNamesFull[dayOfWeek]} — เย็น
+            </div>
+            <div class="space-y-1.5">${renderGroup(nightItems)}</div>
         </div>
     `;
 }
