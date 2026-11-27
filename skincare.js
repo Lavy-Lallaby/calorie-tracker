@@ -75,38 +75,80 @@ function updateWatchHealthField(field, value) {
     saveDataAndSync();
 }
 
+function getSleepHoursAndMinutes(sleepHoursVal) {
+    const raw = parseFloat(sleepHoursVal);
+    if (isNaN(raw) || raw <= 0) return { hrs: '', mins: '', totalHours: 0 };
+    const totalMins = Math.round(raw * 60);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    return { hrs, mins, totalHours: totalMins / 60 };
+}
+
+function updateSleepDurationPart(part, val) {
+    const wh = getWatchHealth(currentDateKey);
+    const current = getSleepHoursAndMinutes(wh.sleepHours);
+
+    let hrs = (part === 'hrs')
+        ? Math.max(0, parseInt(val, 10) || 0)
+        : (current.hrs === '' ? 0 : Number(current.hrs));
+
+    let mins = (part === 'mins')
+        ? Math.max(0, parseInt(val, 10) || 0)
+        : (current.mins === '' ? 0 : Number(current.mins));
+
+    if (mins >= 60) {
+        hrs += Math.floor(mins / 60);
+        mins = mins % 60;
+    }
+
+    if (hrs === 0 && mins === 0 && String(val).trim() === '') {
+        wh.sleepHours = '';
+    } else {
+        wh.sleepHours = Math.round(((hrs + (mins / 60)) + Number.EPSILON) * 100) / 100;
+    }
+
+    saveDataAndSync();
+}
+
 function renderHabitsSleepBanner() {
     const banner = document.getElementById('habits-sleep-banner');
     if (!banner) return;
 
     const wh = getWatchHealth(currentDateKey);
-    const h = parseFloat(wh.sleepHours) || 0;
+    const { hrs, mins, totalHours } = getSleepHoursAndMinutes(wh.sleepHours);
     const score = parseInt(wh.sleepScore) || 0;
 
-    let skinSleepAdvice = 'กรอกชั่วโมงนอนจาก HUAWEI Watch เพื่อเช็กการฟื้นฟูผิวและฮอร์โมน';
-    if (h >= 7) skinSleepAdvice = '✨ นอนเต็มอิ่ม! ผิวและกล้ามเนื้อซ่อมแซมได้เต็มประสิทธิภาพ';
-    else if (h > 0 && h < 6) skinSleepAdvice = '⚠️ นอนน้อยกว่า 6 ชม. ระวังผิวโทรม บวมน้ำ และหิวของหวานง่ายขึ้น';
+    let skinSleepAdvice = 'กรอกชั่วโมงและนาทีที่นอนจาก HUAWEI Watch เพื่อเช็กการฟื้นฟูผิวและฮอร์โมน';
+    if (totalHours >= 7) skinSleepAdvice = '✨ นอนเต็มอิ่ม! ผิวและกล้ามเนื้อซ่อมแซมได้เต็มประสิทธิภาพ';
+    else if (totalHours > 0 && totalHours < 6) skinSleepAdvice = '⚠️ นอนน้อยกว่า 6 ชม. ระวังผิวโทรม บวมน้ำ และหิวของหวานง่ายขึ้น';
+
+    const durationSummaryText = totalHours > 0 ? `${hrs} ชม. ${mins} นาที` : 'ยังไม่กรอก';
 
     banner.innerHTML = `
         <div class="space-y-2">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-indigo-300"><i class="fa-solid fa-bed mr-1.5"></i> คุณภาพการนอน & ชีพจร (HUAWEI Watch)</span>
-                <span class="text-[10px] text-slate-400">${currentDateKey}</span>
+                <span class="text-[10px] text-slate-400">${currentDateKey} • ${durationSummaryText}</span>
             </div>
-            <div class="grid grid-cols-3 gap-2 text-xs">
+            <div class="grid grid-cols-4 gap-1.5 text-xs">
                 <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
-                    <span class="text-[10px] text-slate-400 block">ชั่วโมงนอน</span>
-                    <input type="number" step="0.1" value="${wh.sleepHours}" onchange="updateWatchHealthField('sleepHours', this.value)" placeholder="7.5"
+                    <span class="text-[10px] text-slate-400 block">ชม. นอน</span>
+                    <input type="number" min="0" max="24" value="${hrs}" onchange="updateSleepDurationPart('hrs', this.value)" placeholder="6"
+                        class="w-full bg-transparent text-sm font-bold text-indigo-300 mt-0.5 focus:outline-none">
+                </div>
+                <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block">นาที</span>
+                    <input type="number" min="0" max="59" value="${mins}" onchange="updateSleepDurationPart('mins', this.value)" placeholder="20"
                         class="w-full bg-transparent text-sm font-bold text-indigo-300 mt-0.5 focus:outline-none">
                 </div>
                 <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
                     <span class="text-[10px] text-slate-400 block">Sleep Score</span>
-                    <input type="number" value="${wh.sleepScore}" onchange="updateWatchHealthField('sleepScore', this.value)" placeholder="85"
+                    <input type="number" value="${wh.sleepScore}" onchange="updateWatchHealthField('sleepScore', this.value)" placeholder="84"
                         class="w-full bg-transparent text-sm font-bold text-emerald-300 mt-0.5 focus:outline-none">
                 </div>
                 <div class="bg-slate-950/90 p-2 rounded-xl border border-slate-800">
                     <span class="text-[10px] text-slate-400 block">Resting HR</span>
-                    <input type="number" value="${wh.rhr}" onchange="updateWatchHealthField('rhr', this.value)" placeholder="58"
+                    <input type="number" value="${wh.rhr}" onchange="updateWatchHealthField('rhr', this.value)" placeholder="51"
                         class="w-full bg-transparent text-sm font-bold text-rose-400 mt-0.5 focus:outline-none">
                 </div>
             </div>
