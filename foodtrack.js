@@ -504,6 +504,14 @@ function saveMealAsCombo(mealType) {
     alert(`บันทึก "${comboItem.name}" เข้าคลังเมนูเรียบร้อยแล้ว!`);
 }
 
+let expandedMealItemKey = null;
+
+function toggleMealItemDetails(mealType, idx) {
+    const key = `${currentDateKey}|${mealType}|${idx}`;
+    expandedMealItemKey = (expandedMealItemKey === key) ? null : key;
+    renderMeals();
+}
+
 function renderMeals() {
     const container = document.getElementById('meals-container');
     if (!container) return;
@@ -565,6 +573,7 @@ function renderMeals() {
     const comboBtnHtml = items.length >= 2 ? `<button type="button" onclick="saveMealAsCombo('${mealType}')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-teal-300 px-2 py-0.5 rounded-lg border border-slate-700"><i class="fa-solid fa-layer-group"></i> รวมเซต</button>` : '';
 
     let itemsHtml = items.map((item, idx) => {
+        const isExpanded = (expandedMealItemKey === `${currentDateKey}|${mealType}|${idx}`);
         const cal = fmtPrecise(item.calories || 0, 1);
         const prot = fmtPrecise(item.protein || 0, 2);
         const carbs = fmtPrecise(item.carbs || 0, 2);
@@ -575,31 +584,63 @@ function renderMeals() {
         const sodium = fmtPrecise(item.sodium || 0, 1);
         const chol = fmtPrecise(item.cholesterol || 0, 1);
 
-        return `
-            <div class="py-2.5 px-3 rounded-xl bg-slate-950/75 border border-slate-800/80 space-y-1.5">
-                <div class="flex justify-between items-start gap-2">
-                    <div class="min-w-0">
-                        <span class="text-xs sm:text-sm text-white font-semibold">${item.name}</span>
-                        ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[11px] ml-1"></i>` : ''}
-                        <span class="text-[11px] text-amber-300 font-semibold ml-1">x${item.qty || 1}</span>
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                        <span class="text-xs font-extrabold text-white bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-lg">${cal} kcal</span>
-                        <button type="button" onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-                        <button type="button" onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
-                    </div>
+        const detailGridHtml = isExpanded ? `
+            <div class="grid grid-cols-4 gap-1.5 pt-2 mt-2 border-t border-slate-800/90 text-center">
+                <div class="bg-slate-900 border border-emerald-800/40 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">โปรตีน</span>
+                    <b class="text-xs text-emerald-300 font-bold">${prot}g</b>
                 </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">คาร์บ</span>
+                    <b class="text-xs text-slate-100 font-bold">${carbs}g</b>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">น้ำตาล</span>
+                    <b class="text-xs text-pink-300 font-bold">${sugar}g</b>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">ไฟเบอร์</span>
+                    <b class="text-xs text-teal-300 font-bold">${fiber}g</b>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">ไขมันรวม</span>
+                    <b class="text-xs text-amber-200 font-bold">${fat}g</b>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">ไขมันอิ่มตัว</span>
+                    <b class="text-xs text-orange-300 font-bold">${satFat}g</b>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">โซเดียม</span>
+                    <b class="text-xs text-amber-300 font-bold">${sodium}mg</b>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl px-1.5 py-1.5">
+                    <span class="text-[10px] text-slate-400 block">คอเลสฯ</span>
+                    <b class="text-xs text-purple-300 font-bold">${chol}mg</b>
+                </div>
+            </div>
+        ` : '';
 
-                <div class="flex flex-wrap gap-1.5 text-[10px]">
-                    <span class="px-2 py-0.5 rounded-md bg-emerald-950/70 border border-emerald-800/40 text-emerald-300 font-semibold">P ${prot}g</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300">C ${carbs}g</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-pink-300">น้ำตาล ${sugar}g</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-teal-300">ไฟเบอร์ ${fiber}g</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-amber-200">ไขมัน ${fat}g</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-orange-300">อิ่มตัว ${satFat}g</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-amber-300">Na ${sodium}mg</span>
-                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-purple-300">Chol ${chol}mg</span>
+        return `
+            <div class="py-2.5 px-3 rounded-2xl bg-slate-950/80 border ${isExpanded ? 'border-indigo-500/50' : 'border-slate-800/80'} transition">
+                <div class="flex justify-between items-center gap-2">
+                    <button type="button" onclick="toggleMealItemDetails('${mealType}', ${idx})" class="flex-1 min-w-0 text-left flex items-center justify-between gap-2 py-0.5">
+                        <div class="min-w-0">
+                            <span class="text-sm text-white font-semibold">${item.name}</span>
+                            ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-xs ml-1"></i>` : ''}
+                            <span class="text-xs text-amber-300 font-bold ml-1">x${item.qty || 1}</span>
+                            <span class="text-[11px] text-indigo-300 ml-1.5">${isExpanded ? '▾ ซ่อน' : '▸ ดูสารอาหาร'}</span>
+                        </div>
+                        <span class="text-xs font-extrabold text-white bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-xl shrink-0">
+                            ${cal} kcal <span class="text-emerald-400 ml-1">P ${prot}g</span>
+                        </span>
+                    </button>
+                    <div class="flex items-center space-x-1 shrink-0">
+                        <button type="button" onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 p-1.5"><i class="fa-solid fa-pen text-xs"></i></button>
+                        <button type="button" onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 p-1.5"><i class="fa-solid fa-trash text-xs"></i></button>
+                    </div>
                 </div>
+                ${detailGridHtml}
             </div>
         `;
     }).join('');
