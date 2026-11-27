@@ -564,22 +564,45 @@ function renderMeals() {
     const copyBtnHtml = hasYesterday ? `<button type="button" onclick="copyMealFromYesterday('${mealType}')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700"><i class="fa-regular fa-copy"></i> เมื่อวาน</button>` : '';
     const comboBtnHtml = items.length >= 2 ? `<button type="button" onclick="saveMealAsCombo('${mealType}')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-teal-300 px-2 py-0.5 rounded-lg border border-slate-700"><i class="fa-solid fa-layer-group"></i> รวมเซต</button>` : '';
 
-    let itemsHtml = items.map((item, idx) => `
-        <div class="flex justify-between items-center py-2 border-b border-slate-800/40 last:border-none text-sm">
-            <div>
-                <span class="text-white font-medium">${item.name}</span>
-                ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[11px] ml-1"></i>` : ''}
-                <span class="text-xs text-slate-400 ml-1.5">x${item.qty || 1}</span>
-            </div>
-            <div class="flex items-center space-x-3">
-                <span class="text-slate-300 font-medium">${fmtPrecise(item.calories, 1)} kcal <span class="text-xs text-emerald-400">(${fmtPrecise(item.protein, 2)}g)</span></span>
-                <div class="flex space-x-1.5">
-                    <button type="button" onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-                    <button type="button" onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+    let itemsHtml = items.map((item, idx) => {
+        const cal = fmtPrecise(item.calories || 0, 1);
+        const prot = fmtPrecise(item.protein || 0, 2);
+        const carbs = fmtPrecise(item.carbs || 0, 2);
+        const sugar = fmtPrecise(item.sugar || 0, 2);
+        const fiber = fmtPrecise(item.fiber || 0, 2);
+        const fat = fmtPrecise(item.fat || 0, 2);
+        const satFat = fmtPrecise(item.satFat || 0, 2);
+        const sodium = fmtPrecise(item.sodium || 0, 1);
+        const chol = fmtPrecise(item.cholesterol || 0, 1);
+
+        return `
+            <div class="py-2.5 px-3 rounded-xl bg-slate-950/75 border border-slate-800/80 space-y-1.5">
+                <div class="flex justify-between items-start gap-2">
+                    <div class="min-w-0">
+                        <span class="text-xs sm:text-sm text-white font-semibold">${item.name}</span>
+                        ${item.photo ? `<i class="fa-regular fa-image text-sky-400 text-[11px] ml-1"></i>` : ''}
+                        <span class="text-[11px] text-amber-300 font-semibold ml-1">x${item.qty || 1}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <span class="text-xs font-extrabold text-white bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-lg">${cal} kcal</span>
+                        <button type="button" onclick="openFoodModal('${mealType}', ${idx})" class="text-slate-500 hover:text-amber-400 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
+                        <button type="button" onclick="deleteMealItem('${mealType}', ${idx})" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-1.5 text-[10px]">
+                    <span class="px-2 py-0.5 rounded-md bg-emerald-950/70 border border-emerald-800/40 text-emerald-300 font-semibold">P ${prot}g</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300">C ${carbs}g</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-pink-300">น้ำตาล ${sugar}g</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-teal-300">ไฟเบอร์ ${fiber}g</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-amber-200">ไขมัน ${fat}g</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-orange-300">อิ่มตัว ${satFat}g</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-amber-300">Na ${sodium}mg</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-purple-300">Chol ${chol}mg</span>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
     if (items.length === 0) itemsHtml = `<div class="text-xs text-slate-500 py-2 text-center">ยังไม่มีรายการอาหารใน${mealType}</div>`;
 
@@ -596,7 +619,7 @@ function renderMeals() {
                     </div>
                     <div class="text-xs text-slate-300 font-semibold shrink-0">${totalCal} kcal | <span class="text-emerald-400">P ${totalProt}g</span></div>
                 </div>
-                <div class="space-y-1">${itemsHtml}</div>
+                <div class="space-y-2">${itemsHtml}</div>
                 <button type="button" onclick="openFoodModal('${mealType}')" class="w-full mt-2 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-plus text-indigo-400"></i> เพิ่มรายการใน${mealType}
                 </button>
