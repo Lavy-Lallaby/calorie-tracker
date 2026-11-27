@@ -785,10 +785,18 @@ function toggleMealSourceMode(mode) {
 
 function getPastMealsPool() {
     const map = new Map();
-    const allDates = Object.keys(meals || {}).sort().reverse();
+
+    const sourceMeals =
+        (typeof meals !== 'undefined' && meals && typeof meals === 'object') ? meals :
+        (window.meals && typeof window.meals === 'object') ? window.meals :
+        (window.db && window.db.meals && typeof window.db.meals === 'object') ? window.db.meals :
+        (window.appData && window.appData.meals && typeof window.appData.meals === 'object') ? window.appData.meals :
+        {};
+
+    const allDates = Object.keys(sourceMeals).sort().reverse();
 
     for (const dateKey of allDates) {
-        const dayMeals = meals[dateKey] || {};
+        const dayMeals = sourceMeals[dateKey] || {};
         for (const mealType of Object.keys(dayMeals)) {
             const list = Array.isArray(dayMeals[mealType]) ? dayMeals[mealType] : [];
             for (const item of list) {
@@ -797,7 +805,7 @@ function getPastMealsPool() {
                 const key = cleanName.toLowerCase();
                 if (!map.has(key)) {
                     const qty = parseFloat(item.qty) || 1;
-                    const cal = parseFloat(item.cal) || 0;
+                    const cal = parseFloat(item.cal ?? item.calories) || 0;
                     const p = parseFloat(item.p ?? item.protein) || 0;
                     const c = parseFloat(item.c ?? item.carbs) || 0;
                     const f = parseFloat(item.f ?? item.fat) || 0;
