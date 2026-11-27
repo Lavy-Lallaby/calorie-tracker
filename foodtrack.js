@@ -817,7 +817,7 @@ function renderBurnModeCard() {
                 <button type="button" onclick="setBurnMode('burn')" class="px-2.5 py-1 rounded-lg font-semibold transition ${isBurnMode ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400'}">⚡ รีดไขมัน</button>
             </div>
         </div>
-        <details class="bg-slate-950/70 rounded-2xl border border-slate-800/90 p-2.5" ${isBurnMode ? 'open' : ''}>
+        <details class="bg-slate-950/70 rounded-2xl border border-slate-800/90 p-2.5">
             <summary class="text-xs font-bold text-amber-300 cursor-pointer select-none flex items-center justify-between">
                 <span><i class="fa-solid fa-calendar-week mr-1.5"></i> ตารางอาหาร 7 วัน (เน้นรีดไขมัน & ลดน้ำตาล)</span>
                 <span class="text-[10px] text-slate-400">พับ/กาง ▾</span>
@@ -899,7 +899,7 @@ function renderDailyMacroChart() {
     const overCount = limitItems.filter(i => i.cur > i.max).length;
 
     card.innerHTML = `
-        <details open>
+        <details>
             <summary class="flex justify-between items-center cursor-pointer select-none">
                 <span class="text-xs font-bold text-white flex items-center gap-1.5"><i class="fa-solid fa-bars-progress text-indigo-400"></i> กราฟเช็กเพดานสารอาหารวันนี้</span>
                 <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold ${overCount > 0 ? 'bg-rose-950 text-rose-300 border border-rose-700/50' : 'bg-emerald-950 text-emerald-300 border border-emerald-700/50'}">${overCount > 0 ? `เกินเกณฑ์ ${overCount} รายการ` : 'ยังไม่เกินเกณฑ์'}</span>
