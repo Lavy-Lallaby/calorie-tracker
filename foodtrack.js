@@ -742,8 +742,14 @@ function setBurnMode(mode) {
 }
 
 function selectMealPlanDay(idx) {
+    const detailsEl = document.getElementById('seven-day-plan-details');
+    if (detailsEl) {
+        isSevenDayPlanOpen = detailsEl.open;
+    }
     mealPlanDayIndex = idx;
-    renderBurnModeCard();
+    if (typeof renderBurnModeCard === 'function') {
+        renderBurnModeCard();
+    }
 }
 
 function addPlannedMealToToday(mealType, name, calories, protein, carbs, fat, sugar, sodium) {
@@ -820,6 +826,8 @@ function getPastMealsPool() {
 
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
 }
+
+var isSevenDayPlanOpen = (typeof isSevenDayPlanOpen !== 'undefined') ? isSevenDayPlanOpen : false;
 
 function renderBurnModeCard() {
     const card = document.getElementById('burn-mode-card');
@@ -942,6 +950,7 @@ function renderBurnModeCard() {
         ? `เคยกิน (${activeMeals.length} รายการ)`
         : (mealSourceMode === 'seven' ? '7-11' : 'ทำเอง/ร้าน');
 
+    ${isSevenDayPlanOpen ? 'open' : ''}
     card.innerHTML = `
         <div class="flex items-center justify-between gap-2">
             <div>
@@ -970,7 +979,7 @@ function renderBurnModeCard() {
                 </div>
             </div>
 
-            <details class="pt-0.5">
+            <details id="seven-day-plan-details" ${isSevenDayPlanOpen ? 'open' : ''} ontoggle="isSevenDayPlanOpen = this.open;" class="pt-0.5">
                 <summary class="text-xs font-bold text-amber-300 cursor-pointer select-none flex items-center justify-between py-0.5">
                     <span><i class="fa-solid fa-calendar-week mr-1.5"></i> ตารางอาหาร 7 วัน (${modeLabel}: ${planTotalCal} kcal • P ${planTotalP}g)</span>
                     <span class="text-[10px] text-slate-400">พับ/กาง ▾</span>
